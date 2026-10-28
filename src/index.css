@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-ethiopia-green: #166534;
+    --color-ethiopia-gold: #d97706;
+    --color-ethiopia-red: #be123c;
+    --color-ethiopia-indigo: #4338ca;
+  }
+
+  /* Arabic typography */
+  html[lang="ar"],
+  [dir="rtl"] {
+    font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Ge'ez Script for Amharic and Tigrinya */
+  html[lang="am"],
+  html[lang="ti"] {
+    font-family: 'Noto Sans Ethiopic', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Latin Script for Afaan Oromoo, Somali, English */
+  html[lang="om"],
+  html[lang="so"],
+  html[lang="en"] {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.5);
+}
+
+/* DRM Anti-Copy Watermark Overlay for official textbook reader */
+.drm-watermark-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(22, 101, 52, 0.035) 0px,
+    rgba(22, 101, 52, 0.035) 220px,
+    transparent 220px,
+    transparent 440px
+  );
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@media print {
+  .drm-protected {
+    display: none !important;
+  }
+  .drm-print-warning {
+    display: block !important;
+  }
+}
