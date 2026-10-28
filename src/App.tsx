@@ -1,18 +1,53 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { ProgressProvider } from './context/ProgressContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import { ModuleId } from './types';
+
+// Shell & Navigation Components
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
+import { TabBar } from './components/TabBar';
 import { WelcomeModal } from './components/WelcomeModal';
 import { ProfileModal } from './components/ProfileModal';
-import { CoreLearningModules } from './modules/CoreLearningModules';
-import { ExamsAssessmentModules } from './modules/ExamsAssessmentModules';
-import { AiSmartToolsModules } from './modules/AiSmartToolsModules';
-import { GrowthPaymentModules } from './modules/GrowthPaymentModules';
-import { AdminSecurityModules } from './modules/AdminSecurityModules';
+import { AuthModal } from './components/AuthModal';
 
-function MainLayout() {
+// 📚 Category 1: Core Learning & Books
+import { LessonView } from './components/learning/LessonView';
+import { EthiopianCurriculumEngineView } from './components/learning/EthiopianCurriculumEngineView';
+import { TextbookView } from './components/learning/TextbookView';
+import { SupplementaryBooksView } from './components/learning/SupplementaryBooksView';
+import { VideoLearningView } from './components/learning/VideoLearningView';
+
+// 📝 Category 2: Exams & Assessment
+import { AIQuizExamEngineView } from './components/assessment/AIQuizExamEngineView';
+import { ObjectivesExamView } from './components/assessment/ObjectivesExamView';
+import { QuizView } from './components/assessment/QuizView';
+import { FlashcardView } from './components/assessment/FlashcardView';
+import { AcademicWorkHubView } from './components/assessment/AcademicWorkHubView';
+import { EntranceExamPrepView } from './components/entrance/EntranceExamPrepView';
+
+// 🤖 Category 3: AI & Smart Tools
+import { EthiopianAITutorView } from './components/student/EthiopianAITutorView';
+import { PhotoVoiceTutorView } from './components/student/PhotoVoiceTutorView';
+import { SmartSearchModal } from './components/student/SmartSearchModal';
+import { StudentLearningReviewView } from './components/student/StudentLearningReviewView';
+import { StudentPortalDashboard } from './components/student/StudentPortalDashboard';
+
+// 🌟 Category 4: Growth, Premium & Payment
+import { GamificationView } from './components/growth/GamificationView';
+import { CareerPathwaysView } from './components/growth/CareerPathwaysView';
+import { PremiumLearningCenterView } from './components/growth/PremiumLearningCenterView';
+import { SubscriptionPaymentView } from './components/growth/SubscriptionPaymentView';
+import { SystemFeedbackView } from './components/growth/SystemFeedbackView';
+
+// 🛡️ Category 5: Administration & Security
+import { AdminDashboardView } from './components/admin/AdminDashboardView';
+import { SecurityFortressView } from './components/admin/SecurityFortressView';
+import { SystemIntegrationView } from './components/admin/SystemIntegrationView';
+
+function MainAppShell() {
   const { hasCompletedOnboarding } = useAuth();
   const [currentModule, setCurrentModule] = useState<ModuleId>('student_app');
   const [historyStack, setHistoryStack] = useState<ModuleId[]>([]);
@@ -21,7 +56,6 @@ function MainLayout() {
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(!hasCompletedOnboarding);
   const [tutorContext, setTutorContext] = useState<{ subject: string; topic: string } | null>(null);
 
-  // Navigate to module and push to history stack
   const handleSelectModule = (newModule: ModuleId) => {
     if (newModule !== currentModule) {
       setHistoryStack((prev) => [...prev, currentModule]);
@@ -29,12 +63,11 @@ function MainLayout() {
     }
   };
 
-  // Global "ወደ ኋላ" (Back Arrow) handler
   const handleGoBack = () => {
     if (historyStack.length > 0) {
-      const prevModule = historyStack[historyStack.length - 1];
-      setHistoryStack((prev) => prev.slice(0, prev.length - 1));
-      setCurrentModule(prevModule);
+      const prev = historyStack[historyStack.length - 1];
+      setHistoryStack((h) => h.slice(0, h.length - 1));
+      setCurrentModule(prev);
     }
   };
 
@@ -43,71 +76,75 @@ function MainLayout() {
     handleSelectModule('ai_tutor');
   };
 
-  // Determine which category component to render
-  const renderCurrentModule = () => {
-    // Category 1: Core Learning & Books
-    if (
-      currentModule === 'lesson' ||
-      currentModule === 'curriculum_engine' ||
-      currentModule === 'textbook' ||
-      currentModule === 'supplementary' ||
-      currentModule === 'video_learning'
-    ) {
-      return (
-        <CoreLearningModules
-          moduleId={currentModule}
-          onNavigateToAiTutor={handleNavigateToAiTutor}
-        />
-      );
-    }
+  // Render exactly one of the 24 modules
+  const renderActiveModuleView = () => {
+    switch (currentModule) {
+      // Category 1: 📚 ዋና መማሪያ እና መጽሐፍት
+      case 'lesson':
+        return <LessonView onAskAi={handleNavigateToAiTutor} />;
+      case 'curriculum_engine':
+        return <EthiopianCurriculumEngineView />;
+      case 'textbook':
+        return <TextbookView />;
+      case 'supplementary':
+        return <SupplementaryBooksView />;
+      case 'video_learning':
+        return <VideoLearningView />;
 
-    // Category 2: Exams & Assessment
-    if (
-      currentModule === 'assessment_engine' ||
-      currentModule === 'entrance_prep' ||
-      currentModule === 'objectives_exam' ||
-      currentModule === 'quiz' ||
-      currentModule === 'flashcards' ||
-      currentModule === 'academic_work_hub'
-    ) {
-      return <ExamsAssessmentModules moduleId={currentModule} />;
-    }
+      // Category 2: 📝 ፈተና እና ምዘና
+      case 'assessment_engine':
+        return <AIQuizExamEngineView />;
+      case 'entrance_prep':
+        return <EntranceExamPrepView />;
+      case 'objectives_exam':
+        return <ObjectivesExamView />;
+      case 'quiz':
+        return <QuizView />;
+      case 'flashcards':
+        return <FlashcardView />;
+      case 'academic_work_hub':
+        return <AcademicWorkHubView />;
 
-    // Category 3: AI & Smart Tools
-    if (
-      currentModule === 'ai_tutor' ||
-      currentModule === 'photo_voice_tutor' ||
-      currentModule === 'smart_search' ||
-      currentModule === 'student_review' ||
-      currentModule === 'student_app'
-    ) {
-      return (
-        <AiSmartToolsModules
-          moduleId={currentModule}
-          onNavigateModule={handleSelectModule}
-          initialChatContext={tutorContext}
-        />
-      );
-    }
+      // Category 3: 🤖 AI እና ስማርት ረዳቶች
+      case 'ai_tutor':
+        return <EthiopianAITutorView initialContext={tutorContext} />;
+      case 'photo_voice_tutor':
+        return <PhotoVoiceTutorView />;
+      case 'smart_search':
+        return <SmartSearchModal />;
+      case 'student_review':
+        return <StudentLearningReviewView />;
+      case 'student_app':
+        return <StudentPortalDashboard onNavigateModule={handleSelectModule} />;
 
-    // Category 4: Growth, Premium & Payment
-    if (
-      currentModule === 'gamification' ||
-      currentModule === 'career_pathways' ||
-      currentModule === 'premium_learning_center' ||
-      currentModule === 'subscription_payment' ||
-      currentModule === 'system_feedback'
-    ) {
-      return <GrowthPaymentModules moduleId={currentModule} />;
-    }
+      // Category 4: 🌟 እድገት፣ ማዕከልና ክፍያ
+      case 'gamification':
+        return <GamificationView />;
+      case 'career_pathways':
+        return <CareerPathwaysView />;
+      case 'premium_learning_center':
+        return <PremiumLearningCenterView />;
+      case 'subscription_payment':
+        return <SubscriptionPaymentView />;
+      case 'system_feedback':
+        return <SystemFeedbackView />;
 
-    // Category 5: Administration & Security (Admin Only)
-    return <AdminSecurityModules moduleId={currentModule} />;
+      // Category 5: 🛡️ አስተዳደርና ደህንነት
+      case 'admin_dashboard':
+        return <AdminDashboardView />;
+      case 'security_fortress':
+        return <SecurityFortressView />;
+      case 'system_integration':
+        return <SystemIntegrationView />;
+
+      default:
+        return <StudentPortalDashboard onNavigateModule={handleSelectModule} />;
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
-      {/* Global Top Header Navigation */}
+      {/* Top Header with Language dropdown & Back button */}
       <Header
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         canGoBack={historyStack.length > 0}
@@ -116,7 +153,7 @@ function MainLayout() {
       />
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
-        {/* Vertical Left Sidebar with 24 Modules & Mobile Overlay Drawer */}
+        {/* 24 Modules Grouped Vertically + Mobile Floating Overlay Drawer */}
         <Sidebar
           currentModule={currentModule}
           onSelectModule={handleSelectModule}
@@ -126,19 +163,20 @@ function MainLayout() {
           onGoBack={handleGoBack}
         />
 
-        {/* Main Content Viewport */}
+        {/* Main Content Area */}
         <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-          {renderCurrentModule()}
+          <TabBar currentModule={currentModule} onSelectModule={handleSelectModule} />
+          {renderActiveModuleView()}
         </main>
       </div>
 
-      {/* Initial Welcome & Grade Selection Modal */}
+      {/* Initial Welcome & One-Time Grade Selection Modal */}
       <WelcomeModal
         isOpen={isWelcomeModalOpen}
         onClose={() => setIsWelcomeModalOpen(false)}
       />
 
-      {/* Profile & Role Switcher Modal */}
+      {/* Profile & Super Admin Switcher */}
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
@@ -151,7 +189,11 @@ export default function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <MainLayout />
+        <ProgressProvider>
+          <SubscriptionProvider>
+            <MainAppShell />
+          </SubscriptionProvider>
+        </ProgressProvider>
       </AuthProvider>
     </LanguageProvider>
   );

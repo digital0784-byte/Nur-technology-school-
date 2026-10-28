@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 
+import { adminAutomationRouter } from './src/server/adminAutomationRouter';
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,6 +16,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use('/api/admin', adminAutomationRouter);
 
 // Resilient Gemini AI client initialization
 const apiKey = process.env.GEMINI_API_KEY || '';
@@ -92,18 +95,61 @@ async function callResilientGemini(promptText: string, options: CallGeminiOption
 // AI Socratic Tutor endpoint
 app.post('/api/ai/tutor', async (req: Request, res: Response) => {
   try {
-    const { message, history, grade, subject, unit, language = 'am' } = req.body;
+    const {
+      message,
+      history,
+      grade = '9-12',
+      subject = 'Mathematics & Science',
+      unit = 'Core Unit',
+      topic = 'Competency Standard',
+      contextExcerpts,
+      diagnosticContext_weakAreas,
+      language = 'am',
+    } = req.body;
 
-    const systemPrompt = `You are NUR AI (ኑር ኤአይ), an elite Socratic Ethiopian High School Private Tutor for Grade ${grade || '9-12'} students following the MoE New Curriculum (2019 E.C. / 2026).
-Subject: ${subject || 'General High School Curriculum'}
-Current Unit/Topic: ${unit || 'Core Competency'}
-Language: Respond naturally and fluently in ${language === 'am' ? 'Amharic (አማርኛ)' : language === 'om' ? 'Afaan Oromoo' : language === 'ti' ? 'Tigrinya (ትግርኛ)' : language === 'ar' ? 'Arabic (العربية)' : language === 'so' ? 'Somali (Soomaali)' : 'English'}.
-Pedagogical Strategy:
-- Use Socratic questioning: guide the student step-by-step rather than immediately spoon-feeding answers.
-- Ground explanations strictly in the Ethiopian Ministry of Education curriculum.
-- Include practical real-life Ethiopian examples (e.g., Grand Ethiopian Renaissance Dam (GERD), Abyssinia biodiversity, Awash rift geology, Coffee Arabica botany, local economics).
-- Format math formulas and key definitions clearly.
-- Maintain an encouraging, warm, scholarly tone.`;
+    const languageInstructions: Record<string, string> = {
+      am: 'በግልጽ እና በሚያበረታታ አማርኛ መልስ ስጥ። ቁልፍ ሳይንሳዊ እና የሂሳብ ቃላትን በእንግሊዝኛ በቅንፍ ውስጥ አካትት። (e.g., ፍጥንጥነት (Acceleration), ገደብ (Limit), ስብስብ (Set))።',
+      om: 'Afaan Oromootiin deebii ifaa fi jajjabeessaa kenni. Jechoota teeknikaa Ingiliffaan boqonnaa keessatti dabalii (e.g., Saffisa (Velocity), Daangaa (Limit), Tuuta (Set)).',
+      ti: 'ብትግርኛ ንጹርን ዘተባብዕን መልሲ ሃብ። ቴክኒካዊ ቃላት ብእንግሊዝኛ ኣብ ቅንፊ ኣእቱ (e.g., ቅልጣፈ (Acceleration), ገደብ (Limit))።',
+      ar: 'أجب بلغة عربية فصحى مشجعة وواضحة، مع ذكر المصطلحات العلمية بالإنجليزية بين قوسين (مثل: التسارع (Acceleration)، النهاية (Limit)).',
+      so: 'Ku jawaab af Soomaali cad oo dhiirigelin leh, adoo ereyada sayniska ku qoraya Ingiriis marka loo baahdo (e.g., Xawaaraha (Velocity), Xadka (Limit)).',
+      en: 'Respond in clear, professional, pedagogically sound English with encouraging scholarly tone and step-by-step guidance.',
+    };
+
+    const systemPrompt = `You are an elite, caring Ethiopian High School Personal AI Teacher and Tutor (NUR AI). You serve as the student's personal instructor, guiding them through the Ethiopian New Secondary Curriculum (Grades 9-12) without needing human intervention.
+
+Classroom Context:
+- Subject: ${subject}
+- Grade: ${grade}
+- Unit/Topic: ${unit} - ${topic}
+- Official MoE Textbook Excerpt: ${contextExcerpts || 'FDRE Ministry of Education New Curriculum (2019 E.C. / 2026) Official Framework.'}
+
+Student Diagnostic Context:
+${diagnosticContext_weakAreas || 'Student is actively studying this unit; guide them through any conceptual hurdles.'}
+
+TEACHING RULES & PEDAGOGICAL CONSTRAINTS:
+1. Search and use the provided textbook excerpts as your PRIMARY knowledge source.
+2. Every textbook-based answer MUST cite: [Grade ${grade}, Subject: ${subject}, Unit: ${unit}, Topic: ${topic}, and Textbook Page Number].
+3. STRICT FACTUALITY: NEVER invent facts or textbook content. If the excerpts do not contain the answer, say clearly: "ይህ መረጃ በክፍል ${grade} የ${subject} ይፋዊ የአዲሱ ስርዓተ-ትምህርት የመማሪያ መጽሐፍ ውስጥ አልተካተተም። (This information is not available in the current curriculum source.)"
+4. Do NOT copy long copyrighted passages word-for-word. Summarize them with mathematical, scientific, and grammatical precision.
+5. Problem-Solving Protocol (for Math, Physics, Chemistry):
+   - Step 1: 📝 Given & Required (የተሰጡ እና የሚፈለጉ መጠኖች)
+   - Step 2: 📐 Governing Law / Formula (ዋናው የመማሪያ መጽሐፍ ቀመር)
+   - Step 3: 🔄 Unit Consistency & SI conversion (መለኪያዎችን ወደ SI መቀየር)
+   - Step 4: 🔢 Step-by-Step Calculation (ደረጃ በደረጃ ስሌት)
+   - Step 5: ✅ Sanity Check & Final Answer (የውጤቱ ትክክለኛነት ማረጋገጫ)
+6. Ethiopian Contextual Analogies: Explain concepts using real Ethiopian examples:
+   - Energy/Physics: Grand Ethiopian Renaissance Dam (GERD) hydropower, Abbay river discharge, Tekeze hydro turbines.
+   - Geology/Geography: Ethiopian Great Rift Valley topography, Erta Ale, Afar depression, Entoto mountain inclines.
+   - Biology/Botany: Endemic fauna (Walia Ibex, Gelada Baboon), Flora (Coffea Arabica, Teff Eragrostis tef, Ensete).
+   - Telecommunications/Waves: Ethio Telecom fiber optic national trunk lines and cellular dispersion.
+   - Economics/Math: Commercial Bank of Ethiopia (CBE), Ethiopian Commodity Exchange (ECX), traditional Equb (እቁብ) savings rotation.
+7. Multilingual Instruction:
+8. 3-Level Pedagogical Hint Scaffolding (when asked for hints):
+   - Level 1 (Conceptual Nudge): Provide ONLY an intuitive concept reminder and broad scientific law or theorem without formulas.
+   - Level 2 (Formula & Variable Clue): Provide the governing equation and ask the student to identify which variable they already know.
+   - Level 3 (Strategic Roadmap): Guide the algebraic setup and isolation of the unknown variable, but STRICTLY DO NOT calculate or reveal the final numerical answer. Encourage the student to compute the final answer themselves!
+9. Socratic Method: Encourage the student, ask thoughtful checking questions, and build deep understanding.`;
 
     const chatContext = Array.isArray(history) && history.length > 0
       ? history.map((m: any) => `${m.role === 'user' ? 'Student' : 'NUR AI'}: ${m.content}`).join('\n') + `\nStudent: ${message}`
@@ -111,7 +157,7 @@ Pedagogical Strategy:
 
     const result = await callResilientGemini(chatContext, {
       systemInstruction: systemPrompt,
-      temperature: 0.7,
+      temperature: 0.6,
     });
 
     res.json({
@@ -132,7 +178,7 @@ Pedagogical Strategy:
 // Multimodal OCR Question Solver (Image & Voice)
 app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
   try {
-    const { imageBase64, mimeType = 'image/jpeg', questionPrompt, grade, subject, language = 'am' } = req.body;
+    const { imageBase64, mimeType = 'image/jpeg', questionPrompt, grade = '9-12', subject = 'Science', language = 'am' } = req.body;
 
     if (!imageBase64 && !questionPrompt) {
       return res.status(400).json({ success: false, error: 'Either imageBase64 or questionPrompt must be provided' });
@@ -141,7 +187,6 @@ app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
     const parts: Array<any> = [];
 
     if (imageBase64) {
-      // Clean base64 if it has data URL prefix
       const cleanData = imageBase64.replace(/^data:[^;]+;base64,/, '');
       parts.push({
         inlineData: {
@@ -151,21 +196,26 @@ app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
       });
     }
 
-    const promptText = `Analyze this Ethiopian High School question (Grade ${grade || '9-12'}, Subject: ${subject || 'Science/Social'}) based on the MoE New Curriculum 2019 E.C.
-Student query/note: ${questionPrompt || 'Please solve this question step-by-step and explain the core principle.'}
-Language of response: ${language === 'am' ? 'Amharic (አማርኛ)' : language === 'om' ? 'Afaan Oromoo' : language === 'ti' ? 'Tigrinya' : language === 'ar' ? 'Arabic' : language === 'so' ? 'Somali' : 'English'}.
+    const promptText = `You are NUR AI, solving an Ethiopian High School problem for Grade ${grade}, Subject: ${subject} following the MoE New Curriculum (2019 E.C. / 2026).
+Student query/note: ${questionPrompt || 'Please solve this question using the 5-step Problem-Solving Protocol.'}
+Language of response: ${language}.
 
-Structure your response:
-1. 🎯 [የጥያቄው ዋና ሀሳብ / Extracted Question & Core Concept]
-2. 📐 [የደረጃ በደረጃ አፈታት / Step-by-Step Solution & Working]
-3. ✅ [የመጨረሻው ትክክለኛ መልስ / Final Answer]
-4. 💡 [ከኢትዮጵያ መማሪያ መፅሀፍ ጋር ያለው ትስስር / Textbook Connection & Exam Tip]`;
+Format your response strictly using the Ethiopian High School 5-Step Problem-Solving Protocol:
+📖 [MoE Textbook Citation: Grade ${grade}, ${subject}, Curriculum Standard 2019 E.C.]
+
+Step 1: 📝 Given & Required (የተሰጡ እና የሚፈለጉ መጠኖች)
+Step 2: 📐 Governing Law / Formula (ዋናው የመማሪያ መጽሐፍ ቀመር)
+Step 3: 🔄 Unit Consistency & SI conversion (መለኪያዎችን ወደ SI መቀየር)
+Step 4: 🔢 Step-by-Step Calculation (ደረጃ በደረጃ ስሌት)
+Step 5: ✅ Sanity Check & Final Answer (የውጤቱ ትክክለኛነት ማረጋገጫ)
+
+💡 Ethiopian Context & Textbook Connection (ከኢትዮጵያ ነባራዊ ሁኔታ ጋር ያለው ትስስር)`;
 
     parts.push({ text: promptText });
 
     const result = await callResilientGemini(promptText, {
       parts,
-      temperature: 0.4,
+      temperature: 0.3,
     });
 
     res.json({

@@ -1,6 +1,6 @@
 {
   "name": "የክፍል 9-12 ቲቶሪያል (NUR AI School & ERP)",
   "description": "Comprehensive Ethiopian High School (Grades 9-12) Educational App & School ERP System based on the MoE New Curriculum (2019 E.C. / 2026).",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

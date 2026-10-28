@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is Lifetime Super Admin
+    function isSuperAdmin() {
+      return request.auth != null && 
+        (request.auth.token.email == 'mejennur669@gmail.com' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin');
+    }
+
+    // Helper function to verify user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper to check ownership
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profile: students can read/update their own profile, Super Admin has full write access
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isOwner(userId) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+
+      // Student subcollections for progress and quiz records
+      match /progress/{progressId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+      match /quizRecords/{quizId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+    }
+
+    // Curriculum subjects, units, topics, textbooks: Publicly readable by all students, writable only by Super Admin
+    match /curriculum_subjects/{subjectId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+    match /curriculum_units/{unitId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+    match /curriculum_topics/{topicId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+    match /textbooks/{textbookId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // Quizzes & Exam attempts: Students can create their own attempts and read them
+    match /quiz_attempts/{attemptId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated();
+      allow update, delete: if isSuperAdmin();
+    }
+    match /exam_attempts/{attemptId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Submissions: Students submit and read their own, Super Admin can grade and view all
+    match /submissions/{subId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Payments: Users can create and read their own transactions, Super Admin can verify & approve
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Security Audit Logs: Append-only for system, readable only by Super Admin
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isAuthenticated() || isSuperAdmin();
+      allow update, delete: if false; // Append-only immutability
+    }
+
+    // Feedback: Any user can submit, only Super Admin can view/resolve
+    match /feedback/{feedbackId} {
+      allow create: if true;
+      allow read, update, delete: if isSuperAdmin();
+    }
+
+    // Fallback rule for all other collections
+    match /{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+  }
+}

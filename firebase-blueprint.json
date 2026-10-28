@@ -1,0 +1,298 @@
+{
+  "entities": {
+    "User": {
+      "collection": "users",
+      "description": "User accounts with RBAC role, profile, and grade lock info",
+      "fields": {
+        "uid": { "type": "string", "required": true },
+        "name": { "type": "string", "required": true },
+        "email": { "type": "string", "required": true },
+        "role": { "type": "string", "enum": ["student", "super_admin", "teacher", "parent"], "required": true },
+        "grade": { "type": "number", "enum": [9, 10, 11, 12], "required": true },
+        "isGradeLocked": { "type": "boolean", "required": true },
+        "stream": { "type": "string", "enum": ["Natural Science", "Social Science", "General"] },
+        "xp": { "type": "number", "default": 0 },
+        "streakDays": { "type": "number", "default": 0 },
+        "enrolledAt": { "type": "string" },
+        "isPremium": { "type": "boolean", "default": false },
+        "premiumExpiresAt": { "type": "string" }
+      }
+    },
+    "StudentProgress": {
+      "collection": "student_progress",
+      "description": "Individual subject and unit completion records",
+      "fields": {
+        "userId": { "type": "string", "required": true },
+        "subjectId": { "type": "string", "required": true },
+        "topicId": { "type": "string", "required": true },
+        "completed": { "type": "boolean", "required": true },
+        "completedAt": { "type": "string" },
+        "scorePercent": { "type": "number" },
+        "gradeLevel": { "type": "number" }
+      }
+    },
+    "QuizAttempt": {
+      "collection": "quiz_attempts",
+      "description": "Student quiz attempts with score and timestamp",
+      "fields": {
+        "userId": { "type": "string", "required": true },
+        "quizId": { "type": "string", "required": true },
+        "grade": { "type": "number", "required": true },
+        "subject": { "type": "string", "required": true },
+        "score": { "type": "number", "required": true },
+        "totalQuestions": { "type": "number", "required": true },
+        "timeTakenSeconds": { "type": "number" },
+        "answers": { "type": "array" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "ExamAttempt": {
+      "collection": "exam_attempts",
+      "description": "University entrance and chapter objective exam attempts",
+      "fields": {
+        "userId": { "type": "string", "required": true },
+        "examType": { "type": "string", "enum": ["EUEE_ENTRANCE", "CHAPTER_OBJECTIVE", "DIAGNOSTIC"] },
+        "subject": { "type": "string" },
+        "grade": { "type": "number" },
+        "percentile": { "type": "number" },
+        "passed": { "type": "boolean" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "CurriculumSubject": {
+      "collection": "curriculum_subjects",
+      "description": "Ministry of Education (MoE) 2019 E.C. Subjects",
+      "fields": {
+        "code": { "type": "string", "required": true },
+        "grade": { "type": "number", "required": true },
+        "name": { "type": "object", "required": true },
+        "unitsCount": { "type": "number" },
+        "stream": { "type": "string" }
+      }
+    },
+    "CurriculumUnit": {
+      "collection": "curriculum_units",
+      "description": "Syllabus units per subject and grade",
+      "fields": {
+        "subjectId": { "type": "string", "required": true },
+        "unitNumber": { "type": "number", "required": true },
+        "title": { "type": "string", "required": true },
+        "competencies": { "type": "array" }
+      }
+    },
+    "CurriculumTopic": {
+      "collection": "curriculum_topics",
+      "description": "Detailed lessons, summaries, and Ethiopian contextual examples",
+      "fields": {
+        "unitId": { "type": "string", "required": true },
+        "title": { "type": "string", "required": true },
+        "summary": { "type": "string" },
+        "content": { "type": "string" },
+        "ethiopianExample": { "type": "string" },
+        "estimatedMinutes": { "type": "number" }
+      }
+    },
+    "CurriculumQuestion": {
+      "collection": "curriculum_questions",
+      "description": "Curated bank of MoE multiple-choice questions",
+      "fields": {
+        "grade": { "type": "number", "required": true },
+        "subject": { "type": "string", "required": true },
+        "question": { "type": "string", "required": true },
+        "options": { "type": "array", "required": true },
+        "correctIndex": { "type": "number", "required": true },
+        "explanation": { "type": "string" }
+      }
+    },
+    "Assignment": {
+      "collection": "assignments",
+      "description": "Homework and school project tasks",
+      "fields": {
+        "title": { "type": "string", "required": true },
+        "grade": { "type": "number", "required": true },
+        "subject": { "type": "string", "required": true },
+        "rubric": { "type": "string" },
+        "dueDate": { "type": "string" }
+      }
+    },
+    "Submission": {
+      "collection": "submissions",
+      "description": "Student homework submissions and AI grading feedback",
+      "fields": {
+        "assignmentId": { "type": "string", "required": true },
+        "userId": { "type": "string", "required": true },
+        "submissionText": { "type": "string", "required": true },
+        "score": { "type": "number" },
+        "gradeLetter": { "type": "string" },
+        "aiFeedback": { "type": "string" },
+        "submittedAt": { "type": "string" }
+      }
+    },
+    "Payment": {
+      "collection": "payments",
+      "description": "Telebirr and CBE transaction logs",
+      "fields": {
+        "userId": { "type": "string", "required": true },
+        "provider": { "type": "string", "enum": ["Telebirr", "CBE"], "required": true },
+        "amount": { "type": "number", "required": true },
+        "transactionRef": { "type": "string", "required": true },
+        "status": { "type": "string", "enum": ["approved", "pending", "rejected"] },
+        "phone": { "type": "string" },
+        "receiptNo": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "AuditLog": {
+      "collection": "audit_logs",
+      "description": "Security audit trails for super admin oversight",
+      "fields": {
+        "actor": { "type": "string", "required": true },
+        "action": { "type": "string", "required": true },
+        "target": { "type": "string" },
+        "ipAddress": { "type": "string" },
+        "status": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "Feedback": {
+      "collection": "feedback",
+      "description": "User suggestions, complaints, and bug tickets",
+      "fields": {
+        "userId": { "type": "string" },
+        "category": { "type": "string" },
+        "message": { "type": "string", "required": true },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "Flashcard": {
+      "collection": "flashcards",
+      "description": "Active recall study flashcards",
+      "fields": {
+        "grade": { "type": "number" },
+        "subject": { "type": "string" },
+        "front": { "type": "string" },
+        "back": { "type": "string" },
+        "difficulty": { "type": "string" }
+      }
+    },
+    "Textbook": {
+      "collection": "textbooks",
+      "description": "Official textbook and supplementary registry with Firebase Storage mapping and DRM policy",
+      "fields": {
+        "grade": { "type": "number", "required": true },
+        "subject": { "type": "string", "required": true },
+        "title": { "type": "string", "required": true },
+        "category": { "type": "string", "enum": ["official_textbook", "supplementary_guide", "lab_manual", "exam_bank"] },
+        "firebaseStoragePath": { "type": "string", "required": true },
+        "firebaseDownloadUrl": { "type": "string" },
+        "fileSizeBytes": { "type": "number" },
+        "md5Checksum": { "type": "string" },
+        "totalPages": { "type": "number" },
+        "chaptersCount": { "type": "number" },
+        "syncStatus": { "type": "string", "enum": ["synced", "pending", "local_cached"] },
+        "lastSyncedAt": { "type": "string" },
+        "drmActive": { "type": "boolean", "default": true },
+        "publisher": { "type": "string", "default": "FDRE MoE" }
+      }
+    },
+    "SubscriptionPlan": {
+      "collection": "subscription_plans",
+      "description": "Available educational passes and pricing",
+      "fields": {
+        "title": { "type": "string" },
+        "duration": { "type": "string" },
+        "priceETB": { "type": "number" },
+        "active": { "type": "boolean" }
+      }
+    },
+    "GamificationBadge": {
+      "collection": "badges",
+      "description": "Earnable student badges and trophies",
+      "fields": {
+        "badgeKey": { "type": "string" },
+        "title": { "type": "string" },
+        "requiredXP": { "type": "number" },
+        "icon": { "type": "string" }
+      }
+    },
+    "CareerPath": {
+      "collection": "career_paths",
+      "description": "Ethiopian STEM and Higher Education paths",
+      "fields": {
+        "title": { "type": "string" },
+        "stream": { "type": "string" },
+        "universities": { "type": "array" },
+        "prerequisites": { "type": "array" }
+      }
+    },
+    "VirtualLab": {
+      "collection": "virtual_labs",
+      "description": "3D and 2D Interactive simulation modules",
+      "fields": {
+        "title": { "type": "string" },
+        "grade": { "type": "number" },
+        "subject": { "type": "string" },
+        "simulationType": { "type": "string" }
+      }
+    },
+    "VideoLesson": {
+      "collection": "video_lessons",
+      "description": "HD animations and lectures",
+      "fields": {
+        "title": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "instructor": { "type": "string" },
+        "grade": { "type": "number" }
+      }
+    },
+    "DiagnosticReport": {
+      "collection": "diagnostic_reports",
+      "description": "AI-generated diagnostic gap reports",
+      "fields": {
+        "userId": { "type": "string" },
+        "grade": { "type": "number" },
+        "overallScore": { "type": "number" },
+        "recommendations": { "type": "array" }
+      }
+    },
+    "SecurityToken": {
+      "collection": "security_tokens",
+      "description": "DRM session tokens and anti-piracy hashes",
+      "fields": {
+        "userId": { "type": "string" },
+        "token": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "valid": { "type": "boolean" }
+      }
+    },
+    "ErpClass": {
+      "collection": "erp_classes",
+      "description": "School ERP class sections and homerooms",
+      "fields": {
+        "grade": { "type": "number" },
+        "section": { "type": "string" },
+        "teacherInCharge": { "type": "string" }
+      }
+    },
+    "Notification": {
+      "collection": "notifications",
+      "description": "System notices and study reminders",
+      "fields": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "read": { "type": "boolean" }
+      }
+    },
+    "SystemMetric": {
+      "collection": "system_metrics",
+      "description": "Health checks, AI response latencies, and uptime probes",
+      "fields": {
+        "service": { "type": "string" },
+        "status": { "type": "string" },
+        "latencyMs": { "type": "number" },
+        "checkedAt": { "type": "string" }
+      }
+    }
+  }
+}
