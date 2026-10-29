@@ -46,7 +46,7 @@ export const PaywallGate: React.FC<PaywallGateProps> = ({
 
   const [selectedGateway, setSelectedGateway] = useState<PaymentGatewayId>('telebirr');
   const [transactionRef, setTransactionRef] = useState('');
-  const [phone, setPhone] = useState(currentUser.email.startsWith('09') ? currentUser.email : '0910000000');
+  const [phone, setPhone] = useState(currentUser.email.startsWith('09') ? currentUser.email : '');
   const [receiptUrl, setReceiptUrl] = useState('');
   const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -121,7 +121,7 @@ export const PaywallGate: React.FC<PaywallGateProps> = ({
             ክፍያዎ በመረጋገጥ ላይ ነው (Verification Pending)
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto">
-            ያስገቡት የክፍያ ማረጋገጫ (FT ቁጥር) በዋና አስተዳዳሪ {superAdminContact.name} እየተፈተሸ ነው። በአጭር ደቂቃዎች ውስጥ ተረጋግጦ ይከፈትልዎታል።
+            ማንኛውም ተማሪ እንደ ክፍሉ ደረጃ መጀመሪያ ላይ ክፍያ መፈፀም አለበት። ያስገቡት የክፍያ ማረጋገጫ (FT ቁጥር) በዋና አስተዳዳሪ {superAdminContact.name} ቼክ እስከሚደረግ ድረስ ሲስተሙ በመጠባበቅ ላይ (Pending) ነው። እንደተረጋገጠ ወዲያውኑ ሙሉ ይዘቱ ይከፈታል።
           </p>
         </div>
 
@@ -223,10 +223,10 @@ export const PaywallGate: React.FC<PaywallGateProps> = ({
             {moduleTitle ? `${moduleTitle} • ` : ''}{t('paywall_gate_title')}
           </span>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-            የ{activeGrade}ኛ ክፍል ሙሉ የመማሪያ ፈቃድ ያግኙ
+            የ{activeGrade}ኛ ክፍል ሙሉ የመማሪያ ፈቃድ (ክፍያ)
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto">
-            {t('paywall_gate_desc')}
+            ማንኛውም የሲስተሙ ተጠቃሚ እንደ ክፍሉ ደረጃ መጀመሪያ ላይ ክፍያ መፈፀም አለበት። ክፍያው ቼክ እስከሚደረግ ድረስ ሲስተሙ በመጠባበቅ ላይ (Pending) ይሆናል።
           </p>
 
           {/* Pricing Highlight */}

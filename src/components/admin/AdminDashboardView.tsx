@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { ShieldCheck, Lock } from 'lucide-react';
+import { AdminBillingVerificationView } from './AdminBillingVerificationView';
 
 export const AdminDashboardView: React.FC = () => {
   const { isSuperAdmin, currentUser } = useAuth();
@@ -34,12 +35,16 @@ export const AdminDashboardView: React.FC = () => {
 
       <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2 text-sm text-slate-700 dark:text-slate-300">
         <h3 className="font-extrabold text-slate-900 dark:text-white">
-          የተማሪዎች ብዛትና የክፍያ ሪፖርት ገና አልተገናኘም
+          የተማሪዎች ክፍያ ማረጋገጫና ቁጥጥር ማዕከል (Admin Payment Verification)
         </h3>
         <p>
-          እውነተኛ ቁጥሮች በቀጣዩ ደረጃ ይገናኛሉ። እስከዚያ ድረስ ተማሪዎችን በ Firebase ኮንሶል
-          (Firestore → users) እና የክፍያ ጥያቄዎችን (Firestore → payments) ማየት ይችላሉ።
+          ማንኛውም ተማሪ እንደ ክፍሉ ደረጃ ክፍያ ሲፈጽም ጥያቄው በPending ሁኔታ እዚህ ይዘረዘራል። እያንዳንዱን ክፍያ ቼክ በማድረግ "ያጽድቁ (Approve)" ወይም "ውድቅ ያድርጉ (Reject)" ማለት ይችላሉ። እንዲሁም በ Firebase ኮንሶል (Firestore → payments) በቀጥታ መከታተል ይቻላል።
         </p>
+      </div>
+
+      {/* Live Admin Billing & Payment Verification Panel */}
+      <div className="pt-2">
+        <AdminBillingVerificationView />
       </div>
     </div>
   );

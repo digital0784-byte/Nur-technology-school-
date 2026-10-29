@@ -139,11 +139,11 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               ) : status === 'PENDING' ? (
                 <span
-                  title="የክፍያ ማረጋገጫ በመጠባበቅ ላይ"
-                  className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-extrabold text-[11px] border border-amber-300 dark:border-amber-700 animate-pulse"
+                  title="የክፍያ ማረጋገጫ በመጠባበቅ ላይ (Verification Pending)"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-extrabold text-[10px] sm:text-[11px] border border-amber-300 dark:border-amber-700 animate-pulse"
                 >
-                  <Clock className="w-3 h-3 text-amber-600" />
-                  Pending
+                  <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                  <span>Pending</span>
                 </span>
               ) : null}
             </div>

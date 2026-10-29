@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { ProgressProvider } from './context/ProgressContext';
-import { SubscriptionProvider } from './context/SubscriptionContext';
+import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext';
 import { ModuleId } from './types';
 
 // Shell & Navigation Components
@@ -11,6 +11,7 @@ import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { WelcomeModal } from './components/WelcomeModal';
 import { ProfileModal } from './components/ProfileModal';
+import { PaywallGate } from './components/common/PaywallGate';
 
 // 📚 Category 1: Core Learning & Books
 import { LessonView } from './components/learning/LessonView';
@@ -48,6 +49,7 @@ import { SystemIntegrationView } from './components/admin/SystemIntegrationView'
 
 function MainAppShell() {
   const { isAuthenticated, authLoading } = useAuth();
+  const { isUnlocked } = useSubscription();
   const [currentModule, setCurrentModule] = useState<ModuleId>('student_app');
   const [historyStack, setHistoryStack] = useState<ModuleId[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -140,6 +142,20 @@ function MainAppShell() {
     }
   };
 
+  const renderModuleWithGate = () => {
+    const activeView = renderActiveModuleView();
+    // All users must pay upfront based on their grade level.
+    // Until checked by admin, the system shows PENDING.
+    if (!isUnlocked && currentModule !== 'subscription_payment' && currentModule !== 'system_feedback') {
+      return (
+        <PaywallGate moduleTitle={currentModule}>
+          {activeView}
+        </PaywallGate>
+      );
+    }
+    return activeView;
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 text-sm">
@@ -172,7 +188,7 @@ function MainAppShell() {
         {/* Main Content Area */}
         <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           <TabBar currentModule={currentModule} onSelectModule={handleSelectModule} />
-          {renderActiveModuleView()}
+          {renderModuleWithGate()}
         </main>
       </div>
 

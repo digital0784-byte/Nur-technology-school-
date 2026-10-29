@@ -21,6 +21,7 @@ export interface UserProfile {
   averageScore: number;
   isPremium: boolean;
   premiumExpiresAt?: string;
+  completedLessonIds?: string[];
 }
 
 export type ModuleCategory =
