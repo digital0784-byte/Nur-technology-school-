@@ -130,16 +130,51 @@
     },
     "Payment": {
       "collection": "payments",
-      "description": "Telebirr and CBE transaction logs",
+      "description": "Telebirr, CBE Birr, CBE, Dashen, and Bank of Abyssinia transaction logs",
       "fields": {
         "userId": { "type": "string", "required": true },
-        "provider": { "type": "string", "enum": ["Telebirr", "CBE"], "required": true },
+        "studentName": { "type": "string" },
+        "studentEmail": { "type": "string" },
+        "grade": { "type": "number", "enum": [9, 10, 11, 12] },
+        "provider": { "type": "string", "enum": ["telebirr", "cbe_birr", "cbe", "dashen", "abyssinia", "Telebirr", "CBE"], "required": true },
         "amount": { "type": "number", "required": true },
+        "currency": { "type": "string", "default": "ETB" },
         "transactionRef": { "type": "string", "required": true },
-        "status": { "type": "string", "enum": ["approved", "pending", "rejected"] },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED", "approved", "pending", "rejected"] },
         "phone": { "type": "string" },
-        "receiptNo": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "receiptImageUrl": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "rejectionReason": { "type": "string" },
+        "submittedAt": { "type": "string" }
+      }
+    },
+    "Subscription": {
+      "collection": "subscriptions",
+      "description": "30-day student subscription access gate and entitlement records",
+      "fields": {
+        "userId": { "type": "string", "required": true },
+        "grade": { "type": "number", "enum": [9, 10, 11, 12], "required": true },
+        "status": { "type": "string", "enum": ["NONE", "PENDING", "ACTIVE", "EXPIRED", "REJECTED"], "required": true },
+        "planTitle": { "type": "string" },
+        "amountPaid": { "type": "number" },
+        "activePaymentId": { "type": "string" },
+        "activatedAt": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "lastUpdated": { "type": "string" }
+      }
+    },
+    "PricingConfig": {
+      "collection": "pricing_config",
+      "description": "Ministry of Education grade-tiered monthly subscription pricing",
+      "fields": {
+        "grade9": { "type": "number", "default": 160 },
+        "grade10": { "type": "number", "default": 180 },
+        "grade11": { "type": "number", "default": 200 },
+        "grade12": { "type": "number", "default": 200 },
+        "singleAssignment": { "type": "number", "default": 54 },
+        "billingCycleDays": { "type": "number", "default": 30 },
+        "currency": { "type": "string", "default": "ETB" }
       }
     },
     "AuditLog": {

@@ -78,8 +78,33 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin();
     }
 
-    // Security Audit Logs: Append-only for system, readable only by Super Admin
+    // Subscriptions & Entitlements: Read own, modified only by Super Admin upon verification
+    match /subscriptions/{userId} {
+      allow read: if isAuthenticated() && (userId == request.auth.uid || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+    match /entitlements/{userId} {
+      allow read: if isAuthenticated() && (userId == request.auth.uid || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
+    // System Pricing & Payment Accounts: Publicly readable, modifiable only by Super Admin
+    match /pricing_config/{configId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+    match /payment_accounts/{accId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // Security & Payment Audit Logs: Append-only for system, readable only by Super Admin
     match /audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isAuthenticated() || isSuperAdmin();
+      allow update, delete: if false; // Append-only immutability
+    }
+    match /payment_audit_logs/{logId} {
       allow read: if isSuperAdmin();
       allow create: if isAuthenticated() || isSuperAdmin();
       allow update, delete: if false; // Append-only immutability

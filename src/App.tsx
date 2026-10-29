@@ -11,7 +11,6 @@ import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { WelcomeModal } from './components/WelcomeModal';
 import { ProfileModal } from './components/ProfileModal';
-import { AuthModal } from './components/AuthModal';
 
 // 📚 Category 1: Core Learning & Books
 import { LessonView } from './components/learning/LessonView';
@@ -48,12 +47,11 @@ import { SecurityFortressView } from './components/admin/SecurityFortressView';
 import { SystemIntegrationView } from './components/admin/SystemIntegrationView';
 
 function MainAppShell() {
-  const { hasCompletedOnboarding } = useAuth();
+  const { isAuthenticated, authLoading } = useAuth();
   const [currentModule, setCurrentModule] = useState<ModuleId>('student_app');
   const [historyStack, setHistoryStack] = useState<ModuleId[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(!hasCompletedOnboarding);
   const [tutorContext, setTutorContext] = useState<{ subject: string; topic: string } | null>(null);
 
   const handleSelectModule = (newModule: ModuleId) => {
@@ -142,6 +140,14 @@ function MainAppShell() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 text-sm">
+        በመጫን ላይ... / Loading...
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
       {/* Top Header with Language dropdown & Back button */}
@@ -170,13 +176,10 @@ function MainAppShell() {
         </main>
       </div>
 
-      {/* Initial Welcome & One-Time Grade Selection Modal */}
-      <WelcomeModal
-        isOpen={isWelcomeModalOpen}
-        onClose={() => setIsWelcomeModalOpen(false)}
-      />
+      {/* Sign-in / Register gate: shown until the user is signed in */}
+      <WelcomeModal isOpen={!isAuthenticated} onClose={() => {}} />
 
-      {/* Profile & Super Admin Switcher */}
+      {/* Profile & Logout */}
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}

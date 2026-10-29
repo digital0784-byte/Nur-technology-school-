@@ -1,89 +1,197 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { GradeLevel } from '../types';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useAuth } from './AuthContext';
+import {
+  PaymentAccountConfig,
+  GradePricingConfig,
+  PaymentSubmission,
+  StudentSubscriptionRecord,
+  PaymentSubscriptionStatus,
+  PaymentGatewayId,
+  PaymentAuditLog,
+} from '../types/payment';
+import {
+  PaymentService,
+  INITIAL_PAYMENT_ACCOUNTS,
+  INITIAL_PRICING_CONFIG,
+  SUPER_ADMIN_EMAIL,
+  SUPER_ADMIN_PHONE,
+} from '../services/paymentService';
 
 interface SubscriptionContextType {
-  isPremium: boolean;
-  planDuration: 'Free Trial' | '1 Month' | 'Full Academic Semester' | 'Yearly Pass';
-  provider: 'Telebirr' | 'CBE' | 'None';
-  expiresAt: string;
-  isGradeLockedForUser: boolean;
-  activateSubscription: (plan: 'Free Trial' | '1 Month' | 'Full Academic Semester' | 'Yearly Pass', provider: 'Telebirr' | 'CBE') => void;
-  verifyTransaction: (txRef: string, phone: string, amount: number) => Promise<{ success: boolean; receiptNo: string }>;
+  status: PaymentSubscriptionStatus;
+  isUnlocked: boolean; // True if ACTIVE or isSuperAdmin
+  subscription: StudentSubscriptionRecord;
+  pricing: GradePricingConfig;
+  accounts: PaymentAccountConfig[];
+  currentGradePrice: number;
+  allSubmissions: PaymentSubmission[];
+  auditLogs: PaymentAuditLog[];
+  submitPayment: (
+    gateway: PaymentGatewayId,
+    transactionRef: string,
+    phone: string,
+    receiptImageUrl?: string
+  ) => Promise<{ success: boolean; submission?: PaymentSubmission; error?: string }>;
+  approvePayment: (paymentId: string) => boolean;
+  rejectPayment: (paymentId: string, reason: string) => boolean;
+  updatePricing: (newPricing: GradePricingConfig) => boolean;
+  updateAccounts: (newAccounts: PaymentAccountConfig[]) => boolean;
+  refreshState: () => void;
+  superAdminContact: {
+    name: string;
+    phone: string;
+    email: string;
+  };
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isPremium, setIsPremium] = useState<boolean>(() => {
-    return localStorage.getItem('app_is_premium') === 'true';
+  const { currentUser, activeGrade, isSuperAdmin } = useAuth();
+
+  const [pricing, setPricing] = useState<GradePricingConfig>(() => PaymentService.getPricing());
+  const [accounts, setAccounts] = useState<PaymentAccountConfig[]>(() => PaymentService.getAccounts());
+  const [allSubmissions, setAllSubmissions] = useState<PaymentSubmission[]>(() => PaymentService.getAllSubmissions());
+  const [auditLogs, setAuditLogs] = useState<PaymentAuditLog[]>(() => PaymentService.getAuditLogs());
+
+  // Current student subscription record
+  const [subscription, setSubscription] = useState<StudentSubscriptionRecord>(() => {
+    return PaymentService.getStudentSubscription(currentUser.id, currentUser.email, activeGrade);
   });
 
-  const [planDuration, setPlanDuration] = useState<'Free Trial' | '1 Month' | 'Full Academic Semester' | 'Yearly Pass'>(() => {
-    return (localStorage.getItem('app_plan_duration') as any) || 'Full Academic Semester';
-  });
+  const refreshState = useCallback(() => {
+    setPricing(PaymentService.getPricing());
+    setAccounts(PaymentService.getAccounts());
+    setAllSubmissions(PaymentService.getAllSubmissions());
+    setAuditLogs(PaymentService.getAuditLogs());
+    setSubscription(PaymentService.getStudentSubscription(currentUser.id, currentUser.email, activeGrade));
+  }, [currentUser.id, currentUser.email, activeGrade]);
 
-  const [provider, setProvider] = useState<'Telebirr' | 'CBE' | 'None'>('Telebirr');
-
-  const [expiresAt, setExpiresAt] = useState<string>(() => {
-    const saved = localStorage.getItem('app_premium_expires');
-    if (saved) return saved;
-    const future = new Date();
-    future.setDate(future.getDate() + 180);
-    return future.toISOString().split('T')[0];
-  });
-
+  // Sync state whenever activeGrade or user changes
   useEffect(() => {
-    localStorage.setItem('app_is_premium', isPremium ? 'true' : 'false');
-    localStorage.setItem('app_plan_duration', planDuration);
-    localStorage.setItem('app_premium_expires', expiresAt);
-  }, [isPremium, planDuration, expiresAt]);
+    refreshState();
+  }, [activeGrade, currentUser.id, currentUser.email, refreshState]);
 
-  const activateSubscription = (
-    plan: 'Free Trial' | '1 Month' | 'Full Academic Semester' | 'Yearly Pass',
-    payProvider: 'Telebirr' | 'CBE'
-  ) => {
-    setIsPremium(true);
-    setPlanDuration(plan);
-    setProvider(payProvider);
-    const date = new Date();
-    date.setDate(date.getDate() + (plan === '1 Month' ? 30 : plan === 'Full Academic Semester' ? 180 : plan === 'Yearly Pass' ? 365 : 7));
-    setExpiresAt(date.toISOString().split('T')[0]);
-  };
+  // Determine current price based on student active grade
+  const currentGradePrice = PaymentService.getPriceForGrade(activeGrade);
 
-  const verifyTransaction = async (txRef: string, phone: string, amount: number) => {
+  // Status computation: Super Admin is always ACTIVE
+  const status: PaymentSubscriptionStatus = isSuperAdmin ? 'ACTIVE' : subscription.status;
+  const isUnlocked: boolean = isSuperAdmin || status === 'ACTIVE';
+
+  // Student submits payment
+  const submitPayment = async (
+    gateway: PaymentGatewayId,
+    transactionRef: string,
+    phone: string,
+    receiptImageUrl?: string
+  ): Promise<{ success: boolean; submission?: PaymentSubmission; error?: string }> => {
+    if (!transactionRef || transactionRef.trim().length < 4) {
+      return { success: false, error: 'እባክዎ ትክክለኛ የግብይት ማረጋገጫ (FT Reference) ያስገቡ።' };
+    }
+
     try {
-      const res = await fetch('/api/payment/verify', {
+      const newSub = PaymentService.submitPayment({
+        studentId: currentUser.id,
+        studentName: currentUser.name,
+        studentEmail: currentUser.email,
+        studentPhone: phone || '0910000000',
+        grade: activeGrade,
+        amount: currentGradePrice,
+        paymentGateway: gateway,
+        transactionRef: transactionRef.trim(),
+        receiptImageUrl,
+      });
+
+      // Also notify backend server
+      fetch('/api/payment/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          provider,
-          transactionId: txRef,
-          amount,
+          provider: gateway,
+          transactionId: transactionRef.trim(),
+          amount: currentGradePrice,
+          studentName: currentUser.name,
+          studentEmail: currentUser.email,
+          grade: activeGrade,
           phone,
         }),
+      }).catch(() => {
+        // Local state is already authoritative in offline-first mode
       });
-      const data = await res.json();
-      if (data.approved) {
-        activateSubscription(planDuration, provider === 'CBE' ? 'CBE' : 'Telebirr');
-      }
-      return { success: true, receiptNo: data.receiptNo || 'ETH-REC-994821' };
-    } catch {
-      const mockReceipt = `ETH-${provider.toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
-      activateSubscription(planDuration, provider === 'CBE' ? 'CBE' : 'Telebirr');
-      return { success: true, receiptNo: mockReceipt };
+
+      refreshState();
+      return { success: true, submission: newSub };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Payment submission failed' };
     }
+  };
+
+  // Super Admin approves payment
+  const approvePayment = (paymentId: string): boolean => {
+    if (!isSuperAdmin) return false;
+    const ok = PaymentService.approvePayment(paymentId, currentUser.email);
+    if (ok) refreshState();
+    return ok;
+  };
+
+  // Super Admin rejects payment
+  const rejectPayment = (paymentId: string, reason: string): boolean => {
+    if (!isSuperAdmin) return false;
+    const ok = PaymentService.rejectPayment(paymentId, currentUser.email, reason);
+    if (ok) refreshState();
+    return ok;
+  };
+
+  // Super Admin updates pricing
+  const updatePricing = (newPricing: GradePricingConfig): boolean => {
+    if (!isSuperAdmin) return false;
+    const ok = PaymentService.updatePricing(newPricing, currentUser.email);
+    if (ok) {
+      refreshState();
+      // Also update server-side pricing
+      fetch('/api/payment/admin/pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminEmail: currentUser.email,
+          pricing: newPricing,
+        }),
+      }).catch(() => {});
+    }
+    return ok;
+  };
+
+  // Super Admin updates accounts
+  const updateAccounts = (newAccounts: PaymentAccountConfig[]): boolean => {
+    if (!isSuperAdmin) return false;
+    const ok = PaymentService.updateAccounts(newAccounts, currentUser.email);
+    if (ok) refreshState();
+    return ok;
   };
 
   return (
     <SubscriptionContext.Provider
       value={{
-        isPremium,
-        planDuration,
-        provider,
-        expiresAt,
-        isGradeLockedForUser: !isPremium,
-        activateSubscription,
-        verifyTransaction,
+        status,
+        isUnlocked,
+        subscription,
+        pricing,
+        accounts,
+        currentGradePrice,
+        allSubmissions,
+        auditLogs,
+        submitPayment,
+        approvePayment,
+        rejectPayment,
+        updatePricing,
+        updateAccounts,
+        refreshState,
+        superAdminContact: {
+          name: 'Nuriye Ahmed Adem',
+          phone: SUPER_ADMIN_PHONE,
+          email: SUPER_ADMIN_EMAIL,
+        },
       }}
     >
       {children}

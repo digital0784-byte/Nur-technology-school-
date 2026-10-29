@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { FirebaseService } from '../../services/firebaseService';
 import { CreditCard, ShieldCheck, CheckCircle, Loader2, Check } from 'lucide-react';
 
 export const SubscriptionPaymentView: React.FC = () => {
-  const { currentUser, activeGrade, updateUserXP } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
 
   const [selectedPlan, setSelectedPlan] = useState<'month' | 'semester' | 'year'>('semester');
   const [provider, setProvider] = useState<'Telebirr' | 'CBE'>('Telebirr');
-  const [phone, setPhone] = useState('0912345678');
-  const [refNo, setRefNo] = useState('TXN-884920');
+  const [phone, setPhone] = useState('');
+  const [refNo, setRefNo] = useState('');
   const [processing, setProcessing] = useState(false);
-  const [receipt, setReceipt] = useState<any>(null);
+  const [receipt, setReceipt] = useState<{ id: string } | null>(null);
+  const [error, setError] = useState('');
 
   const plans = [
     { id: 'month', title: 'የ1 ወር መደበኛ / 1 Month Pass', price: 199, duration: '1 Month' },
@@ -22,29 +24,28 @@ export const SubscriptionPaymentView: React.FC = () => {
   const cur = plans.find((p) => p.id === selectedPlan) || plans[1];
 
   const handleVerify = async () => {
+    setError('');
+    if (!isAuthenticated) {
+      setError('መጀመሪያ ይግቡ / Please log in first.');
+      return;
+    }
+    if (refNo.trim().length < 6 || phone.trim().length < 9) {
+      setError('የስልክ ቁጥርና የግብይት ቁጥር (Transaction ID) በትክክል ያስገቡ / Enter a valid phone number and transaction ID.');
+      return;
+    }
     setProcessing(true);
     try {
-      const res = await fetch('/api/payment/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider,
-          transactionId: refNo,
-          amount: cur.price,
-          studentName: currentUser.name,
-          grade: activeGrade,
-          phone,
-        }),
-      });
-      const data = await res.json();
-      setReceipt(data);
-      updateUserXP(200);
-    } catch {
-      setReceipt({
-        success: true,
-        receiptNo: `ETH-${provider.toUpperCase()}-774821`,
+      const id = await FirebaseService.submitPaymentRequest({
+        provider,
+        transactionId: refNo,
         amount: cur.price,
+        phone,
+        plan: cur.duration,
       });
+      setReceipt({ id });
+    } catch (e) {
+      console.error(e);
+      setError('ጥያቄው አልተላከም፣ እንደገና ይሞክሩ / Could not submit, please try again.');
     } finally {
       setProcessing(false);
     }
@@ -91,7 +92,7 @@ export const SubscriptionPaymentView: React.FC = () => {
           <button
             type="button"
             onClick={() => setProvider('Telebirr')}
-            className={`p-3 rounded-xl border text-left text-xs font-bold ${
+            className={`p-3 rounded-xl border text-left text-xs font-bold cursor-pointer ${
               provider === 'Telebirr' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200' : 'border-slate-200'
             }`}
           >
@@ -100,7 +101,7 @@ export const SubscriptionPaymentView: React.FC = () => {
           <button
             type="button"
             onClick={() => setProvider('CBE')}
-            className={`p-3 rounded-xl border text-left text-xs font-bold ${
+            className={`p-3 rounded-xl border text-left text-xs font-bold cursor-pointer ${
               provider === 'CBE' ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200' : 'border-slate-200'
             }`}
           >
@@ -108,11 +109,29 @@ export const SubscriptionPaymentView: React.FC = () => {
           </button>
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="ስልክ ቁጥር / Phone (09...)"
+            className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm"
+          />
+          <input
+            type="text"
+            value={refNo}
+            onChange={(e) => setRefNo(e.target.value)}
+            placeholder="የግብይት ቁጥር / Transaction ID"
+            className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm"
+          />
+        </div>
+        {error && <div role="alert" className="text-xs text-red-700 dark:text-red-300">{error}</div>}
+
         <button
           type="button"
           disabled={processing}
           onClick={handleVerify}
-          className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2"
+          className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer"
         >
           {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
           {t('verify_payment')} ({cur.price} ETB)
@@ -121,9 +140,9 @@ export const SubscriptionPaymentView: React.FC = () => {
         {receipt && (
           <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between">
             <span className="flex items-center gap-1.5 font-bold">
-              <CheckCircle className="w-4 h-4 text-emerald-600" /> ክፍያው ተረጋግጧል!
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> ጥያቄዎ ተልኳል፤ አስተዳዳሪው ካረጋገጠ በኋላ ፕሪሚየም ይነቃል። / Request sent — Premium activates once an admin verifies it.
             </span>
-            <span className="font-mono">{receipt.receiptNo}</span>
+            <span className="font-mono">{receipt.id.slice(0, 8)}</span>
           </div>
         )}
       </div>

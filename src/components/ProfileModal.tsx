@@ -1,7 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { GradeLevel } from '../types';
 import {
   X,
   Shield,
@@ -26,8 +25,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
     activeGrade,
     isSuperAdmin,
     isGradeLocked,
-    loginAsSuperAdmin,
-    loginAsStudent,
+    logout,
   } = useAuth();
   const { t } = useLanguage();
 
@@ -143,61 +141,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
             </div>
           </div>
 
-          {/* Quick Profile Switching for Testing & Evaluation */}
-          <div className="space-y-2 pt-2">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-              🔄 {t('switch_profile')}:
-            </span>
-
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => {
-                  loginAsSuperAdmin();
-                  onClose();
-                }}
-                className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all ${
-                  isSuperAdmin
-                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-amber-400'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 text-left">
-                  <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
-                  <div>
-                    <div className="text-xs font-bold text-slate-900 dark:text-white">
-                      Nuriye Ahmed Adem (Super Admin)
-                    </div>
-                    <div className="text-[10px] text-amber-700 dark:text-amber-400">
-                      mejennur669@gmail.com • Unrestricted Master ERP & Dynamic Switcher
-                    </div>
-                  </div>
-                </div>
-                {isSuperAdmin && <CheckCircle className="w-4 h-4 text-amber-600" />}
-              </button>
-
-              <div className="grid grid-cols-2 gap-2">
-                {[9, 10, 11, 12].map((lvl) => (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => {
-                      loginAsStudent(lvl as GradeLevel, `ተማሪ (Grade ${lvl})`);
-                      onClose();
-                    }}
-                    className={`p-2.5 rounded-xl border text-xs font-semibold text-left transition-all ${
-                      !isSuperAdmin && activeGrade === lvl
-                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
-                        : 'border-slate-200 dark:border-slate-800 hover:border-emerald-400 text-slate-700 dark:text-slate-200'
-                    }`}
-                  >
-                    <div>Lock to Grade {lvl}</div>
-                    <div className="text-[10px] text-slate-400 font-normal">Student Profile</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              await logout();
+              onClose();
+            }}
+            className="w-full py-2.5 rounded-xl border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-bold transition-all cursor-pointer"
+          >
+            ውጣ / Log out
+          </button>
         </div>
       </div>
     </div>

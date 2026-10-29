@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSelectorDropdown } from './LanguageSelectorDropdown';
 import { GradeLevel } from '../types';
@@ -13,6 +14,8 @@ import {
   Sparkles,
   Award,
   Zap,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -29,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfileModal,
 }) => {
   const { currentUser, activeGrade, setActiveGrade, isSuperAdmin, isGradeLocked } = useAuth();
+  const { status, subscription } = useSubscription();
   const { t, isRtl } = useLanguage();
   const [showRoleInfo, setShowRoleInfo] = useState(false);
 
@@ -112,18 +116,36 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
           ) : (
-            /* Student Strictly Locked Grade Badge */
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-semibold shadow-xs"
-              title={t('grade_locked_desc')}
-            >
-              <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>
-                {t('grade')} {activeGrade}
-              </span>
-              <span className="hidden sm:inline text-[10px] bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 px-1.5 py-0.2 rounded font-normal">
-                Locked
-              </span>
+            /* Student Strictly Locked Grade Badge & VIP Status */
+            <div className="flex items-center gap-1.5">
+              <div
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-semibold shadow-xs"
+                title={t('grade_locked_desc')}
+              >
+                <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>
+                  {t('grade')} {activeGrade}
+                </span>
+              </div>
+
+              {/* Subscription Status Pill */}
+              {status === 'ACTIVE' ? (
+                <span
+                  title={`ንቁ ወርሃዊ ፈቃድ (${subscription.daysRemaining} ቀናት ቀርተዋል)`}
+                  className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-extrabold text-[11px] border border-emerald-300 dark:border-emerald-700"
+                >
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  VIP ({subscription.daysRemaining}d)
+                </span>
+              ) : status === 'PENDING' ? (
+                <span
+                  title="የክፍያ ማረጋገጫ በመጠባበቅ ላይ"
+                  className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-extrabold text-[11px] border border-amber-300 dark:border-amber-700 animate-pulse"
+                >
+                  <Clock className="w-3 h-3 text-amber-600" />
+                  Pending
+                </span>
+              ) : null}
             </div>
           )}
 

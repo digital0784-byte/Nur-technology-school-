@@ -373,22 +373,137 @@ Each item must have:
   }
 });
 
-// Telebirr and CBE payment simulation endpoint
-app.post('/api/payment/verify', (req: Request, res: Response) => {
-  const { provider, transactionId, amount, studentName, grade, phone } = req.body;
-  const isApproved = Boolean(transactionId && transactionId.trim().length >= 6);
+// Ethiopian High School Platform - Verified Payment & Subscription API
+const VERIFIED_PAYMENT_ACCOUNTS = [
+  {
+    id: 'telebirr',
+    name: 'ቴሌብር (Telebirr)',
+    accountName: 'Nuriye Ahmed Adem',
+    accountNumberOrPhone: '0910097862',
+    ussdCode: '*127#',
+    method: 'In-app transfer or USSD (*127#)',
+  },
+  {
+    id: 'cbe_birr',
+    name: 'ሲቢኢ ብር (CBE Birr)',
+    accountName: 'Nuriye Ahmed Adem',
+    accountNumberOrPhone: '0910097862',
+    ussdCode: '*847#',
+    method: 'In-app transfer or USSD (*847#)',
+  },
+  {
+    id: 'cbe',
+    name: 'የኢትዮጵያ ንግድ ባንክ (Commercial Bank of Ethiopia - CBE)',
+    accountName: 'Nuriye Ahmed Adem',
+    accountNumberOrPhone: '1000382883776',
+    method: 'CBE Mobile Banking, CBE Birr, or branch deposit',
+  },
+  {
+    id: 'dashen',
+    name: 'ዳሸን ባንክ (Dashen Bank / Amole)',
+    accountName: 'Nuriye Ahmed Adem',
+    accountNumberOrPhone: '2976196269611',
+    method: 'Dashen Mobile App or Amole',
+  },
+  {
+    id: 'abyssinia',
+    name: 'አቢሲኒያ ባንክ (Bank of Abyssinia)',
+    accountName: 'Nuriye Ahmed Adem',
+    accountNumberOrPhone: '251120889',
+    method: 'BoA Mobile Banking or branch transfer',
+  },
+];
+
+let SERVER_PRICING = {
+  grade9: 160,
+  grade10: 180,
+  grade11: 200,
+  grade12: 200,
+  singleAssignment: 54,
+  billingCycleDays: 30,
+  currency: 'ETB',
+};
+
+// GET payment accounts and pricing configuration
+app.get('/api/payment/config', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    accounts: VERIFIED_PAYMENT_ACCOUNTS,
+    pricing: SERVER_PRICING,
+    superAdminContact: {
+      email: 'mejennur669@gmail.com',
+      name: 'Nuriye Ahmed Adem',
+      phone: '0910097862',
+    },
+  });
+});
+
+// Update pricing endpoint (Restricted to Super Admin)
+app.post('/api/payment/admin/pricing', (req: Request, res: Response) => {
+  const { adminEmail, pricing } = req.body;
+  if (!adminEmail || adminEmail.toLowerCase() !== 'mejennur669@gmail.com') {
+    return res.status(403).json({ success: false, error: 'Unauthorized. Super Admin access required.' });
+  }
+
+  SERVER_PRICING = {
+    ...SERVER_PRICING,
+    ...pricing,
+  };
 
   res.json({
     success: true,
-    approved: isApproved,
-    receiptNo: `ETH-${provider.toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`,
+    message: 'Pricing successfully updated by Super Admin',
+    pricing: SERVER_PRICING,
+    updatedAt: new Date().toISOString(),
+  });
+});
+
+// Telebirr, CBE Birr, CBE, Dashen, and BoA Payment submission & verification
+app.post('/api/payment/verify', (req: Request, res: Response) => {
+  const { provider, transactionId, amount, studentName, studentEmail, grade, phone } = req.body;
+  const isSuperAdmin = studentEmail && studentEmail.toLowerCase() === 'mejennur669@gmail.com';
+
+  // Super admin instant approval
+  if (isSuperAdmin) {
+    return res.json({
+      success: true,
+      approved: true,
+      status: 'ACTIVE',
+      receiptNo: 'ETH-SUPER-ADMIN-LIFETIME-PASS',
+      amount: 0,
+      currency: 'ETB',
+      studentName: 'Nuriye Ahmed Adem',
+      grade: 12,
+      expiryDays: 9999,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  const isValidRef = Boolean(transactionId && transactionId.trim().length >= 4);
+
+  // Expected price check server-side
+  let expectedAmount = 160;
+  if (grade === 10) expectedAmount = SERVER_PRICING.grade10;
+  else if (grade === 11) expectedAmount = SERVER_PRICING.grade11;
+  else if (grade === 12) expectedAmount = SERVER_PRICING.grade12;
+  else expectedAmount = SERVER_PRICING.grade9;
+
+  res.json({
+    success: true,
+    approved: false, // Student payments start in PENDING status until Super Admin approves
+    status: isValidRef ? 'PENDING' : 'INVALID_REF',
+    receiptNo: `ETH-${(provider || 'PAY').toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`,
     timestamp: new Date().toISOString(),
-    amount: amount || 299,
+    amount: amount || expectedAmount,
     currency: 'ETB',
     studentName,
+    studentEmail,
     grade,
     phone,
-    status: isApproved ? 'VERIFIED_ACTIVE' : 'PENDING_APPROVAL',
+    superAdminContact: '0910097862',
+    message: isValidRef
+      ? 'Payment submitted successfully. Awaiting Super Admin (Nuriye Ahmed Adem) verification.'
+      : 'Invalid transaction reference code.',
   });
 });
 
