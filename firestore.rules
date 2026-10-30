@@ -20,9 +20,14 @@ service cloud.firestore {
 
     // User profile: students can read/update their own profile, Super Admin has full write access
     match /users/{userId} {
+      // User profile: students can read/update their own profile, Super Admin has full write access
+      // CRITICAL: A registered user CANNOT change their grade or role on their own accord!
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isOwner(userId) || isSuperAdmin();
+      allow update: if isSuperAdmin() ||
+        (isOwner(userId) &&
+         request.resource.data.grade == resource.data.grade &&
+         request.resource.data.role == resource.data.role);
       allow delete: if isSuperAdmin();
 
       // Student subcollections for progress and quiz records

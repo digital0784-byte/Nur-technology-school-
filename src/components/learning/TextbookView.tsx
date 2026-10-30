@@ -8,6 +8,7 @@ import {
   TextbookChapter,
 } from '../../data/textbooksRegistry';
 import { LabDiagramSvg } from './LabDiagramSvg';
+import { DrmProtectedContainer } from '../common/DrmProtectedContainer';
 import { Language } from '../../types';
 import {
   BookOpen,
@@ -652,15 +653,13 @@ export const TextbookView: React.FC = () => {
           </div>
 
           {/* Main Content Viewer with DRM Protection Watermark */}
-          <div className="relative rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg p-6 sm:p-8 min-h-[500px]">
-            {/* DRM Watermark */}
-            <div className="drm-watermark-overlay flex items-center justify-center pointer-events-none select-none">
-              <div className="text-slate-400/15 dark:text-slate-600/15 font-black text-2xl sm:text-4xl -rotate-12 uppercase tracking-widest text-center">
-                {currentBook.title.en} • Grade {currentBook.grade}
-                <br />
-                FDRE MoE Curriculum • Firebase Storage Verified
-              </div>
-            </div>
+          <DrmProtectedContainer
+            contentTitle={`${currentBook.title.en} - ${currentChapter.title.en}`}
+            watermarkOpacity={0.12}
+            watermarkAngle={-26}
+            className="rounded-3xl shadow-lg border border-slate-200 dark:border-slate-800 overflow-hidden"
+          >
+            <div className="relative bg-white dark:bg-slate-900 p-6 sm:p-8 min-h-[500px]">
 
             {/* Tab 1: Theory & Textbook Content */}
             {activeTab === 'theory' && (
@@ -1105,7 +1104,8 @@ export const TextbookView: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          </DrmProtectedContainer>
         </div>
       )}
 

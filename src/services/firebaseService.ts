@@ -25,10 +25,20 @@ export class FirebaseService {
     }
   }
 
-  static async recordAuditLog(log: Omit<AuditLog, 'id'>): Promise<AuditLog> {
+  static async recordAuditLog(log: Partial<AuditLog>): Promise<AuditLog> {
+    const id = log.logId || log.id || `aud-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
     const fullLog: AuditLog = {
-      ...log,
-      id: `aud-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      logId: id,
+      id,
+      actorId: log.actorId || 'system',
+      actorRole: log.actorRole || 'STUDENT',
+      action: log.action || 'GENERAL_ACTION',
+      resourceType: log.resourceType || 'SYSTEM',
+      resourceId: log.resourceId || 'CORE',
+      result: log.result || 'success',
+      ip: log.ip || '127.0.0.1',
+      timestamp: log.timestamp || new Date().toISOString(),
+      details: log.details || '',
     };
     try {
       const existing = JSON.parse(localStorage.getItem(`${this.STORAGE_PREFIX}audit_logs`) || '[]');
@@ -36,7 +46,7 @@ export class FirebaseService {
       localStorage.setItem(`${this.STORAGE_PREFIX}audit_logs`, JSON.stringify(existing.slice(0, 50)));
 
       if (isFirebaseConfigured) {
-        setDoc(doc(db, 'audit_logs', fullLog.id), fullLog).catch((err) => {
+        setDoc(doc(db, 'audit_logs', id), fullLog).catch((err) => {
           console.warn('Firestore recordAuditLog notice:', err?.message || err);
         });
       }

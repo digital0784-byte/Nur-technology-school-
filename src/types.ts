@@ -3,7 +3,7 @@ export type Language = 'am' | 'om' | 'ti' | 'ar' | 'so' | 'en';
 export type GradeLevel = 9 | 10 | 11 | 12;
 export type Grade = GradeLevel;
 
-export type UserRole = 'student' | 'super_admin' | 'teacher' | 'parent';
+export type UserRole = 'student' | 'super_admin' | 'admin' | 'teacher' | 'parent';
 
 export interface UserProfile {
   id: string;
@@ -162,11 +162,41 @@ export interface PaymentTransaction {
 }
 
 export interface AuditLog {
-  id: string;
-  timestamp: string;
-  actor: string;
+  id?: string;
+  logId: string;
+  actorId: string;
+  actorRole: 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'STUDENT' | 'SYSTEM';
   action: string;
-  target: string;
-  status: 'SUCCESS' | 'WARNING' | 'ALERT';
-  ipAddress: string;
+  resourceType: string;
+  resourceId: string;
+  result: 'success' | 'denied';
+  ip: string;
+  timestamp: string;
+  details?: string;
+}
+
+export interface DeviceSession {
+  deviceId: string;
+  studentId: string;
+  studentEmail: string;
+  deviceName: string;
+  browser: string;
+  os: string;
+  ip: string;
+  registeredAt: string;
+  lastActive: string;
+  status: 'ACTIVE' | 'FLAGGED_CONCURRENT' | 'REVOKED';
+  isTrusted: boolean;
+}
+
+export interface SecurityUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'super_admin' | 'admin' | 'teacher' | 'student';
+  grade: GradeLevel;
+  isGradeLocked: boolean;
+  activeDevicesCount: number;
+  lastLogin: string;
+  status: 'ACTIVE' | 'SUSPENDED';
 }

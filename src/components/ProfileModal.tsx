@@ -114,6 +114,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
             </div>
           </div>
 
+          {/* Grade Immutability Notice for Students */}
+          {!isSuperAdmin && (
+            <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="text-[11px] leading-relaxed">
+                <span className="font-bold block">የክፍል ደረጃ ተቆልፏል (Grade Immutable):</span>
+                አንድ ተጠቃሚ ወደ ሲስተሙ ከተመዘገበ በኋላ ከተመዘገበበት የክፍል ደረጃ በራሱ ፍቃድ መቀየር አይቻልም። መቀየር ከፈለጉ እባክዎ ዋና አስተዳዳሪውን (Nuriye Ahmed Adem - 0910097862) ያነጋግሩ።
+              </div>
+            </div>
+          )}
+
           {/* Academic Stats */}
           <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50">
             <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 block mb-2">

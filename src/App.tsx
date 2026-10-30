@@ -146,7 +146,17 @@ function MainAppShell() {
     const activeView = renderActiveModuleView();
     // All users must pay upfront based on their grade level.
     // Until checked by admin, the system shows PENDING.
-    if (!isUnlocked && currentModule !== 'subscription_payment' && currentModule !== 'system_feedback') {
+    // Admin modules have their own strict Super Admin access gates.
+    const isExemptFromPaywall =
+      currentModule === 'subscription_payment' ||
+      currentModule === 'system_feedback' ||
+      currentModule === 'premium_learning_center' ||
+      currentModule === 'academic_work_hub' ||
+      currentModule === 'admin_dashboard' ||
+      currentModule === 'security_fortress' ||
+      currentModule === 'system_integration';
+
+    if (!isUnlocked && !isExemptFromPaywall) {
       return (
         <PaywallGate moduleTitle={currentModule}>
           {activeView}

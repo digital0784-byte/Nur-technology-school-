@@ -43,6 +43,15 @@ export const TabBar: React.FC<TabBarProps> = ({ currentModule, onSelectModule })
       <div className="flex items-center gap-1.5 shrink-0">
         <button
           type="button"
+          onClick={() => onSelectModule('premium_learning_center')}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gradient-to-r from-purple-900 to-indigo-900 hover:from-purple-800 hover:to-indigo-800 text-amber-300 border border-purple-500/40 font-bold text-[11px] shadow-xs transition"
+        >
+          <Sparkles className="w-3 h-3 text-amber-400" />
+          <span>💎 ፕሪሚየም ማዕከል</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => onSelectModule('ai_tutor')}
           className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] hover:bg-emerald-100"
         >

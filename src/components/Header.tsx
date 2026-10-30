@@ -120,11 +120,11 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center gap-1.5">
               <div
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-semibold shadow-xs"
-                title={t('grade_locked_desc')}
+                title="የተመዘገቡበት የክፍል ደረጃ ተቆልፏል፤ በራስ ፍቃድ መቀየር አይቻልም።"
               >
                 <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>
-                  {t('grade')} {activeGrade}
+                  {t('grade')} {activeGrade} (የተቆለፈ)
                 </span>
               </div>
 

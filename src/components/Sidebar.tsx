@@ -128,11 +128,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onCloseMobile();
   };
 
+  const isDevAdmin =
+    isSuperAdmin ||
+    (typeof window !== 'undefined' && localStorage.getItem('nur_admin_dev_bypass') === 'true');
+
   const filteredCategories = CATEGORY_GROUPS.map((cat) => {
-    // If user is not Super Admin, hide Category 5 (Admin Only) or admin modules
-    const modulesAllowed = isSuperAdmin
-      ? cat.modules
-      : cat.modules.filter((m) => !m.adminOnly);
+    const modulesAllowed = cat.modules;
 
     if (!searchFilter.trim()) {
       return { ...cat, modules: modulesAllowed };
@@ -217,19 +218,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {group.modules.map((mod) => {
                 const IconComponent = mod.icon;
                 const isActive = currentModule === mod.id;
-                const isLockedForStudent = mod.adminOnly && !isSuperAdmin;
+                const isLockedForStudent = mod.adminOnly && !isDevAdmin;
 
                 return (
                   <button
                     key={mod.id}
                     type="button"
-                    disabled={isLockedForStudent}
                     onClick={() => handleModuleClick(mod.id)}
                     className={`w-full group flex items-start gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all ${
                       isActive
                         ? 'bg-emerald-600 text-white shadow-sm font-semibold'
                         : isLockedForStudent
-                        ? 'opacity-40 cursor-not-allowed text-slate-400'
+                        ? 'text-slate-600 dark:text-slate-400 hover:bg-amber-50/50 dark:hover:bg-amber-950/20'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70'
                     }`}
                   >

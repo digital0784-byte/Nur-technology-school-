@@ -1,4 +1,5 @@
 import { CurriculumSubject, GradeLevel, Language } from '../types';
+import { GRADE_10_MATH_SUBJECT, GRADE_10_PHYSICS_SUBJECT } from './grade10Curriculum';
 
 export const CURRICULUM_DATA: CurriculumSubject[] = [
   // ================= GRADE 9 =================
@@ -262,106 +263,8 @@ export const CURRICULUM_DATA: CurriculumSubject[] = [
   },
 
   // ================= GRADE 10 =================
-  {
-    id: 'g10-math',
-    code: 'MATH-10',
-    grade: 10,
-    icon: 'Binary',
-    color: 'emerald',
-    name: {
-      am: 'ሂሳብ',
-      om: 'Herrega',
-      ti: 'ማቴማቲክስ',
-      ar: 'الرياضيات',
-      so: 'Xisaab',
-      en: 'Mathematics',
-    },
-    units: [
-      {
-        id: 'g10-math-u1',
-        unitNumber: 1,
-        title: 'Relations and Functions',
-        description: 'Inverse relations, graph transformations, composite functions, and quadratic equations.',
-        topics: [
-          {
-            id: 'g10-m-t1',
-            title: 'Quadratic Functions & Parabolas',
-            competencyObjectives: [
-              'Find vertex, axis of symmetry, and intercepts of f(x) = ax² + bx + c',
-              'Solve quadratic equations by factoring, completing the square, and quadratic formula',
-              'Model trajectory and optimization problems',
-            ],
-            summary: 'Quadratic behavior, maximum/minimum vertex value, and the discriminant Δ = b² - 4ac.',
-            content: 'Parabolic paths govern projectiles, satellite dishes, and architectural arches in Ethiopia.',
-            ethiopianExample: 'Trajectory modeling of water fountains at Friendship Square, Addis Ababa.',
-            estimatedStudyMinutes: 45,
-            pageReference: 'MoE Grade 10 Math, pp. 1-48',
-          },
-        ],
-      },
-      {
-        id: 'g10-math-u2',
-        unitNumber: 2,
-        title: 'Coordinate Geometry & Trigonometry',
-        description: 'Slope of lines, distance formula, angle of inclination, and trigonometric ratios.',
-        topics: [
-          {
-            id: 'g10-m-t2',
-            title: 'Right-Triangle Trigonometry',
-            competencyObjectives: [
-              'Define sin θ, cos θ, and tan θ in right triangles',
-              'Solve angles of elevation and depression',
-              'Apply trigonometry to land surveying',
-            ],
-            summary: 'SOH CAH TOA, special angle ratios (30°, 45°, 60°), and surveying computations.',
-            content: 'Trigonometry is fundamental for land cadastre and topographic mapping in Ethiopian urban planning.',
-            ethiopianExample: 'Surveying the height of the Commercial Bank of Ethiopia (CBE) Headquarters Tower.',
-            estimatedStudyMinutes: 40,
-            pageReference: 'MoE Grade 10 Math, pp. 49-92',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'g10-phys',
-    code: 'PHYS-10',
-    grade: 10,
-    icon: 'Radio',
-    color: 'amber',
-    name: {
-      am: 'ፊዚክስ',
-      om: 'Fiiziksii',
-      ti: 'ፊዚክስ',
-      ar: 'الفيزياء',
-      so: 'Fisikis',
-      en: 'Physics',
-    },
-    units: [
-      {
-        id: 'g10-phys-u1',
-        unitNumber: 1,
-        title: 'Electromagnetism & Circuits',
-        description: 'Ohm’s law, series and parallel circuits, electrical power, and magnetic induction.',
-        topics: [
-          {
-            id: 'g10-p-t1',
-            title: 'Ohm’s Law and Electric Power',
-            competencyObjectives: [
-              'Verify V = I · R across resistors',
-              'Calculate equivalent resistance for series-parallel combinations',
-              'Calculate power P = V · I and energy consumption in kilowatt-hours (kWh)',
-            ],
-            summary: 'Electrical potential difference, current flow, and domestic circuit safety with fuses and circuit breakers.',
-            content: 'Ethiopian Electric Power (EEP) grid generation and household energy distribution.',
-            ethiopianExample: 'Calculating hydroelectric power transmission from the Grand Ethiopian Renaissance Dam (GERD).',
-            estimatedStudyMinutes: 45,
-            pageReference: 'MoE Grade 10 Physics, pp. 1-52',
-          },
-        ],
-      },
-    ],
-  },
+  GRADE_10_MATH_SUBJECT,
+  GRADE_10_PHYSICS_SUBJECT,
 
   // ================= GRADE 11 =================
   {

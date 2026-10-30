@@ -1,4 +1,5 @@
 import { GradeLevel, Language } from '../types';
+import { GRADE_10_MATH_CHAPTERS, GRADE_10_PHYSICS_CHAPTERS } from './grade10TextbookChapters';
 
 export interface LabExperiment {
   id: string;
@@ -296,6 +297,13 @@ function buildChaptersForSubject(
   subjectCode: string,
   grade: GradeLevel
 ): TextbookChapter[] {
+  if (subjectCode === 'MATH' && grade === 10) {
+    return GRADE_10_MATH_CHAPTERS;
+  }
+  if (subjectCode === 'PHYS' && grade === 10) {
+    return GRADE_10_PHYSICS_CHAPTERS;
+  }
+
   if (subjectCode === 'PHYS') {
     return [
       {
@@ -1360,15 +1368,15 @@ export const COMPREHENSIVE_TEXTBOOKS_REGISTRY: TextbookRecord[] = [
     },
     category: 'official_textbook',
     coverColor: 'emerald',
-    totalPages: 272,
+    totalPages: 385,
     pdfUrl: 'https://moe.gov.et/textbooks/grade10/mathematics.pdf',
     firebaseStoragePath: 'gs://nur-ai-moe-curriculum.firebasestorage.app/textbooks/grade10/mathematics_g10_moe_2019ec.pdf',
     firebaseDownloadUrl: 'https://firebasestorage.googleapis.com/v0/b/nur-ai-moe-curriculum.firebasestorage.app/o/textbooks%2Fgrade10%2Fmathematics_g10_moe_2019ec.pdf?alt=media',
     fileSizeBytes: 27262976,
     md5Checksum: 'd39a1140e791b8f41029c71e84a20b19',
     syncStatus: 'synced',
-    chaptersCount: 4,
-    chapters: buildChaptersForSubject('MATH', 10),
+    chaptersCount: 7,
+    chapters: GRADE_10_MATH_CHAPTERS,
     drmProtected: true,
   },
   {
@@ -1393,15 +1401,15 @@ export const COMPREHENSIVE_TEXTBOOKS_REGISTRY: TextbookRecord[] = [
     },
     category: 'official_textbook',
     coverColor: 'amber',
-    totalPages: 240,
+    totalPages: 220,
     pdfUrl: 'https://moe.gov.et/textbooks/grade10/physics.pdf',
     firebaseStoragePath: 'gs://nur-ai-moe-curriculum.firebasestorage.app/textbooks/grade10/physics_g10_moe_2019ec.pdf',
     firebaseDownloadUrl: 'https://firebasestorage.googleapis.com/v0/b/nur-ai-moe-curriculum.firebasestorage.app/o/textbooks%2Fgrade10%2Fphysics_g10_moe_2019ec.pdf?alt=media',
     fileSizeBytes: 24117248,
     md5Checksum: 'f192b800e84a77192b01c94e8210a5e8',
     syncStatus: 'synced',
-    chaptersCount: 4,
-    chapters: buildChaptersForSubject('PHYS', 10),
+    chaptersCount: 6,
+    chapters: GRADE_10_PHYSICS_CHAPTERS,
     drmProtected: true,
   },
   {
