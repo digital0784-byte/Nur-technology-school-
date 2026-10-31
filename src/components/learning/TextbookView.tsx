@@ -9,6 +9,8 @@ import {
 } from '../../data/textbooksRegistry';
 import { LabDiagramSvg } from './LabDiagramSvg';
 import { DrmProtectedContainer } from '../common/DrmProtectedContainer';
+import { AllTextbooksModal } from './AllTextbooksModal';
+import { SecureBookReaderModal } from './SecureBookReaderModal';
 import { Language } from '../../types';
 import {
   BookOpen,
@@ -63,6 +65,11 @@ export const TextbookView: React.FC = () => {
   const [isTocModalOpen, setIsTocModalOpen] = useState<boolean>(false);
   const [tocModalBook, setTocModalBook] = useState<TextbookRecord>(currentBook);
 
+  // Secure DRM Reader and Full Library Catalog Modals
+  const [isAllTextbooksModalOpen, setIsAllTextbooksModalOpen] = useState<boolean>(false);
+  const [isSecureReaderOpen, setIsSecureReaderOpen] = useState<boolean>(false);
+  const [secureReaderBook, setSecureReaderBook] = useState<TextbookRecord>(currentBook);
+
   const [selectedChapterIdx, setSelectedChapterIdx] = useState<number>(0);
   const currentChapter: TextbookChapter =
     currentBook.chapters[selectedChapterIdx] || currentBook.chapters[0];
@@ -72,6 +79,11 @@ export const TextbookView: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
+
+  const handleOpenSecureReader = (book: TextbookRecord, chapterIdx = 0) => {
+    setSecureReaderBook(book);
+    setIsSecureReaderOpen(true);
+  };
 
   const langNames: Record<Language, { label: string; flag: string }> = {
     am: { label: 'አማርኛ', flag: '🇪🇹' },
@@ -168,6 +180,26 @@ export const TextbookView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Browse All Grades Catalog Modal Button */}
+          <button
+            type="button"
+            onClick={() => setIsAllTextbooksModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>ሁሉንም መጽሐፍት አስስ (Grades 9-12 Catalog)</span>
+          </button>
+
+          {/* Secure Reader Quick Button */}
+          <button
+            type="button"
+            onClick={() => handleOpenSecureReader(currentBook)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md transition-all"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>ደህንነቱ የተጠበቀ ንባብ (Secure Reader)</span>
+          </button>
+
           {/* Main View Mode Toggle */}
           <div className="bg-black/40 backdrop-blur-md p-1 rounded-2xl border border-white/10 flex items-center gap-1 text-xs font-bold">
             <button
@@ -180,7 +212,7 @@ export const TextbookView: React.FC = () => {
               }`}
             >
               <ListOrdered className="w-3.5 h-3.5" />
-              የመጻሕፍት ዝርዝር (Index)
+              ዝርዝር (Index)
             </button>
             <button
               type="button"
@@ -192,7 +224,7 @@ export const TextbookView: React.FC = () => {
               }`}
             >
               <BookOpen className="w-3.5 h-3.5" />
-              የቀጥታ ንባብ (Reader)
+              ትንታኔ (Breakdown)
             </button>
           </div>
 
@@ -329,24 +361,26 @@ export const TextbookView: React.FC = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleBookCardClick(book);
+                        handleOpenSecureReader(book);
                       }}
                       className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all"
                     >
-                      <ListOrdered className="w-3.5 h-3.5" />
-                      <span>ማውጫውን ክፈት (Open Contents)</span>
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>ክፈትና አንብብ (Secure Reader)</span>
                     </button>
 
-                    <a
-                      href={book.firebaseDownloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
-                      title="ፒዲኤፍ አውርድ (Direct PDF Link)"
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBookCardClick(book);
+                      }}
+                      className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1 transition-colors"
+                      title="የምዕራፎች ማውጫ (Table of Contents)"
                     >
-                      <FileDown className="w-4 h-4 text-emerald-600" />
-                    </a>
+                      <ListOrdered className="w-3.5 h-3.5" />
+                      <span>ማውጫ</span>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1236,25 +1270,27 @@ export const TextbookView: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Footer with Direct PDF Link */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
-              <span className="text-slate-500 font-mono text-[11px] truncate mr-2">
+            {/* Modal Footer with Direct PDF Link and Secure Reader */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <span className="text-slate-500 font-mono text-[11px] truncate">
                 Firebase URI: {tocModalBook.firebaseStoragePath}
               </span>
               <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href={tocModalBook.firebaseDownloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold flex items-center gap-1.5"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTocModalOpen(false);
+                    handleOpenSecureReader(tocModalBook);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-xs transition-all"
                 >
-                  <FileDown className="w-3.5 h-3.5 text-emerald-600" />
-                  ፒዲኤፍ (PDF)
-                </a>
+                  <BookOpen className="w-3.5 h-3.5" />
+                  ደህንነቱ የተጠበቀ ንባብ (Secure Reader)
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsTocModalOpen(false)}
-                  className="px-4 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-700 text-white font-bold"
+                  className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-700 text-white font-bold"
                 >
                   ዝጋ
                 </button>
@@ -1263,6 +1299,21 @@ export const TextbookView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ======================================================== */}
+      {/* SECURE DRM BOOK READER MODAL & ALL TEXTBOOKS CATALOG MODAL */}
+      {/* ======================================================== */}
+      <SecureBookReaderModal
+        book={secureReaderBook}
+        isOpen={isSecureReaderOpen}
+        onClose={() => setIsSecureReaderOpen(false)}
+      />
+
+      <AllTextbooksModal
+        isOpen={isAllTextbooksModalOpen}
+        onClose={() => setIsAllTextbooksModalOpen(false)}
+        onSelectBook={(book) => handleOpenSecureReader(book)}
+      />
     </div>
   );
 };

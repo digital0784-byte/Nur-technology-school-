@@ -23,6 +23,14 @@ export interface UserProfile {
   isPremium: boolean;
   premiumExpiresAt?: string;
   completedLessonIds?: string[];
+  streakFreezeAvailable?: boolean;
+  streakFreezeActive?: boolean;
+  gracePeriodActive?: boolean;
+  unlockedBadges?: string[];
+  dailyQuizzesPassed?: number;
+  stemExperimentsCompleted?: number;
+  eueeHighScore?: number;
+  completedUnits?: string[];
 }
 
 export type ModuleCategory =

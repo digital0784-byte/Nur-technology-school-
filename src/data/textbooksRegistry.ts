@@ -63,7 +63,10 @@ export interface TextbookRecord {
   subjectName: Record<Language, string>;
   title: Record<Language, string>;
   category: 'official_textbook' | 'supplementary_guide' | 'lab_manual' | 'exam_bank';
+  stream?: 'Natural Science' | 'Social Science' | 'Common';
   coverColor: 'emerald' | 'amber' | 'indigo' | 'purple' | 'cyan' | 'rose' | 'blue';
+  coverImageUrl?: string;
+  moeVerified?: boolean;
   totalPages: number;
   pdfUrl: string;
   firebaseStoragePath: string;

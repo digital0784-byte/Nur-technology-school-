@@ -22,6 +22,31 @@ export interface UserProfile {
   isPremium: boolean;
   premiumExpiresAt?: string;
   completedLessonIds?: string[];
+  streakFreezeAvailable?: boolean;
+  streakFreezeActive?: boolean;
+  gracePeriodActive?: boolean;
+  unlockedBadges?: string[];
+  dailyQuizzesPassed?: number;
+  stemExperimentsCompleted?: number;
+  eueeHighScore?: number;
+  completedUnits?: string[];
+}
+
+export type ScholarRank = 'BRONZE' | 'SILVER' | 'GOLD' | 'DIAMOND';
+
+export interface GamificationBadge {
+  id: string;
+  key: 'fast_learner' | 'math_prodigy' | 'lab_explorer' | 'euee_contender';
+  titleAm: string;
+  titleEn: string;
+  descAm: string;
+  descEn: string;
+  icon: string;
+  unlocked: boolean;
+  progress: number;
+  maxProgress: number;
+  unitLabel: string;
+  rewardXP: number;
 }
 
 export type ModuleCategory =

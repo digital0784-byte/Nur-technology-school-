@@ -55,9 +55,12 @@ export const FlashcardView: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setCurrentIdx((c) => c + 1);
+              const next = currentIdx + 1;
+              setCurrentIdx(next);
               setIsFlipped(false);
-              updateUserXP(10);
+              if (next % SAMPLE_FLASHCARDS.length === 0) {
+                updateUserXP(15); // Completing a flashcard set: +15 XP
+              }
             }}
             className="py-2.5 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 font-bold text-xs"
           >
@@ -66,9 +69,12 @@ export const FlashcardView: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setCurrentIdx((c) => c + 1);
+              const next = currentIdx + 1;
+              setCurrentIdx(next);
               setIsFlipped(false);
-              updateUserXP(25);
+              if (next % SAMPLE_FLASHCARDS.length === 0) {
+                updateUserXP(15); // Completing a flashcard set: +15 XP
+              }
             }}
             className="py-2.5 px-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 font-bold text-xs"
           >
@@ -77,13 +83,16 @@ export const FlashcardView: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setCurrentIdx((c) => c + 1);
+              const next = currentIdx + 1;
+              setCurrentIdx(next);
               setIsFlipped(false);
-              updateUserXP(40);
+              if (next % SAMPLE_FLASHCARDS.length === 0) {
+                updateUserXP(15); // Completing a flashcard set: +15 XP
+              }
             }}
             className="py-2.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold text-xs"
           >
-            ቀላል (Easy)
+            ቀላል (Easy) • +15 XP (Set)
           </button>
         </div>
       </div>

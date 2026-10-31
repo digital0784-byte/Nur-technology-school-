@@ -174,7 +174,7 @@ export const LessonView: React.FC<LessonViewProps> = ({ onAskAi }) => {
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all"
                     >
                       <CheckCircle className="w-4 h-4" />
-                      ተማርኩ / Mark Done (+100 XP)
+                      ተማርኩ / Mark Done (+20 XP)
                     </button>
                   )}
                 </div>
