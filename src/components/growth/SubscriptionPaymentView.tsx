@@ -123,6 +123,33 @@ export const SubscriptionPaymentView: React.FC = () => {
         </div>
       </div>
 
+      {/* ACTIVE NOTIFICATION BANNER IF STATUS IS ACTIVE */}
+      {status === 'ACTIVE' && (
+        <div className="p-6 rounded-3xl bg-emerald-50 dark:bg-emerald-950/50 border-2 border-emerald-400 dark:border-emerald-700 shadow-md space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-200 dark:bg-emerald-900 flex items-center justify-center shrink-0">
+              <CheckCircle className="w-6 h-6 text-emerald-700 dark:text-emerald-300" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-[11px] font-extrabold uppercase">
+                  Active (ነቅቷል • ክፍያ አያስፈልግም)
+                </span>
+                <span className="text-xs text-emerald-800 dark:text-emerald-300 font-bold">
+                  {activeGrade}ኛ ክፍል • {subscription.daysRemaining || 30} ቀናት ይቀራሉ
+                </span>
+              </div>
+              <h3 className="font-extrabold text-sm sm:text-base text-emerald-950 dark:text-emerald-100">
+                የወርሃዊ ሰብስክሪብሽንዎ በትክክል እየሰራ ነው!
+              </h3>
+              <p className="text-xs text-emerald-800 dark:text-emerald-300">
+                የክፍልዎ ክፍያ የተረጋገጠ ሲሆን logout ብለው ቢወጡም እንኳ የ30 ቀናት ጊዜዎ እስኪያበቃ ድረስ ያለ ምንም ተጨማሪ ክፍያ ሁሉንም የትምህርት ክፍሎች፣ መጽሐፍትና ፈተናዎች መማር ይችላሉ።
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PENDING NOTIFICATION BANNER IF STATUS IS PENDING */}
       {status === 'PENDING' && (
         <div className="p-6 rounded-3xl bg-amber-50 dark:bg-amber-950/50 border-2 border-amber-300 dark:border-amber-700 shadow-md space-y-4">

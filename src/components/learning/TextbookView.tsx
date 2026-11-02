@@ -11,6 +11,7 @@ import { LabDiagramSvg } from './LabDiagramSvg';
 import { DrmProtectedContainer } from '../common/DrmProtectedContainer';
 import { AllTextbooksModal } from './AllTextbooksModal';
 import { SecureBookReaderModal } from './SecureBookReaderModal';
+import { SubTopicDeepDiveModal, SubTopicItem } from './SubTopicDeepDiveModal';
 import { Language } from '../../types';
 import {
   BookOpen,
@@ -69,6 +70,12 @@ export const TextbookView: React.FC = () => {
   const [isAllTextbooksModalOpen, setIsAllTextbooksModalOpen] = useState<boolean>(false);
   const [isSecureReaderOpen, setIsSecureReaderOpen] = useState<boolean>(false);
   const [secureReaderBook, setSecureReaderBook] = useState<TextbookRecord>(currentBook);
+  const [deepDiveTopic, setDeepDiveTopic] = useState<{
+    topic: SubTopicItem;
+    unitNumber: number;
+    unitTitle: string;
+    book: TextbookRecord;
+  } | null>(null);
 
   const [selectedChapterIdx, setSelectedChapterIdx] = useState<number>(0);
   const currentChapter: TextbookChapter =
@@ -729,6 +736,55 @@ export const TextbookView: React.FC = () => {
                   </p>
                 </div>
 
+                {/* Chapter Topics Overview */}
+                {currentChapter.topics && currentChapter.topics.length > 0 && (
+                  <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                      <span className="flex items-center gap-1.5">
+                        <BookmarkCheck className="w-4 h-4 text-emerald-600" />
+                        በዚህ ምዕራፍ ስር የተካተቱ ይፋዊ ንዑሳን ርዕሶች ({currentChapter.topics.length} Topics):
+                      </span>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono">
+                        ገፅ {currentChapter.startPage} – {currentChapter.endPage}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {currentChapter.topics.map((t) => (
+                        <div
+                          key={t.id}
+                          className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-100 dark:border-slate-800 text-xs shadow-2xs space-y-1.5 flex flex-col justify-between"
+                        >
+                          <div>
+                            <p className="font-bold text-slate-900 dark:text-white leading-tight">
+                              {t.title}
+                            </p>
+                            {t.pageReference && (
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono block mt-0.5">
+                                📖 {t.pageReference}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDeepDiveTopic({
+                                topic: t,
+                                unitNumber: currentChapter.unitNumber,
+                                unitTitle: currentChapter.title[selectedLanguageOverride] || currentChapter.title.am,
+                                book: currentBook,
+                              })
+                            }
+                            className="self-start px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs transition-colors"
+                          >
+                            <Sparkles className="w-3 h-3 text-amber-300" />
+                            <span>ትንታኔና ምሳሌ</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Verbatim AI Deep Analysis Action Button */}
                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
                   <button
@@ -1265,6 +1321,67 @@ export const TextbookView: React.FC = () => {
                         <span>መልመጃዎች ({ch.reviewExercises.length})</span>
                       </button>
                     </div>
+
+                    {/* Topics List from MoE Syllabus */}
+                    {ch.topics && ch.topics.length > 0 && (
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                          <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                            <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            የምዕራፉ ንዑሳን ርዕሶች ማውጫ ({ch.topics.length} Topics):
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            MoE Official Syllabus
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {ch.topics.map((t) => (
+                            <div
+                              key={t.id}
+                              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-start justify-between gap-2 shadow-2xs hover:border-emerald-400 transition-all group/top"
+                            >
+                              <div className="space-y-0.5 min-w-0">
+                                <p className="text-xs font-bold text-slate-900 dark:text-white group-hover/top:text-emerald-600 transition-colors">
+                                  {t.title}
+                                </p>
+                                {t.pageReference && (
+                                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                    <BookOpen className="w-3 h-3 shrink-0" />
+                                    <span className="truncate">{t.pageReference}</span>
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeepDiveTopic({
+                                      topic: t,
+                                      unitNumber: ch.unitNumber,
+                                      unitTitle: ch.title[selectedLanguageOverride] || ch.title.am,
+                                      book: tocModalBook,
+                                    });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                                  title="ጥልቅ ትንታኔ እና ምሳሌዎች"
+                                >
+                                  <Sparkles className="w-3 h-3 text-amber-300" />
+                                  <span>ትንታኔና ምሳሌ</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectChapterFromToc(tocModalBook, idx, 'theory')}
+                                  className="px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-600 hover:text-white text-emerald-700 dark:text-emerald-300 text-[10px] font-bold shrink-0 transition-colors"
+                                >
+                                  አንብብ
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1314,6 +1431,20 @@ export const TextbookView: React.FC = () => {
         onClose={() => setIsAllTextbooksModalOpen(false)}
         onSelectBook={(book) => handleOpenSecureReader(book)}
       />
+
+      {/* SUB-TOPIC EXPLANATION & WORKED EXAMPLES MODAL */}
+      {deepDiveTopic && (
+        <SubTopicDeepDiveModal
+          isOpen={Boolean(deepDiveTopic)}
+          onClose={() => setDeepDiveTopic(null)}
+          subjectName={deepDiveTopic.book.subjectName[selectedLanguageOverride] || deepDiveTopic.book.subjectName.am}
+          subjectCode={deepDiveTopic.book.subjectCode}
+          grade={deepDiveTopic.book.grade}
+          unitTitle={deepDiveTopic.unitTitle}
+          unitNumber={deepDiveTopic.unitNumber}
+          topic={deepDiveTopic.topic}
+        />
+      )}
     </div>
   );
 };

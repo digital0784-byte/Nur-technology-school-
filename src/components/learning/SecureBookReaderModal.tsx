@@ -521,13 +521,37 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
                       : 'border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
                   }`}
                 >
-                  <div className="space-y-0.5">
+                  <div className="space-y-0.5 flex-1 min-w-0">
                     <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">
                       Unit {ch.unitNumber}
                     </span>
                     <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                       {ch.title[language] || ch.title.en}
                     </h4>
+
+                    {/* Topics under active chapter */}
+                    {isCurrent && ch.topics && ch.topics.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60 space-y-1">
+                        <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider block">
+                          ንዑሳን ርዕሶች ({ch.topics.length}):
+                        </span>
+                        <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                          {ch.topics.map((t) => (
+                            <div
+                              key={t.id}
+                              className="p-1.5 rounded-lg bg-white/80 dark:bg-slate-900/80 text-[11px] text-slate-800 dark:text-slate-200 flex items-center justify-between gap-1 shadow-2xs"
+                            >
+                              <span className="truncate">{t.title}</span>
+                              {t.pageReference && (
+                                <span className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 shrink-0">
+                                  {t.pageReference.replace(/MoE.*?,\s*/i, '')}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <span className="text-[11px] font-mono text-slate-400 shrink-0 mt-1">
                     p. {ch.startPage}

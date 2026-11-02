@@ -342,10 +342,21 @@ export class PaymentService {
     return {};
   }
 
+  // Helper to persist subscription by both userId and email
+  static saveSubscriptionRecord(userId: string, userEmail: string | undefined, record: StudentSubscriptionRecord): void {
+    const subscriptions = this.getAllSubscriptions();
+    if (userId) subscriptions[userId] = record;
+    if (userEmail) subscriptions[userEmail.toLowerCase()] = record;
+    localStorage.setItem(STORAGE_KEY_SUBSCRIPTIONS, JSON.stringify(subscriptions));
+  }
+
   // Get subscription status for a specific user
   static getStudentSubscription(userId: string, userEmail: string, userGrade: GradeLevel): StudentSubscriptionRecord {
+    const cleanEmail = (userEmail || '').trim().toLowerCase();
+    const now = Date.now();
+
     // 1. Super Admin permanent free bypass across all modules
-    if (userEmail.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+    if (cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
       return {
         userId,
         grade: userGrade,
@@ -358,10 +369,87 @@ export class PaymentService {
       };
     }
 
-    // 2. Regular student lookup
+    // 2. Regular student lookup in subscriptions store (check by userId, email, and values)
     const subscriptions = this.getAllSubscriptions();
-    const existing = subscriptions[userId];
+    let existing: StudentSubscriptionRecord | undefined = subscriptions[userId];
+    if (!existing && cleanEmail) {
+      existing = subscriptions[cleanEmail];
+    }
+    if (!existing) {
+      existing = Object.values(subscriptions).find((s) => {
+        if (!s) return false;
+        if (userId && s.userId === userId) return true;
+        if (cleanEmail && s.userId && s.userId.toLowerCase() === cleanEmail) return true;
+        return false;
+      });
+    }
 
+    // 3. Fallback: Search all approved payment submissions for this student
+    if (!existing || existing.status !== 'ACTIVE') {
+      const allSubs = this.getAllSubmissions();
+      const approvedSub = allSubs.find((s) => {
+        const matchId = userId && s.studentId === userId;
+        const matchEmail = Boolean(cleanEmail && s.studentEmail && s.studentEmail.toLowerCase() === cleanEmail);
+        const isApproved = s.status === 'APPROVED';
+        const notExpired = s.expiresAt ? new Date(s.expiresAt).getTime() > now : false;
+        return (matchId || matchEmail) && isApproved && notExpired;
+      });
+
+      if (approvedSub && approvedSub.expiresAt) {
+        const expTime = new Date(approvedSub.expiresAt).getTime();
+        const days = Math.max(1, Math.ceil((expTime - now) / (1000 * 60 * 60 * 24)));
+        existing = {
+          userId,
+          grade: approvedSub.grade || userGrade,
+          status: 'ACTIVE',
+          planTitle: `${approvedSub.grade || userGrade}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ (${days} ቀናት ይቀራሉ)`,
+          amountPaid: approvedSub.amount,
+          activePaymentId: approvedSub.id,
+          activatedAt: approvedSub.reviewedAt || approvedSub.submittedAt,
+          expiresAt: approvedSub.expiresAt,
+          daysRemaining: days,
+          lastUpdated: new Date().toISOString(),
+        };
+        // Auto-persist so subsequent queries find it instantly
+        this.saveSubscriptionRecord(userId, cleanEmail, existing);
+      }
+    }
+
+    // 4. Fallback: Check Admin Student Registry
+    if (!existing || existing.status !== 'ACTIVE') {
+      try {
+        const rawReg = localStorage.getItem('nur_admin_student_registry_v1');
+        if (rawReg) {
+          const list = JSON.parse(rawReg);
+          if (Array.isArray(list)) {
+            const regStudent = list.find((st: any) => {
+              const matchId = userId && st.id === userId;
+              const matchEmail = Boolean(cleanEmail && st.email && st.email.toLowerCase() === cleanEmail);
+              return (matchId || matchEmail) && st.subscriptionStatus === 'ACTIVE' && (st.daysRemaining > 0 || st.daysRemaining === undefined);
+            });
+            if (regStudent) {
+              const days = regStudent.daysRemaining && regStudent.daysRemaining > 0 ? regStudent.daysRemaining : 30;
+              const expDate = new Date(now + days * 86400000).toISOString();
+              existing = {
+                userId,
+                grade: regStudent.grade || userGrade,
+                status: 'ACTIVE',
+                planTitle: `${regStudent.grade || userGrade}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
+                amountPaid: regStudent.totalSpentETB || 180,
+                daysRemaining: days,
+                expiresAt: expDate,
+                lastUpdated: new Date().toISOString(),
+              };
+              this.saveSubscriptionRecord(userId, cleanEmail, existing);
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // If still no subscription found, return default NONE
     if (!existing) {
       return {
         userId,
@@ -377,14 +465,12 @@ export class PaymentService {
     // Check expiry if currently active
     if (existing.status === 'ACTIVE' && existing.expiresAt) {
       const expTime = new Date(existing.expiresAt).getTime();
-      const now = Date.now();
       if (now > expTime) {
         existing.status = 'EXPIRED';
         existing.daysRemaining = 0;
-        subscriptions[userId] = existing;
-        localStorage.setItem(STORAGE_KEY_SUBSCRIPTIONS, JSON.stringify(subscriptions));
+        this.saveSubscriptionRecord(userId, cleanEmail, existing);
       } else {
-        existing.daysRemaining = Math.max(0, Math.ceil((expTime - now) / (1000 * 60 * 60 * 24)));
+        existing.daysRemaining = Math.max(1, Math.ceil((expTime - now) / (1000 * 60 * 60 * 24)));
       }
     }
 
@@ -417,8 +503,7 @@ export class PaymentService {
     localStorage.setItem(STORAGE_KEY_SUBMISSIONS, JSON.stringify(all));
 
     // Update student subscription to ACTIVE
-    const subscriptions = this.getAllSubscriptions();
-    subscriptions[payment.studentId] = {
+    const activeSubRecord: StudentSubscriptionRecord = {
       userId: payment.studentId,
       grade: payment.grade,
       status: 'ACTIVE',
@@ -430,7 +515,7 @@ export class PaymentService {
       daysRemaining: 30,
       lastUpdated: activatedAt,
     };
-    localStorage.setItem(STORAGE_KEY_SUBSCRIPTIONS, JSON.stringify(subscriptions));
+    this.saveSubscriptionRecord(payment.studentId, payment.studentEmail, activeSubRecord);
 
     this.logAudit({
       actor: adminEmail,
@@ -444,7 +529,21 @@ export class PaymentService {
 
     if (isFirebaseConfigured) {
       setDoc(doc(db, 'payments', payment.id), payment, { merge: true }).catch(() => {});
-      setDoc(doc(db, 'subscriptions', payment.studentId), subscriptions[payment.studentId]).catch(() => {});
+      setDoc(doc(db, 'subscriptions', payment.studentId), activeSubRecord, { merge: true }).catch(() => {});
+      if (payment.studentEmail) {
+        setDoc(doc(db, 'subscriptions', payment.studentEmail.toLowerCase()), activeSubRecord, { merge: true }).catch(() => {});
+      }
+      // CRITICAL: Update user profile document in Firestore so that when the user logs in from any session/device,
+      // their profile already has isPremium: true and premiumExpiresAt
+      setDoc(
+        doc(db, 'users', payment.studentId),
+        {
+          isPremium: true,
+          premiumExpiresAt: expiresAt,
+          subscriptionStatus: 'ACTIVE',
+        },
+        { merge: true }
+      ).catch(() => {});
     }
 
     return true;

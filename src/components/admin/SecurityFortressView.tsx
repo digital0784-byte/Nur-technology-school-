@@ -443,47 +443,27 @@ export const SecurityFortressView: React.FC = () => {
       {/* ============================================================== */}
       {activeTab === 'rbac' && (
         <div className="space-y-6 animate-in fade-in">
-          {/* 4 Role Tier Specification Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 3 Unified Pillar Specification Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* SUPER_ADMIN */}
             <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-900/30 to-amber-950/70 border border-amber-600/40 text-slate-800 dark:text-slate-100 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold text-[11px] uppercase tracking-wider">
-                  Tier 1 • ROOT
+                  Tier 1 • SUPER_ADMIN (ዋና አስተዳዳሪ)
                 </span>
                 <Unlock className="w-4 h-4 text-amber-500" />
               </div>
               <div>
-                <h3 className="font-black text-base text-slate-900 dark:text-white">SUPER_ADMIN</h3>
+                <h3 className="font-black text-base text-slate-900 dark:text-white">SUPER_ADMIN (የአስተዳደር ስራዎችን በሙሉ የሚሰራ)</h3>
                 <p className="text-[11px] text-amber-700 dark:text-amber-200/90 font-mono">
-                  mejennur669@gmail.com
+                  mejennur669@gmail.com (Nuriye Ahmed Adem)
                 </p>
               </div>
               <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside">
-                <li>ያለ ምንም ገደብ የሁሉንም ክፍሎች (9-12) መማሪያ መክፈት</li>
-                <li>የክፍያ ማረጋገጫዎች፣ የገንዘብ ተመኖችና የባንክ ሂሳቦች ማስተዳደር</li>
-                <li>የተማሪዎችን የክፍል መቆለፊያ (Grade Lock) መሻር</li>
-                <li>የDRM ቁልፎችና የኦዲት መዝገቦችን ሙሉ በሙሉ መቆጣጠር</li>
-              </ul>
-            </div>
-
-            {/* ADMIN */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-extrabold text-[11px] uppercase tracking-wider">
-                  Tier 2 • ADMIN
-                </span>
-                <ShieldCheck className="w-4 h-4 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="font-black text-base text-slate-900 dark:text-white">ADMIN</h3>
-                <p className="text-[11px] text-slate-500 font-semibold">ትምህርት ቤት አስተዳዳሪ</p>
-              </div>
-              <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                <li>የተማሪዎች ምዝገባ እና ዳታቤዝ ክትትል</li>
-                <li>የክፍያ ደረሰኞች ማረጋገጫ (Payment Approval)</li>
-                <li>የትምህርት ሚኒስቴር ይፋዊ የመማሪያ መጽሐፍት CMS</li>
-                <li>የተማሪዎች መታወቂያ እና የመሳሪያ ቁጥጥር</li>
+                <li>የadminን ስራ በሙሉ ራሱ ሱፐር አድሚኑ በቀጥታ ይሰራል (የተለየ admin board አያስፈልግም)</li>
+                <li>የክፍያ ማረጋገጫዎች፣ የባንክ ሂሳቦችና የትምህርት ቤት የገንዘብ ተመኖች ማስተዳደር</li>
+                <li>የተማሪዎች ምዝገባ፣ የክፍል መቆለፊያ (Grade Lock) እና የመሳሪያዎች ቁጥጥር</li>
+                <li>የትምህርት ሚኒስቴር ይፋዊ መማሪያ መጽሐፍት የDRM ቁልፎችና የኦዲት መዝገብ ሙሉ ቁጥጥር</li>
               </ul>
             </div>
 
@@ -491,12 +471,12 @@ export const SecurityFortressView: React.FC = () => {
             <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold text-[11px] uppercase tracking-wider">
-                  Tier 3 • AI TEACHER
+                  Tier 2 • AI TEACHER
                 </span>
                 <Cpu className="w-4 h-4 text-emerald-600" />
               </div>
               <div>
-                <h3 className="font-black text-base text-slate-900 dark:text-white">ራሱ ሲስተሙ (AI Teacher)</h3>
+                <h3 className="font-black text-base text-slate-900 dark:text-white">ራሱ ሲስተሙ (Autonomous AI Teacher)</h3>
                 <p className="text-[11px] text-slate-500 font-semibold">NUR AI Autonomous Teacher</p>
               </div>
               <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
@@ -511,7 +491,7 @@ export const SecurityFortressView: React.FC = () => {
             <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-extrabold text-[11px] uppercase tracking-wider">
-                  Tier 4 • STUDENT
+                  Tier 3 • STUDENT
                 </span>
                 <Lock className="w-4 h-4 text-rose-500" />
               </div>
@@ -520,10 +500,9 @@ export const SecurityFortressView: React.FC = () => {
                 <p className="text-[11px] text-slate-500 font-semibold">የተመዘገበ ተማሪ (Strict Lock)</p>
               </div>
               <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                <li>ከተመዘገበበት የክፍል ደረጃ (9-12) መውጣት በጥብቅ የተከለከለ ነው</li>
-                <li>የፈቀደውን ወርሃዊ ወይም ነጠላ ክፍያ ይዘት ብቻ መክፈት</li>
-                <li>DRM የውሃ ማህተም ያለበት የመማሪያ መጽሐፍ ማንበብ</li>
-                <li>የግል የፈተና ውጤትና የቤት ስራ ማየት</li>
+                <li>በተመዘገበበት አንድ የክፍል ደረጃ (9፣ 10፣ 11 ወይም 12) ላይ በጥብቅ መቆለፍ</li>
+                <li>የተፈቀደላቸውን የመማሪያ መጽሐፍት፣ ፈተናዎችና የቪዲዮ ላቦራቶሪዎች መማር</li>
+                <li>ክፍል መቀየር የሚቻለው በዋና አስተዳዳሪ (Super Admin) ፈቃድ ብቻ ነው</li>
               </ul>
             </div>
           </div>
@@ -748,8 +727,8 @@ export const SecurityFortressView: React.FC = () => {
                       onChange={(e) => setEditRole(e.target.value as any)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
                     >
-                      <option value="student">STUDENT (የተማሪ ደረጃ)</option>
-                      <option value="admin">ADMIN (የትምህርት ቤት አስተዳዳሪ)</option>
+                      <option value="student">STUDENT (የተማሪ ደረጃ - Grade Locked)</option>
+                      <option value="super_admin">SUPER_ADMIN (ዋና አስተዳዳሪ - Root Access)</option>
                     </select>
                   </div>
 

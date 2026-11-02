@@ -1,5 +1,7 @@
 import { GradeLevel, Language } from '../types';
+import { CURRICULUM_DATA } from './curriculum';
 import { GRADE_10_MATH_CHAPTERS, GRADE_10_PHYSICS_CHAPTERS } from './grade10TextbookChapters';
+import { GRADE_9_ECONOMICS_CHAPTERS } from './grade9EconomicsChapters';
 
 export interface LabExperiment {
   id: string;
@@ -43,12 +45,21 @@ export interface TextbookExercise {
   stepByStepSolution: Record<Language, string>[];
 }
 
+export interface ChapterTopicItem {
+  id: string;
+  title: string;
+  pageReference?: string;
+  competencyObjectives?: string[];
+  estimatedStudyMinutes?: number;
+}
+
 export interface TextbookChapter {
   unitNumber: number;
   title: Record<Language, string>;
   startPage: number;
   endPage: number;
   theoryContent: Record<Language, string>;
+  topics?: ChapterTopicItem[];
   examples: TextbookExample[];
   activities: TextbookActivity[];
   experiments: LabExperiment[];
@@ -293,18 +304,254 @@ export const SAMPLE_LAB_EXPERIMENTS: Record<string, LabExperiment> = {
   },
 };
 
+function parsePageRange(description: string, fallbackStart = 1, fallbackEnd = 40): { startPage: number; endPage: number } {
+  const matchRange = description.match(/pp?\.\s*(\d+)(?:\s*-\s*(\d+))?/i);
+  if (matchRange) {
+    const start = parseInt(matchRange[1], 10);
+    const end = matchRange[2] ? parseInt(matchRange[2], 10) : start + 25;
+    return { startPage: start, endPage: end };
+  }
+  const matchStart = description.match(/(?:starts|from)\s+p\.\s*(\d+)/i);
+  if (matchStart) {
+    const start = parseInt(matchStart[1], 10);
+    return { startPage: start, endPage: start + 30 };
+  }
+  return { startPage: fallbackStart, endPage: fallbackEnd };
+}
+
 // -------------------------------------------------------------
 // HELPER TO CONSTRUCT COMPREHENSIVE CHAPTERS FOR EACH SUBJECT
+// Automatically pulls all units & all topics from CURRICULUM_DATA!
 // -------------------------------------------------------------
 function buildChaptersForSubject(
   subjectCode: string,
   grade: GradeLevel
 ): TextbookChapter[] {
+  let customChapters: TextbookChapter[] | null = null;
   if (subjectCode === 'MATH' && grade === 10) {
-    return GRADE_10_MATH_CHAPTERS;
+    customChapters = GRADE_10_MATH_CHAPTERS;
+  } else if (subjectCode === 'PHYS' && grade === 10) {
+    customChapters = GRADE_10_PHYSICS_CHAPTERS;
+  } else if (subjectCode === 'ECON' && grade === 9) {
+    customChapters = GRADE_9_ECONOMICS_CHAPTERS;
   }
-  if (subjectCode === 'PHYS' && grade === 10) {
-    return GRADE_10_PHYSICS_CHAPTERS;
+
+  // Find matching subject in CURRICULUM_DATA
+  const currSub = CURRICULUM_DATA.find((s) => {
+    if (s.grade !== grade) return false;
+    const sCode = s.code.toUpperCase();
+    const target = subjectCode.toUpperCase();
+    return (
+      sCode === target ||
+      sCode.startsWith(target) ||
+      target.startsWith(sCode) ||
+      s.id.toUpperCase().includes(target)
+    );
+  });
+
+  if (currSub && currSub.units.length > 0) {
+    // If pre-authored custom chapters exist, attach curriculum topics
+    if (customChapters && customChapters.length > 0) {
+      return customChapters.map((ch) => {
+        const matchingUnit = currSub.units.find((u) => u.unitNumber === ch.unitNumber);
+        const topics: ChapterTopicItem[] = matchingUnit
+          ? matchingUnit.topics.map((t) => ({
+              id: t.id,
+              title: t.title,
+              pageReference: t.pageReference,
+              competencyObjectives: t.competencyObjectives || [],
+              estimatedStudyMinutes: t.estimatedStudyMinutes || 30,
+            }))
+          : (ch.topics || []);
+        return {
+          ...ch,
+          topics,
+        };
+      });
+    }
+
+    // Build complete chapters from curriculum units with ALL topics
+    return currSub.units.map((u) => {
+      const { startPage, endPage } = parsePageRange(
+        u.description,
+        (u.unitNumber - 1) * 35 + 1,
+        u.unitNumber * 35
+      );
+      const topics: ChapterTopicItem[] = u.topics.map((t) => ({
+        id: t.id,
+        title: t.title,
+        pageReference: t.pageReference,
+        competencyObjectives: t.competencyObjectives || [],
+        estimatedStudyMinutes: t.estimatedStudyMinutes || 30,
+      }));
+
+      const unitTitleStr = u.title;
+      return {
+        unitNumber: u.unitNumber,
+        title: {
+          am: `ምዕራፍ ${u.unitNumber}፡ ${unitTitleStr}`,
+          om: `Boqonnaa ${u.unitNumber}: ${unitTitleStr}`,
+          ti: `ምዕራፍ ${u.unitNumber}፡ ${unitTitleStr}`,
+          ar: `الوحدة ${u.unitNumber}: ${unitTitleStr}`,
+          so: `Cutubka ${u.unitNumber}: ${unitTitleStr}`,
+          en: `Unit ${u.unitNumber}: ${unitTitleStr}`,
+        },
+        startPage,
+        endPage,
+        topics,
+        theoryContent: {
+          am: `ይህ ምዕራፍ ${u.unitNumber} (${unitTitleStr}) የትምህርት ሚኒስቴር ክፍል ${grade} ስርዓተ-ትምህርት ሲሆን፣ የሚከተሉትን ንዑሳን ርዕሶች በዝርዝር ያብራራል፦ ${u.topics.map((t) => t.title).join('፣ ')}።`,
+          om: `Boqonnaan kun mata dureewwan armaan gadii qaba: ${u.topics.map((t) => t.title).join(', ')}.`,
+          ti: `እዚ ምዕራፍ እዞም ዝስዕቡ ርእስታት የጠቓልል፦ ${u.topics.map((t) => t.title).join('፣ ')}።`,
+          ar: `تغطي هذه الوحدة الموضوعات التالية بالتفصيل وفق المنهج الرسمي: ${u.topics.map((t) => t.title).join('، ')}.`,
+          so: `Cutubkan wuxuu ka kooban yahay mowduucyada soo socda: ${u.topics.map((t) => t.title).join(', ')}.`,
+          en: `Unit ${u.unitNumber} thoroughly covers the MoE Grade ${grade} curriculum topics: ${u.topics.map((t) => t.title).join(', ')}.`,
+        },
+        examples: [
+          {
+            id: `ex-${currSub.id}-${u.unitNumber}.1`,
+            exampleNumber: `ምሳሌ ${u.unitNumber}.1`,
+            problemStatement: {
+              am: `በ${unitTitleStr} ስር የተካተቱ ቁልፍ ፅንሰ-ሀሳቦችን እና የትግበራ ቀመሮችን በመጠቀም የተዘጋጀ አርአያ ምሳሌ።`,
+              om: `Fakkeenya boqonnaa ${u.unitNumber}.`,
+              ti: `ኣርኣያ ምሳሌ ናይ ምዕራፍ ${u.unitNumber}።`,
+              ar: `مسألة نموذجية توضح التطبيقات العملية للمفاهيم الأساسية في هذه الوحدة.`,
+              so: `Tusaale ku saabsan cutubka ${u.unitNumber}.`,
+              en: `Demonstrative worked example applying fundamental principles of ${unitTitleStr}.`,
+            },
+            given: u.topics.slice(0, 3).map((t) => t.title),
+            formula: 'MoE Curriculum Standard Model',
+            calculationSteps: [
+              {
+                am: 'ደረጃ 1፡ የተሰጡ መረጃዎችን እና ዋናውን ቀመር ለይቶ ማውጣት።',
+                om: 'Tarkaanfii 1: Qabxiilee fi foormulaa adda baasuu.',
+                ti: 'ደረጃ 1፡ መረዳእታ ምልላይ።',
+                ar: 'الخطوة 1: استخراج المعطيات وتحديد القانون الرياضي أو العلمي الحاكم.',
+                so: 'Tallaabada 1: Aqoonsiga xogta.',
+                en: 'Step 1: Extract givens and identify governing principle.',
+              },
+              {
+                am: 'ደረጃ 2፡ ቀመሩን በመተግበር ደረጃ በደረጃ ውጤቱን ማስላት።',
+                om: 'Tarkaanfii 2: Herseguu.',
+                ti: 'ደረጃ 2፡ ምሕሳብ።',
+                ar: 'الخطوة 2: التعويض المنطقي وحساب النتيجة النهائية.',
+                so: 'Tallaabada 2: Xisaabinta.',
+                en: 'Step 2: Step-by-step substitution and solution derivation.',
+              },
+            ],
+            finalAnswer: {
+              am: `የምዕራፍ ${u.unitNumber} ማጠቃለያ መልስ።`,
+              om: `Deebii boqonnaa ${u.unitNumber}.`,
+              ti: `መልሲ ምዕራፍ ${u.unitNumber}።`,
+              ar: `الحل النهائي النموذجي لمسألة الوحدة.`,
+              so: `Jawaabta cutubka ${u.unitNumber}.`,
+              en: `Comprehensive final answer for Unit ${u.unitNumber}.`,
+            },
+            pedagogicalNote: {
+              am: `ማስታወሻ፡ በመማሪያ መጽሐፉ ${u.description} ያሉትን ተጨማሪ ምሳሌዎች ይመልከቱ።`,
+              om: `Hubachiisa fuula ${u.description} ilaalaa.`,
+              ti: `ኣብ ${u.description} ዘለዉ ምሳሌታት ተመልከቱ።`,
+              ar: `ملاحظة تعليمية: راجع الأمثلة الإضافية في كتاب الوزارة ${u.description}.`,
+              so: `Tixraac ${u.description}.`,
+              en: `Pedagogical note: Refer to additional worked items in MoE syllabus ${u.description}.`,
+            },
+          },
+        ],
+        activities: [
+          {
+            id: `act-${currSub.id}-${u.unitNumber}.1`,
+            activityNumber: `አክቲቪቲ ${u.unitNumber}.1`,
+            title: {
+              am: `የቡድን ውይይት እና ተግባራዊ ልምምድ (${unitTitleStr})`,
+              om: `Hojii garee (${unitTitleStr})`,
+              ti: `ናይ ጉጅለ ልምምድ (${unitTitleStr})`,
+              ar: `نشاط صفي تفاعلي لموضوعات (${unitTitleStr})`,
+              so: `Hawlgal kooxeed (${unitTitleStr})`,
+              en: `Collaborative Inquiry & Practice (${unitTitleStr})`,
+            },
+            instruction: {
+              am: `በክፍል ውስጥ በቡድን በመሆን በምዕራፉ ስር የተካተቱትን ርዕሶች በመከፋፈል ለክፍሉ ገለጻ አቅርቡ።`,
+              om: `Gareen qoradhaa dareef dhiyeessaa.`,
+              ti: `ብጉጅለ ኴንኩም ንክፍሊ ኣቕርቡ።`,
+              ar: `في مجموعات طلابية، اختر أحد الموضوعات وقدم عرضاً موجزاً يوضح مفاهيمه وتطبيقاته في إثيوبيا.`,
+              so: 'U soo bandhig fasalka.',
+              en: 'Collaborate in small teams to investigate and present applications of this unit to the class.',
+            },
+            groupTask: {
+              am: 'በቡድን ሰንጠረዥ እና ማጠቃለያ ማዘጋጀት።',
+              om: 'Gabatee qopheessaa.',
+              ti: 'ሰሌዳ ኣዳልዉ።',
+              ar: 'إعداد ملخص بياني مشترك.',
+              so: 'Samee miis kooxeed.',
+              en: 'Formulate a structured synthesis chart.',
+            },
+            criticalThinkingQuestion: {
+              am: 'ይህ ፅንሰ-ሀሳብ በእለት ተእለት ኑሮአችን ውስጥ እንዴት ይተገበራል?',
+              om: 'Jireenya guyyaa keessatti akkamitti hojiirra oola?',
+              ti: 'ኣብ ዕለታዊ ናብራ ብኸመይ ይትግበር?',
+              ar: 'كيف ترتبط مفاهيم هذه الوحدة بالحياة العملية والتنمية في إثيوبيا؟',
+              so: 'Sidee loogu adeegsadaa nolosha dhabta ah?',
+              en: 'How do the core ideas of this unit translate into real-world technological or socio-economic practice in Ethiopia?',
+            },
+          },
+        ],
+        experiments:
+          currSub.code.includes('PHYS') || currSub.code.includes('CHEM') || currSub.code.includes('BIO')
+            ? [SAMPLE_LAB_EXPERIMENTS.kinematics]
+            : [],
+        reviewExercises: [
+          {
+            id: `rev-${currSub.id}-${u.unitNumber}.1`,
+            exerciseNumber: `የምዕራፍ ${u.unitNumber} ማጠቃለያ ጥያቄ 1`,
+            type: 'multiple_choice',
+            question: {
+              am: `በ${unitTitleStr} ስር ዋናው የመማሪያ ግብ የትኛው ነው?`,
+              om: `Kaayyoon boqonnaa ${u.unitNumber} kami?`,
+              ti: 'ቀንዲ ዕላማ እንታይ እዩ?',
+              ar: `ما هو المحور الأساسي الذي تدور حوله مخرجات التعلم في هذه الوحدة؟`,
+              so: `Waa maxay ujeedada cutubka ${u.unitNumber}?`,
+              en: `Which statement represents a core competency of Unit ${u.unitNumber} (${unitTitleStr})?`,
+            },
+            options: [
+              `A. የ${u.topics[0]?.title || unitTitleStr} ፅንሰ-ሀሳቦችን መረዳትና መተግበር`,
+              'B. መረጃዎችን ያለ ትንታኔ መሸምደድ ብቻ',
+              'C. ከስርዓተ-ትምህርቱ ውጪ የሆኑ ነገሮችን ማጥናት',
+              'D. ምንም አይነት ስሌት አለመስራት',
+            ],
+            correctAnswer: {
+              am: `A. የ${u.topics[0]?.title || unitTitleStr} ፅንሰ-ሀሳቦችን መረዳትና መተግበር`,
+              om: `A. Qabxiilee ${unitTitleStr} hubachuu fi hojiirra oolchuu`,
+              ti: `A. ናይ ${unitTitleStr} ምስትውዓልን ምትግባርን`,
+              ar: `A. استيعاب وتطبيق المفاهيم الأساسية المقررة في هذه الوحدة`,
+              so: `A. Fahamka iyo adeegsiga mowduuca`,
+              en: `A. Understanding and rigorously applying the principles of ${unitTitleStr}`,
+            },
+            stepByStepSolution: [
+              {
+                am: `የትምህርት ሚኒስቴር ስርዓተ-ትምህርት ${u.description} መሰረት ቁልፍ ዕውቀትን ማዳበር ዋናው ግብ ነው።`,
+                om: `Sirna barnootaa MoE ${u.description} bu\'uura godhata.`,
+                ti: 'መሰረት ስርዓተ-ትምህርቲ MoE ምምዕባል እዩ።',
+                ar: `وفق معايير المنهج الصادر عن وزارة التربية والتعليم، فإن الهدف الجوهري هو الفهم المفاهيمي العميق والتطبيق العملي.`,
+                so: 'Sida ku cad manhajka MoE.',
+                en: `Aligned with MoE syllabus standard competencies for ${u.description}.`,
+              },
+            ],
+          },
+        ],
+        supplementaryNote: {
+          am: `ተጨማሪ ማጣቀሻ፡ የትምህርት ሚኒስቴር ክፍል ${grade} ${currSub.name.am} ይፋዊ መማሪያ መጽሐፍ (${u.description}) ይመልከቱ።`,
+          om: `Kitaaba MoE fuula (${u.description}) ilaalaa.`,
+          ti: `መጽሓፍ MoE (${u.description}) ተመልከቱ።`,
+          ar: `راجع كتاب الطالب المعتمد من وزارة التربية والتعليم للصف ${grade} (${u.description}).`,
+          so: `Tixraac buugga MoE (${u.description}).`,
+          en: `Supplementary: MoE Grade ${grade} Official Student Textbook (${u.description}).`,
+        },
+      };
+    });
+  }
+
+  if (customChapters) {
+    return customChapters;
   }
 
   if (subjectCode === 'PHYS') {
@@ -1070,14 +1317,14 @@ export const COMPREHENSIVE_TEXTBOOKS_REGISTRY: TextbookRecord[] = [
     },
     category: 'official_textbook',
     coverColor: 'emerald',
-    totalPages: 248,
+    totalPages: 360,
     pdfUrl: 'https://moe.gov.et/textbooks/grade9/mathematics.pdf',
     firebaseStoragePath: 'gs://nur-ai-moe-curriculum.firebasestorage.app/textbooks/grade9/mathematics_g9_moe_2019ec.pdf',
     firebaseDownloadUrl: 'https://firebasestorage.googleapis.com/v0/b/nur-ai-moe-curriculum.firebasestorage.app/o/textbooks%2Fgrade9%2Fmathematics_g9_moe_2019ec.pdf?alt=media',
     fileSizeBytes: 24582048,
     md5Checksum: 'e89f812a6cb84e7f912b70d58c19a4e1',
     syncStatus: 'synced',
-    chaptersCount: 4,
+    chaptersCount: buildChaptersForSubject('MATH', 9).length,
     chapters: buildChaptersForSubject('MATH', 9),
     drmProtected: true,
   },
@@ -1110,7 +1357,7 @@ export const COMPREHENSIVE_TEXTBOOKS_REGISTRY: TextbookRecord[] = [
     fileSizeBytes: 21495808,
     md5Checksum: 'b71a938c4f92d1a58c03e8f411b9c20a',
     syncStatus: 'synced',
-    chaptersCount: 4,
+    chaptersCount: buildChaptersForSubject('PHYS', 9).length,
     chapters: buildChaptersForSubject('PHYS', 9),
     drmProtected: true,
   },
@@ -1343,6 +1590,39 @@ export const COMPREHENSIVE_TEXTBOOKS_REGISTRY: TextbookRecord[] = [
     syncStatus: 'synced',
     chaptersCount: 4,
     chapters: buildChaptersForSubject('CIT', 9),
+    drmProtected: true,
+  },
+  {
+    id: 'tb-g9-econ',
+    grade: 9,
+    subjectCode: 'ECON',
+    subjectName: {
+      am: 'ኢኮኖሚክስ',
+      om: 'Ikonomiksii',
+      ti: 'ኢኮኖሚክስ',
+      ar: 'الاقتصاد',
+      so: 'Dhaqaale',
+      en: 'Economics',
+    },
+    title: {
+      am: 'የክፍል 9 የኢኮኖሚክስ ይፋዊ የመማሪያ መጽሐፍ (2019 ዓ.ም አዲሱ ስርዓተ-ትምህርት)',
+      om: 'Kitaaba Barataa Ikonomiksii Kutaa 9ffaa (Sirna Barnootaa Haaraa)',
+      ti: 'ናይ ክፍሊ 9 ናይ ኢኮኖሚክስ መጽሓፍ ተምሃራይ',
+      ar: 'كتاب الاقتصاد للصف التاسع (المنهج الإثيوبي الجديد 2019 ت.إ)',
+      so: 'Buugga Dhaqaalaha Fasalka 9aad ee Manhalka Cusub',
+      en: 'Grade 9 Student Economics Textbook (FDRE MoE New Curriculum)',
+    },
+    category: 'official_textbook',
+    coverColor: 'indigo',
+    totalPages: 110,
+    pdfUrl: 'https://moe.gov.et/textbooks/grade9/economics.pdf',
+    firebaseStoragePath: 'gs://nur-ai-moe-curriculum.firebasestorage.app/textbooks/grade9/economics_g9_moe_2019ec.pdf',
+    firebaseDownloadUrl: 'https://firebasestorage.googleapis.com/v0/b/nur-ai-moe-curriculum.firebasestorage.app/o/textbooks%2Fgrade9%2Feconomics_g9_moe_2019ec.pdf?alt=media',
+    fileSizeBytes: 18450000,
+    md5Checksum: 'd41d8cd98f00b204e9800998ecf8427e',
+    syncStatus: 'synced',
+    chaptersCount: 8,
+    chapters: buildChaptersForSubject('ECON', 9),
     drmProtected: true,
   },
 

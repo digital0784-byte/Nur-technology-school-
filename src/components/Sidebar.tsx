@@ -250,13 +250,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </span>
                         {mod.adminOnly && (
                           <span
-                            className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase ${
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
                               isActive
                                 ? 'bg-amber-400/30 text-amber-200'
                                 : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
                             }`}
                           >
-                            Admin
+                            Super Admin
                           </span>
                         )}
                       </div>

@@ -405,17 +405,17 @@ export const AdminErpDashboard: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-black uppercase tracking-wider">
               <ShieldCheck className="w-4 h-4 text-amber-400" />
-              School Admin ERP & Financial Ledger
+              Super Admin Control & School Management ERP
             </span>
             <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
               ● MoE 2019 E.C. Certified
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-            የትምህርት ቤት አስተዳደርና የፋይናንስ ዳሽቦርድ
+            የሱፐር አድሚን ዳሽቦርድ (Super Admin ERP & Management)
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1">
-            ዋና አስተዳዳሪ: <span className="font-bold text-amber-400">Nuriye Ahmed Adem</span> (mejennur669@gmail.com • 0910097862)
+            ዋና አስተዳዳሪ (Super Admin): <span className="font-bold text-amber-400">Nuriye Ahmed Adem</span> (mejennur669@gmail.com • 0910097862) — ሁሉንም የአስተዳደር፣ የተማሪዎች፣ የክፍያና የDRM ቁጥጥር ስራዎች በቀጥታ የሚያስተዳድርበት ማዕከል
           </p>
         </div>
 

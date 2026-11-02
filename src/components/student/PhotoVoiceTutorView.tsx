@@ -11,11 +11,13 @@ export const PhotoVoiceTutorView: React.FC = () => {
   const [prompt, setPrompt] = useState('Solve this question step-by-step: Evaluate the integral or limit.');
   const [isSolving, setIsSolving] = useState(false);
   const [solution, setSolution] = useState<string | null>(null);
+  const [isCached, setIsCached] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleSolve = async () => {
     setIsSolving(true);
     setSolution(null);
+    setIsCached(false);
     try {
       const res = await fetch('/api/ai/ocr-solve', {
         method: 'POST',
@@ -31,6 +33,7 @@ export const PhotoVoiceTutorView: React.FC = () => {
       const data = await res.json();
       if (data.success && data.solution) {
         setSolution(data.solution);
+        setIsCached(data.cached === true);
         updateUserXP(45);
       }
     } catch {
@@ -133,12 +136,19 @@ export const PhotoVoiceTutorView: React.FC = () => {
         <div className="lg:col-span-6 space-y-4">
           {solution ? (
             <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 animate-in fade-in">
-              <div className="flex items-center justify-between border-b pb-3 text-xs font-bold text-emerald-600">
-                <span className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-between border-b pb-3 text-xs font-bold gap-2">
+                <span className="flex items-center gap-1.5 text-emerald-600">
                   <CheckCircle className="w-4 h-4" />
                   የተሟላ የደረጃ በደረጃ አፈታት
                 </span>
-                <span className="font-mono text-slate-400">AI Verified</span>
+                <div className="flex items-center gap-2">
+                  {isCached && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold text-[10px] border border-amber-300 dark:border-amber-700">
+                      ⚡ የጋራ እውቀት (Shared Cache)
+                    </span>
+                  )}
+                  <span className="font-mono text-slate-400">AI Verified</span>
+                </div>
               </div>
               <div className="prose dark:prose-invert max-w-none text-xs sm:text-sm text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed font-mono">
                 {solution}

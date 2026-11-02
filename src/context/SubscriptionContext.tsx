@@ -44,6 +44,9 @@ interface SubscriptionContextType {
   };
 }
 
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db, isFirebaseConfigured } from '../services/firebase';
+
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -72,12 +75,115 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     refreshState();
   }, [activeGrade, currentUser.id, currentUser.email, refreshState]);
 
+  // Firestore live subscription listener for logged in user (cross-device & logout/login sync)
+  useEffect(() => {
+    if (!isFirebaseConfigured || !currentUser.id || currentUser.id === 'guest') return;
+
+    const unsubs: Array<() => void> = [];
+
+    const handleSnap = (snap: any) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const now = Date.now();
+        const expTime = data.expiresAt ? new Date(data.expiresAt).getTime() : 0;
+        const isActive = data.status === 'ACTIVE' && (!data.expiresAt || expTime > now);
+
+        if (isActive) {
+          const days = expTime > 0 ? Math.max(1, Math.ceil((expTime - now) / (1000 * 60 * 60 * 24))) : 30;
+          const restored: StudentSubscriptionRecord = {
+            userId: currentUser.id,
+            grade: data.grade || activeGrade,
+            status: 'ACTIVE',
+            planTitle: data.planTitle || `${data.grade || activeGrade}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
+            amountPaid: data.amountPaid || PaymentService.getPriceForGrade(activeGrade),
+            activePaymentId: data.activePaymentId,
+            activatedAt: data.activatedAt,
+            expiresAt: data.expiresAt,
+            daysRemaining: days,
+            lastUpdated: new Date().toISOString(),
+          };
+          setSubscription(restored);
+          PaymentService.saveSubscriptionRecord(currentUser.id, currentUser.email, restored);
+        }
+      }
+    };
+
+    try {
+      const unsubId = onSnapshot(doc(db, 'subscriptions', currentUser.id), handleSnap, (err) => {
+        console.warn('Subscription id listener:', err);
+      });
+      unsubs.push(unsubId);
+
+      if (currentUser.email) {
+        const unsubEmail = onSnapshot(doc(db, 'subscriptions', currentUser.email.toLowerCase()), handleSnap, (err) => {
+          console.warn('Subscription email listener:', err);
+        });
+        unsubs.push(unsubEmail);
+      }
+    } catch (e) {
+      console.warn('Could not attach subscription listener:', e);
+    }
+
+    return () => {
+      unsubs.forEach((u) => u());
+    };
+  }, [currentUser.id, currentUser.email, activeGrade]);
+
   // Determine current price based on student active grade
   const currentGradePrice = PaymentService.getPriceForGrade(activeGrade);
 
-  // Status computation: Super Admin is always ACTIVE
-  const status: PaymentSubscriptionStatus = isSuperAdmin ? 'ACTIVE' : subscription.status;
-  const isUnlocked: boolean = isSuperAdmin || status === 'ACTIVE';
+  // Check if currentUser profile in Firestore has active premium subscription
+  const hasProfilePremium = (() => {
+    if (isSuperAdmin) return true;
+    if (currentUser.isPremium) {
+      if (!currentUser.premiumExpiresAt) return true;
+      const exp = new Date(
+        currentUser.premiumExpiresAt.includes('T')
+          ? currentUser.premiumExpiresAt
+          : `${currentUser.premiumExpiresAt}T23:59:59`
+      ).getTime();
+      return exp > Date.now();
+    }
+    return false;
+  })();
+
+  const isSubscriptionActive =
+    subscription.status === 'ACTIVE' &&
+    (!subscription.expiresAt || new Date(subscription.expiresAt).getTime() > Date.now());
+
+  // Master Unlocked condition: Super Admin, or active user profile premium, or active subscription record
+  const isUnlocked: boolean = isSuperAdmin || hasProfilePremium || isSubscriptionActive;
+
+  // Master Status: ACTIVE if unlocked, PENDING if awaiting approval, or previous status
+  const status: PaymentSubscriptionStatus = isUnlocked
+    ? 'ACTIVE'
+    : subscription.status === 'PENDING'
+    ? 'PENDING'
+    : subscription.status;
+
+  // Ensure effective subscription has active days remaining if unlocked via profile
+  const effectiveSubscription: StudentSubscriptionRecord =
+    hasProfilePremium && subscription.status !== 'ACTIVE'
+      ? {
+          userId: currentUser.id,
+          grade: currentUser.grade || activeGrade,
+          status: 'ACTIVE',
+          planTitle: `${currentUser.grade || activeGrade}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
+          amountPaid: currentGradePrice,
+          daysRemaining: currentUser.premiumExpiresAt
+            ? Math.max(1, Math.ceil((new Date(currentUser.premiumExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+            : 30,
+          expiresAt: currentUser.premiumExpiresAt,
+          lastUpdated: new Date().toISOString(),
+        }
+      : subscription;
+
+  // Keep local cache warm if unlocked
+  useEffect(() => {
+    if (isUnlocked && currentUser.id && currentUser.id !== 'guest') {
+      PaymentService.saveSubscriptionRecord(currentUser.id, currentUser.email, effectiveSubscription);
+    }
+  }, [isUnlocked, currentUser.id, currentUser.email, effectiveSubscription]);
 
   // Student submits payment
   const submitPayment = async (
@@ -175,7 +281,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       value={{
         status,
         isUnlocked,
-        subscription,
+        subscription: effectiveSubscription,
         pricing,
         accounts,
         currentGradePrice,

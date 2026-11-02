@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
@@ -10,6 +11,8 @@ import {
   rateLimiterMiddleware,
   inputSanitizerMiddleware,
 } from './src/server/securityRouter';
+import { sharedAiCache } from './src/server/sharedAiCache';
+import { generateCurriculumLessonFallback } from './curriculumLessonFallback';
 
 dotenv.config();
 
@@ -43,11 +46,10 @@ if (apiKey) {
 
 // Fallback model list prioritized for speed, quota resilience, and reasoning
 const RESILIENT_MODELS = [
-  'gemini-3.1-flash-lite',
   'gemini-3.8-flash',
-  'gemini-3.6-flash',
+  'gemini-3.1-flash-lite',
   'gemini-flash-latest',
-  'gemini-3.1-pro-preview',
+  'gemini-4-argon',
 ];
 
 interface CallGeminiOptions {
@@ -94,11 +96,21 @@ async function callResilientGemini(promptText: string, options: CallGeminiOption
     } catch (err: any) {
       console.warn(`Model ${model} failed, trying next fallback:`, err?.message || err);
       lastError = err;
+      const msg = String(err?.message || '');
+      if (err?.status === 429 || msg.includes('429') || msg.includes('Quota exceeded') || msg.includes('RESOURCE_EXHAUSTED')) {
+        console.warn('Gemini Free Tier quota exhausted for project, breaking fallback loop immediately.');
+        break;
+      }
     }
   }
 
   throw new Error(`All Gemini fallback models exhausted. Last error: ${lastError?.message || 'Unknown error'}`);
 }
+
+// Shared AI Knowledge Cache Statistics & Savings Endpoint
+app.get('/api/ai/cache-stats', (_req: Request, res: Response) => {
+  res.json(sharedAiCache.getStats());
+});
 
 // AI Socratic Tutor endpoint
 app.post('/api/ai/tutor', async (req: Request, res: Response) => {
@@ -114,6 +126,27 @@ app.post('/api/ai/tutor', async (req: Request, res: Response) => {
       diagnosticContext_weakAreas,
       language = 'am',
     } = req.body;
+
+    // Check shared cross-student AI cache before calling Gemini
+    const cachedReply = sharedAiCache.getTutorReply({
+      grade: String(grade),
+      subject: String(subject),
+      unit: String(unit),
+      topic: String(topic),
+      message: String(message || ''),
+      language: String(language),
+    });
+
+    if (cachedReply) {
+      return res.json({
+        success: true,
+        reply: cachedReply.reply,
+        modelUsed: cachedReply.modelUsed || 'shared-community-cache',
+        cached: true,
+        source: 'SHARED_COMMUNITY_CACHE',
+        hitCount: cachedReply.hitCount,
+      });
+    }
 
     const languageInstructions: Record<string, string> = {
       am: 'በግልጽ እና በሚያበረታታ አማርኛ መልስ ስጥ። ቁልፍ ሳይንሳዊ እና የሂሳብ ቃላትን በእንግሊዝኛ በቅንፍ ውስጥ አካትት። (e.g., ፍጥንጥነት (Acceleration), ገደብ (Limit), ስብስብ (Set))።',
@@ -168,10 +201,25 @@ TEACHING RULES & PEDAGOGICAL CONSTRAINTS:
       temperature: 0.6,
     });
 
+    // Save to shared AI knowledge cache so any student asking same question later gets free instant response
+    sharedAiCache.setTutorReply(
+      {
+        grade: String(grade),
+        subject: String(subject),
+        unit: String(unit),
+        topic: String(topic),
+        message: String(message || ''),
+        language: String(language),
+      },
+      result.text,
+      result.modelUsed
+    );
+
     res.json({
       success: true,
       reply: result.text,
       modelUsed: result.modelUsed,
+      cached: false,
     });
   } catch (err: any) {
     console.error('Error in /api/ai/tutor:', err);
@@ -190,6 +238,26 @@ app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
 
     if (!imageBase64 && !questionPrompt) {
       return res.status(400).json({ success: false, error: 'Either imageBase64 or questionPrompt must be provided' });
+    }
+
+    // Check shared cross-student AI cache
+    const cachedOcr = sharedAiCache.getOcrSolve({
+      grade: String(grade),
+      subject: String(subject),
+      questionPrompt: questionPrompt ? String(questionPrompt) : undefined,
+      imageBase64: imageBase64 ? String(imageBase64) : undefined,
+      language: String(language),
+    });
+
+    if (cachedOcr) {
+      return res.json({
+        success: true,
+        solution: cachedOcr.solution,
+        modelUsed: cachedOcr.modelUsed || 'shared-community-cache',
+        cached: true,
+        source: 'SHARED_COMMUNITY_CACHE',
+        hitCount: cachedOcr.hitCount,
+      });
     }
 
     const parts: Array<any> = [];
@@ -226,10 +294,24 @@ Step 5: ✅ Sanity Check & Final Answer (የውጤቱ ትክክለኛነት ማ�
       temperature: 0.3,
     });
 
+    // Save to persistent shared AI cache
+    sharedAiCache.setOcrSolve(
+      {
+        grade: String(grade),
+        subject: String(subject),
+        questionPrompt: questionPrompt ? String(questionPrompt) : undefined,
+        imageBase64: imageBase64 ? String(imageBase64) : undefined,
+        language: String(language),
+      },
+      result.text,
+      result.modelUsed
+    );
+
     res.json({
       success: true,
       solution: result.text,
       modelUsed: result.modelUsed,
+      cached: false,
     });
   } catch (err: any) {
     console.error('Error in /api/ai/ocr-solve:', err);
@@ -240,10 +322,383 @@ Step 5: ✅ Sanity Check & Final Answer (የውጤቱ ትክክለኛነት ማ�
   }
 });
 
+// In-memory cache for generated lessons keyed by `${topicId}:${language}`
+const LESSON_MEMORY_CACHE = new Map<string, { lesson: any; grounded: boolean; sources: any[]; modelUsed?: string }>();
+
+function parsePageRange(ref?: string): [number, number] | null {
+  if (!ref || typeof ref !== 'string') return null;
+  const matchRange = ref.match(/(\d+)\s*[-–—to]+\s*(\d+)/i);
+  if (matchRange) {
+    const start = parseInt(matchRange[1], 10);
+    const end = parseInt(matchRange[2], 10);
+    if (!isNaN(start) && !isNaN(end)) {
+      return [Math.min(start, end), Math.max(start, end)];
+    }
+  }
+  const matchSingle = ref.match(/(\d+)/);
+  if (matchSingle) {
+    const p = parseInt(matchSingle[1], 10);
+    if (!isNaN(p)) return [p, p];
+  }
+  return null;
+}
+
+function findTextbookPages(subjectCode: string, subjectName: string, grade: any): any[] | null {
+  const dataDir = path.resolve(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) return null;
+
+  const sName = (subjectName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const sCode = (subjectCode || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const gStr = String(grade || '').replace(/[^0-9]/g, '');
+
+  try {
+    const files = fs.readdirSync(dataDir);
+    for (const f of files) {
+      if (!f.endsWith('.json')) continue;
+      const lower = f.toLowerCase();
+      const hasGrade = lower.includes(`grade${gStr}`) || lower.includes(`g${gStr}`) || (gStr && lower.includes(gStr));
+      const hasSub = (sName && lower.includes(sName)) || (sCode && lower.includes(sCode));
+      if (hasGrade && hasSub) {
+        const fullPath = path.join(dataDir, f);
+        const parsed = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
+        if (Array.isArray(parsed.pages)) {
+          return parsed.pages;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error reading textbook data directory:', err);
+  }
+  return null;
+}
+
+// Generate Full Lesson from Topic (with MoE Textbook Grounding)
+app.post('/api/ai/lesson', async (req: Request, res: Response) => {
+  try {
+    const {
+      subjectCode = '',
+      subjectName = '',
+      grade = '10',
+      unitTitle = '',
+      topicId = '',
+      topicTitle = '',
+      objectives = [],
+      topicContext = '',
+      pageReference = '',
+      language = 'am',
+    } = req.body;
+
+    // Check cross-student persistent AI cache first
+    const cachedLesson = sharedAiCache.getLesson({
+      subjectCode,
+      subjectName,
+      grade: String(grade),
+      topicId,
+      topicTitle,
+      language: String(language),
+    });
+
+    if (cachedLesson) {
+      return res.json({
+        success: true,
+        lesson: cachedLesson.lesson,
+        grounded: cachedLesson.grounded,
+        sources: cachedLesson.sources,
+        cached: true,
+        source: 'SHARED_COMMUNITY_CACHE',
+        hitCount: cachedLesson.hitCount,
+        modelUsed: cachedLesson.modelUsed,
+      });
+    }
+
+    const cacheKey = `${topicId || topicTitle}:${language}`;
+    if (LESSON_MEMORY_CACHE.has(cacheKey)) {
+      const cachedEntry = LESSON_MEMORY_CACHE.get(cacheKey)!;
+      return res.json({
+        success: true,
+        lesson: cachedEntry.lesson,
+        grounded: cachedEntry.grounded,
+        sources: cachedEntry.sources,
+        cached: true,
+        modelUsed: cachedEntry.modelUsed,
+      });
+    }
+
+    let grounded = false;
+    let sources: Array<{ printedPage: number; unit: any }> = [];
+    let textbookPagesText = '';
+
+    const allPages = findTextbookPages(subjectCode, subjectName, grade);
+    if (allPages && allPages.length > 0) {
+      const range = parsePageRange(pageReference);
+      let matchedPages: any[] = [];
+
+      if (range) {
+        matchedPages = allPages.filter(
+          (p: any) => typeof p.printedPage === 'number' && p.printedPage >= range[0] && p.printedPage <= range[1]
+        );
+      }
+
+      if (matchedPages.length === 0) {
+        // Pick 4 pages with the best keyword match on topicTitle
+        const keywords = (topicTitle || '')
+          .toLowerCase()
+          .split(/[\s,.:;()/-]+/)
+          .filter((w: string) => w.length > 2);
+
+        const scored = allPages.map((p: any) => {
+          const text = `${p.unitTitle || ''} ${p.text || ''}`.toLowerCase();
+          let score = 0;
+          for (const kw of keywords) {
+            if (text.includes(kw)) score += 1;
+          }
+          return { page: p, score };
+        });
+
+        scored.sort((a: any, b: any) => b.score - a.score);
+        matchedPages = scored.slice(0, 4).map((s: any) => s.page);
+      }
+
+      // Put up to 6 of those pages (max 12000 characters total)
+      const selected = matchedPages.slice(0, 6);
+      let totalChars = 0;
+      const finalPages: any[] = [];
+      for (const p of selected) {
+        const snippet = `[Printed Page ${p.printedPage}, Unit: ${p.unit ?? ''} - ${p.unitTitle || ''}]\n${p.text || ''}\n\n`;
+        if (totalChars + snippet.length > 12000 && finalPages.length > 0) break;
+        textbookPagesText += snippet;
+        totalChars += snippet.length;
+        finalPages.push(p);
+      }
+
+      if (finalPages.length > 0) {
+        grounded = true;
+        sources = finalPages.map((p: any) => ({
+          printedPage: p.printedPage,
+          unit: p.unit,
+        }));
+      }
+    }
+
+    const sourceSection = grounded && textbookPagesText
+      ? `TEXTBOOK PAGES:\n${textbookPagesText}`
+      : `TOPIC CONTEXT:\n${topicContext || `${subjectName} Grade ${grade} - ${topicTitle}`}`;
+
+    const prompt = `you are an Ethiopian high-school teacher; Grade ${grade} level; answer in the language ${language}; if TEXTBOOK PAGES are provided use ONLY them and do not invent facts, definitions or page numbers; use plain text and Unicode for math (no LaTeX); give Ethiopian everyday examples where natural; double-check every calculation in worked examples before answering; graph points must be numerically correct for the stated formula.
+
+Curriculum Details:
+- Subject: ${subjectName} (${subjectCode})
+- Grade: ${grade}
+- Unit: ${unitTitle}
+- Topic: ${topicTitle}
+- Objectives: ${Array.isArray(objectives) ? objectives.join('; ') : objectives}
+- Page Reference: ${pageReference}
+
+${sourceSection}
+
+Respond ONLY with valid JSON following this exact shape:
+{
+  "explanation": [
+    {"heading": "Section Heading", "body": "Comprehensive explanation paragraph"}
+  ],
+  "keyTerms": [
+    {"term": "Term Name", "meaning": "Precise definition"}
+  ],
+  "workedExamples": [
+    {"title": "Example Title", "problem": "Problem statement", "steps": ["Step 1: Given and formula", "Step 2: Substitution", "Step 3: Calculation"], "answer": "Final calculated answer"}
+  ],
+  "activity": {
+    "title": "Safe Hands-on Activity Title",
+    "materials": ["Material 1", "Material 2"],
+    "steps": ["Step 1: Setup", "Step 2: Execution", "Step 3: Measurement"],
+    "observe": "What the student should observe or conclude"
+  },
+  "graphs": [
+    {
+      "title": "Graph Title",
+      "type": "line",
+      "xLabel": "X Axis Label",
+      "yLabel": "Y Axis Label",
+      "series": [
+        {"name": "Series Name", "points": [{"x": 0, "y": 0}, {"x": 1, "y": 2}, {"x": 2, "y": 4}]}
+      ],
+      "caption": "Short explanation of the curve or chart"
+    }
+  ],
+  "summary": [
+    "Key takeaway point 1",
+    "Key takeaway point 2",
+    "Key takeaway point 3",
+    "Key takeaway point 4"
+  ],
+  "reviewQuestions": [
+    {
+      "id": 1,
+      "question": "Question text?",
+      "options": ["A. Option 1", "B. Option 2", "C. Option 3", "D. Option 4"],
+      "correctIndex": 0,
+      "explanation": "Detailed rationale"
+    }
+  ]
+}
+
+COUNT CONSTRAINTS:
+- "explanation": Provide 3 to 5 clear sections.
+- "keyTerms": Provide 4 to 8 essential terms.
+- "workedExamples": Provide 2 to 3 worked examples with realistic numerical/conceptual values.
+- "activity": Provide 1 safe classroom or home activity.
+- "graphs": Provide 0 to 2 graphs (only when a graph genuinely helps this topic).
+- "summary": Provide 4 to 6 bullet points.
+- "reviewQuestions": Provide exactly 5 review questions, each with 4 options and correctIndex 0, 1, 2, or 3.`;
+
+    let lesson: any = null;
+    let modelUsed = 'gemini-3.8-flash';
+
+    try {
+      const result = await callResilientGemini(prompt, {
+        responseMimeType: 'application/json',
+        temperature: 0.4,
+      });
+      modelUsed = result.modelUsed;
+
+      // Parse JSON safely (strip code fences, fall back to the first {...} block)
+      let parsed: any = null;
+      let raw = (result.text || '').trim();
+      raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (match) {
+          parsed = JSON.parse(match[0]);
+        } else {
+          throw new Error('Failed to parse valid JSON from AI response');
+        }
+      }
+
+      lesson = {
+        explanation: Array.isArray(parsed.explanation) && parsed.explanation.length > 0 ? parsed.explanation : [],
+        keyTerms: Array.isArray(parsed.keyTerms) ? parsed.keyTerms : [],
+        workedExamples: Array.isArray(parsed.workedExamples) ? parsed.workedExamples : [],
+        activity: parsed.activity && typeof parsed.activity === 'object'
+          ? {
+              title: String(parsed.activity.title || ''),
+              materials: Array.isArray(parsed.activity.materials) ? parsed.activity.materials : [],
+              steps: Array.isArray(parsed.activity.steps) ? parsed.activity.steps : [],
+              observe: String(parsed.activity.observe || ''),
+            }
+          : { title: '', materials: [], steps: [], observe: '' },
+        graphs: Array.isArray(parsed.graphs) ? parsed.graphs : [],
+        summary: Array.isArray(parsed.summary) ? parsed.summary : [],
+        reviewQuestions: Array.isArray(parsed.reviewQuestions) ? parsed.reviewQuestions : [],
+      };
+
+      if (!lesson.explanation.length) {
+        throw new Error('Incomplete explanation parsed from Gemini model');
+      }
+    } catch (genAiError: any) {
+      console.warn('Gemini API exhausted or rate-limited; generating MoE curriculum grounded lesson:', genAiError?.message || genAiError);
+      modelUsed = 'moe-curriculum-engine';
+      lesson = generateCurriculumLessonFallback({
+        subjectCode,
+        subjectName,
+        grade,
+        unitTitle,
+        topicId,
+        topicTitle,
+        objectives,
+        topicContext,
+        pageReference,
+        language,
+        textbookExcerpt: textbookPagesText,
+      });
+    }
+
+    LESSON_MEMORY_CACHE.set(cacheKey, {
+      lesson,
+      grounded,
+      sources,
+      modelUsed,
+    });
+
+    // Save to persistent shared AI cache across all students
+    sharedAiCache.setLesson(
+      {
+        subjectCode,
+        subjectName,
+        grade: String(grade),
+        topicId,
+        topicTitle,
+        language: String(language),
+      },
+      lesson,
+      grounded,
+      sources,
+      modelUsed
+    );
+
+    res.json({
+      success: true,
+      lesson,
+      grounded,
+      sources,
+      cached: false,
+      modelUsed,
+    });
+  } catch (err: any) {
+    console.error('Unhandled error in /api/ai/lesson, serving resilient fallback:', err);
+    try {
+      const fallback = generateCurriculumLessonFallback({
+        subjectCode: req.body?.subjectCode || 'MOE',
+        subjectName: req.body?.subjectName || 'Subject',
+        grade: req.body?.grade || '9',
+        unitTitle: req.body?.unitTitle || 'Unit',
+        topicId: req.body?.topicId || 'topic',
+        topicTitle: req.body?.topicTitle || 'Topic',
+        language: req.body?.language || 'am',
+      });
+      res.json({
+        success: true,
+        lesson: fallback,
+        grounded: false,
+        sources: [],
+        cached: false,
+        modelUsed: 'moe-curriculum-engine',
+      });
+    } catch (criticalErr: any) {
+      res.status(500).json({
+        success: false,
+        error: criticalErr?.message || 'Failed to generate lesson from topic',
+      });
+    }
+  }
+});
+
 // University Entrance Examination (EUEE) & Diagnostic Exam Generator
 app.post('/api/ai/exam-gen', async (req: Request, res: Response) => {
   try {
     const { grade = '12', subject = 'Mathematics', count = 5, chapter = 'All Units', difficulty = 'standard', language = 'am' } = req.body;
+
+    // Check persistent shared AI cache first
+    const cachedExam = sharedAiCache.getExamGen({
+      grade: String(grade),
+      subject: String(subject),
+      chapter: String(chapter),
+      count: Number(count),
+      difficulty: String(difficulty),
+      language: String(language),
+    });
+
+    if (cachedExam) {
+      return res.json({
+        success: true,
+        questions: cachedExam.questions,
+        modelUsed: cachedExam.modelUsed || 'shared-community-cache',
+        cached: true,
+        source: 'SHARED_COMMUNITY_CACHE',
+        hitCount: cachedExam.hitCount,
+      });
+    }
 
     const prompt = `Generate ${count} high-quality Ethiopian High School Multiple-Choice Exam questions for Grade ${grade}, Subject: ${subject}, Unit/Focus: ${chapter}.
 Format: Strict JSON array.
@@ -274,10 +729,25 @@ Output MUST be a valid JSON array of objects with keys:
       }
     }
 
+    // Save to shared AI knowledge cache
+    sharedAiCache.setExamGen(
+      {
+        grade: String(grade),
+        subject: String(subject),
+        chapter: String(chapter),
+        count: Number(count),
+        difficulty: String(difficulty),
+        language: String(language),
+      },
+      questions,
+      result.modelUsed
+    );
+
     res.json({
       success: true,
       questions,
       modelUsed: result.modelUsed,
+      cached: false,
     });
   } catch (err: any) {
     console.error('Error in /api/ai/exam-gen:', err);
@@ -292,6 +762,26 @@ Output MUST be a valid JSON array of objects with keys:
 app.post('/api/ai/grade-assignment', async (req: Request, res: Response) => {
   try {
     const { assignmentTitle, rubric, studentSubmission, grade, subject, language = 'am' } = req.body;
+
+    // Check shared AI cache for identical submission evaluations
+    const cachedGrade = sharedAiCache.getGradeAssignment({
+      grade: String(grade),
+      subject: String(subject),
+      assignmentTitle: String(assignmentTitle || ''),
+      studentSubmission: String(studentSubmission || ''),
+      language: String(language),
+    });
+
+    if (cachedGrade) {
+      return res.json({
+        success: true,
+        evaluation: cachedGrade.evaluation,
+        modelUsed: cachedGrade.modelUsed || 'shared-community-cache',
+        cached: true,
+        source: 'SHARED_COMMUNITY_CACHE',
+        hitCount: cachedGrade.hitCount,
+      });
+    }
 
     const prompt = `You are a Senior Ethiopian High School Department Examiner for Grade ${grade}, Subject: ${subject}.
 Evaluate the following student submission for the assignment: "${assignmentTitle}".
@@ -345,10 +835,24 @@ Provide evaluation in JSON format with fields:
       };
     }
 
+    // Save to shared AI cache
+    sharedAiCache.setGradeAssignment(
+      {
+        grade: String(grade),
+        subject: String(subject),
+        assignmentTitle: String(assignmentTitle || ''),
+        studentSubmission: String(studentSubmission || ''),
+        language: String(language),
+      },
+      evaluation,
+      result.modelUsed
+    );
+
     res.json({
       success: true,
       evaluation,
       modelUsed: result.modelUsed,
+      cached: false,
     });
   } catch (err: any) {
     console.error('Error in /api/ai/grade-assignment:', err);
@@ -363,6 +867,24 @@ Provide evaluation in JSON format with fields:
 app.post('/api/ai/search', async (req: Request, res: Response) => {
   try {
     const { query, grade, language = 'am' } = req.body;
+
+    // Check shared AI cache for identical curriculum search queries
+    const cachedSearch = sharedAiCache.getSearch({
+      query: String(query || ''),
+      grade: grade ? String(grade) : undefined,
+      language: String(language),
+    });
+
+    if (cachedSearch) {
+      return res.json({
+        success: true,
+        results: cachedSearch.results,
+        modelUsed: cachedSearch.modelUsed || 'shared-community-cache',
+        cached: true,
+        source: 'SHARED_COMMUNITY_CACHE',
+        hitCount: cachedSearch.hitCount,
+      });
+    }
 
     const prompt = `Search the Ethiopian Ministry of Education High School Curriculum (Grade ${grade || '9-12'}) for: "${query}".
 Return a JSON array of up to 4 most relevant topics/competencies matching the search query.
@@ -388,10 +910,22 @@ Each item must have:
       if (match) results = JSON.parse(match[0]);
     }
 
+    // Save to shared AI cache
+    sharedAiCache.setSearch(
+      {
+        query: String(query || ''),
+        grade: grade ? String(grade) : undefined,
+        language: String(language),
+      },
+      results,
+      result.modelUsed
+    );
+
     res.json({
       success: true,
       results,
       modelUsed: result.modelUsed,
+      cached: false,
     });
   } catch (err: any) {
     console.error('Error in /api/ai/search:', err);
@@ -468,48 +1002,13 @@ app.get('/api/payment/config', (_req: Request, res: Response) => {
 });
 
 // Update pricing endpoint (Restricted to Super Admin)
-app.post('/api/payment/admin/pricing', (req: Request, res: Response) => {
-  const { adminEmail, pricing } = req.body;
-  if (!adminEmail || adminEmail.toLowerCase() !== 'mejennur669@gmail.com') {
-    return res.status(403).json({ success: false, error: 'Unauthorized. Super Admin access required.' });
-  }
-
-  SERVER_PRICING = {
-    ...SERVER_PRICING,
-    ...pricing,
-  };
-
-  res.json({
-    success: true,
-    message: 'Pricing successfully updated by Super Admin',
-    pricing: SERVER_PRICING,
-    updatedAt: new Date().toISOString(),
-  });
+app.post('/api/payment/admin/pricing', (_req: Request, res: Response) => {
+  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
 });
 
 // Update payment accounts configuration endpoint (Restricted to Super Admin)
-app.post('/api/admin/accounts/update', (req: Request, res: Response) => {
-  const { adminEmail, accounts } = req.body;
-  if (!adminEmail || adminEmail.toLowerCase() !== 'mejennur669@gmail.com') {
-    return res.status(403).json({ success: false, error: 'Unauthorized. Super Admin access required.' });
-  }
-
-  if (Array.isArray(accounts)) {
-    // Update memory cache
-    accounts.forEach((acc: any) => {
-      const idx = VERIFIED_PAYMENT_ACCOUNTS.findIndex((a) => a.id === acc.id);
-      if (idx !== -1) {
-        VERIFIED_PAYMENT_ACCOUNTS[idx] = { ...VERIFIED_PAYMENT_ACCOUNTS[idx], ...acc };
-      }
-    });
-  }
-
-  res.json({
-    success: true,
-    message: 'Payment accounts successfully updated by Super Admin',
-    accounts: VERIFIED_PAYMENT_ACCOUNTS,
-    updatedAt: new Date().toISOString(),
-  });
+app.post('/api/admin/accounts/update', (_req: Request, res: Response) => {
+  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
 });
 
 // Admin ERP Stats Endpoint
@@ -532,23 +1031,6 @@ app.get('/api/admin/stats', (_req: Request, res: Response) => {
 // Telebirr, CBE Birr, CBE, Dashen, and BoA Payment submission & verification
 app.post('/api/payment/verify', (req: Request, res: Response) => {
   const { provider, transactionId, amount, studentName, studentEmail, grade, phone } = req.body;
-  const isSuperAdmin = studentEmail && studentEmail.toLowerCase() === 'mejennur669@gmail.com';
-
-  // Super admin instant approval
-  if (isSuperAdmin) {
-    return res.json({
-      success: true,
-      approved: true,
-      status: 'ACTIVE',
-      receiptNo: 'ETH-SUPER-ADMIN-LIFETIME-PASS',
-      amount: 0,
-      currency: 'ETB',
-      studentName: 'Nuriye Ahmed Adem',
-      grade: 12,
-      expiryDays: 9999,
-      timestamp: new Date().toISOString(),
-    });
-  }
 
   const isValidRef = Boolean(transactionId && transactionId.trim().length >= 4);
 
@@ -583,23 +1065,10 @@ const SINGLE_ASSIGNMENT_PURCHASES = new Set<string>();
 
 // Verified Student Entitlement Engine for Academic Work Hub & Premium Assets
 app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response) => {
-  const { studentEmail, studentId, resourceType = 'homework', assignmentId, grade = 10, hasActiveSubscription = false } = req.body;
-  const isSuperAdmin = studentEmail && studentEmail.toLowerCase() === 'mejennur669@gmail.com';
+  const { studentEmail, studentId, resourceType = 'homework', assignmentId, grade = 10 } = req.body;
+  const hasActiveSubscription = false;
 
-  // 1. Super Admin Lifetime Unrestricted Pass
-  if (isSuperAdmin) {
-    return res.json({
-      success: true,
-      entitled: true,
-      reason: 'SUPER_ADMIN_BYPASS',
-      superAdmin: true,
-      resourceType,
-      assignmentId,
-      message: 'Super Admin (Nuriye Ahmed Adem) has lifetime unrestricted access to all assets.',
-    });
-  }
-
-  // 2. Free Tier: Homework and STEM Projects are 100% free for all students
+  // 1. Free Tier: Homework and STEM Projects are 100% free for all students
   if (resourceType === 'homework' || resourceType === 'stem_project' || resourceType === 'free') {
     return res.json({
       success: true,
@@ -610,7 +1079,7 @@ app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response
     });
   }
 
-  // 3. Premium Assignment Check (Single Pack 54 ETB or Full Monthly Subscription)
+  // 2. Premium Assignment Check (Single Pack 54 ETB or Full Monthly Subscription)
   if (resourceType === 'premium_assignment') {
     const singlePurchaseKey = `${studentId || studentEmail}_${assignmentId}`;
     const hasSinglePurchase = SINGLE_ASSIGNMENT_PURCHASES.has(singlePurchaseKey);

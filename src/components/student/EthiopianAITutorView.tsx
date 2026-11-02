@@ -31,6 +31,7 @@ interface ChatMessage {
   content: string;
   citation?: string;
   timestamp: string;
+  isCached?: boolean;
 }
 
 export const EthiopianAITutorView: React.FC<EthiopianAITutorViewProps> = ({ initialContext }) => {
@@ -144,6 +145,7 @@ ${formatOfficialCitation(activeGrade, activeSubject?.name.en || 'Mathematics', c
         role: 'assistant',
         content: assistantText,
         citation: currentCitation,
+        isCached: data.cached === true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -292,11 +294,21 @@ ${formatOfficialCitation(activeGrade, activeSubject?.name.en || 'Mathematics', c
                       : 'bg-slate-50 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 rounded-tl-none border border-slate-200/80 dark:border-slate-700/80'
                   }`}
                 >
-                  {/* Assistant Citation Pill if available */}
-                  {!isUser && m.citation && (
-                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold text-[10px] mb-2 border border-emerald-200 dark:border-emerald-800">
-                      <BookOpen className="w-3 h-3" />
-                      {m.citation}
+                  {/* Assistant Citation Pill and Shared Cache Badge if available */}
+                  {!isUser && (
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {m.citation && (
+                        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold text-[10px] border border-emerald-200 dark:border-emerald-800">
+                          <BookOpen className="w-3 h-3" />
+                          {m.citation}
+                        </div>
+                      )}
+                      {m.isCached && (
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 font-bold text-[10px] border border-amber-300 dark:border-amber-700/60 shadow-xs">
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                          <span>⚡ የጋራ እውቀት (Shared Cache)</span>
+                        </div>
+                      )}
                     </div>
                   )}
 

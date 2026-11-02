@@ -453,108 +453,27 @@ securityRouter.post('/devices/register', (req: Request, res: Response) => {
 
 // Device Sessions: List all registered devices
 securityRouter.get('/devices', (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    totalDevices: ACTIVE_DEVICE_SESSIONS.length,
-    activeSessions: ACTIVE_DEVICE_SESSIONS,
-    concurrentAlertCount: ACTIVE_DEVICE_SESSIONS.filter((d) => d.status === 'FLAGGED_CONCURRENT').length,
-  });
+  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
 });
 
 // Device Sessions: Revoke device session
-securityRouter.post('/devices/revoke', (req: Request, res: Response) => {
-  const { deviceId, revokedBy } = req.body;
-  const session = ACTIVE_DEVICE_SESSIONS.find((d) => d.deviceId === deviceId);
-
-  if (!session) {
-    return res.status(404).json({ success: false, error: 'Device session not found' });
-  }
-
-  session.status = 'REVOKED';
-
-  IMMUTABLE_AUDIT_LOGS.unshift({
-    logId: `AUD-REV-${Date.now()}`,
-    actorId: revokedBy || 'mejennur669@gmail.com',
-    actorRole: 'SUPER_ADMIN',
-    action: 'DEVICE_SESSION_REVOKED',
-    resourceType: 'DEVICE_SESSION',
-    resourceId: deviceId,
-    result: 'success',
-    ip: '196.188.64.12',
-    timestamp: new Date().toISOString(),
-    details: `Session revoked for ${session.studentEmail} on ${session.deviceName}`,
-  });
-
-  res.json({
-    success: true,
-    deviceId,
-    status: 'REVOKED',
-    message: `Device ${session.deviceName} was revoked. Client forced to re-authenticate.`,
-  });
+securityRouter.post('/devices/revoke', (_req: Request, res: Response) => {
+  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
 });
 
 // Device Sessions: Trust device
-securityRouter.post('/devices/trust', (req: Request, res: Response) => {
-  const { deviceId } = req.body;
-  const session = ACTIVE_DEVICE_SESSIONS.find((d) => d.deviceId === deviceId);
-  if (!session) {
-    return res.status(404).json({ success: false, error: 'Device not found' });
-  }
-  session.status = 'ACTIVE';
-  session.isTrusted = true;
-  res.json({ success: true, session });
+securityRouter.post('/devices/trust', (_req: Request, res: Response) => {
+  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
 });
 
 // RBAC: List users and roles
 securityRouter.get('/users', (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    users: RBAC_USERS,
-    superAdmin: 'mejennur669@gmail.com (Nuriye Ahmed Adem)',
-  });
+  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
 });
 
 // RBAC: Update user role or grade lock
-securityRouter.post('/users/update-role', (req: Request, res: Response) => {
-  const { userId, newRole, isGradeLocked, targetGrade, actorEmail } = req.body;
-
-  const user = RBAC_USERS.find((u) => u.id === userId || u.email.toLowerCase() === (userId || '').toLowerCase());
-  if (!user) {
-    return res.status(404).json({ success: false, error: 'User not found' });
-  }
-
-  // Prevent demoting Super Admin
-  if (user.email.toLowerCase() === 'mejennur669@gmail.com' && newRole && newRole !== 'super_admin') {
-    return res.status(403).json({
-      success: false,
-      error: 'CANNOT_MODIFY_SUPER_ADMIN',
-      message: 'የዋና አስተዳዳሪ (Nuriye Ahmed Adem) ፈቃድ ሊቀነስ አይችልም። (Super Admin role is immutable)',
-    });
-  }
-
-  const previousRole = user.role;
-  if (newRole) user.role = newRole;
-  if (typeof isGradeLocked === 'boolean') user.isGradeLocked = isGradeLocked;
-  if (targetGrade && [9, 10, 11, 12].includes(targetGrade)) user.grade = targetGrade;
-
-  IMMUTABLE_AUDIT_LOGS.unshift({
-    logId: `AUD-ROLE-${Date.now()}`,
-    actorId: actorEmail || 'mejennur669@gmail.com',
-    actorRole: 'SUPER_ADMIN',
-    action: 'USER_ROLE_UPDATED',
-    resourceType: 'RBAC_SECURITY',
-    resourceId: user.email,
-    result: 'success',
-    ip: '196.188.64.12',
-    timestamp: new Date().toISOString(),
-    details: `Updated ${user.email} from ${previousRole} to ${user.role}. Grade locked: ${user.isGradeLocked}. Grade: ${user.grade}.`,
-  });
-
-  res.json({
-    success: true,
-    user,
-    message: `User permissions for ${user.name} successfully updated to ${user.role.toUpperCase()}.`,
-  });
+securityRouter.post('/users/update-role', (_req: Request, res: Response) => {
+  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
 });
 
 // Rate Limits: Monitor statistics
@@ -587,58 +506,11 @@ securityRouter.get('/rate-limits', (_req: Request, res: Response) => {
 });
 
 // Rate Limits: Simulate flood testing
-securityRouter.post('/rate-limits/simulate', (req: Request, res: Response) => {
-  const { clientIp = '197.156.104.99', simulatedRequests = 65 } = req.body;
-  const now = Date.now();
-
-  let bucket = RATE_LIMIT_BUCKETS.get(clientIp);
-  if (!bucket) {
-    bucket = { timestamps: [] };
-    RATE_LIMIT_BUCKETS.set(clientIp, bucket);
-  }
-
-  for (let i = 0; i < simulatedRequests; i++) {
-    bucket.timestamps.push(now);
-  }
-  bucket.blockedUntil = now + 60 * 1000;
-
-  IMMUTABLE_AUDIT_LOGS.unshift({
-    logId: `AUD-SIM-${Date.now()}`,
-    actorId: clientIp,
-    actorRole: 'SYSTEM',
-    action: 'RATE_LIMIT_BURST_SIMULATION',
-    resourceType: 'RATE_LIMIT_FIREWALL',
-    resourceId: `${simulatedRequests} req / 5s`,
-    result: 'denied',
-    ip: clientIp,
-    timestamp: new Date().toISOString(),
-    details: `Simulated flood attack of ${simulatedRequests} requests. IP ${clientIp} throttled for 60s.`,
-  });
-
-  res.json({
-    success: true,
-    simulatedIp: clientIp,
-    simulatedRequests,
-    status: 'THROTTLED_429',
-    retryAfterSeconds: 60,
-    message: `Simulated ${simulatedRequests} rapid requests. Client IP ${clientIp} throttled with HTTP 429.`,
-  });
+securityRouter.post('/rate-limits/simulate', (_req: Request, res: Response) => {
+  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
 });
 
 // Rate Limits: Unblock IP
-securityRouter.post('/rate-limits/unblock', (req: Request, res: Response) => {
-  const { clientIp } = req.body;
-  if (!clientIp) return res.status(400).json({ success: false, error: 'clientIp required' });
-
-  const bucket = RATE_LIMIT_BUCKETS.get(clientIp);
-  if (bucket) {
-    bucket.blockedUntil = undefined;
-    bucket.timestamps = [];
-  }
-
-  res.json({
-    success: true,
-    clientIp,
-    message: `Client IP ${clientIp} unblocked and request quota reset.`,
-  });
+securityRouter.post('/rate-limits/unblock', (_req: Request, res: Response) => {
+  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
 });
