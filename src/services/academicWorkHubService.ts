@@ -9,6 +9,7 @@ import {
 import { GradeLevel } from '../types';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
+import { authFetch } from './apiClient';
 
 const STORAGE_KEY_HW_ANSWERS = 'eth_academic_hub_homework_answers_v1';
 const STORAGE_KEY_ASSIGNMENTS = 'eth_academic_hub_assignments_v1';
@@ -58,7 +59,7 @@ export class AcademicWorkHubService {
 
     // Call server endpoint
     try {
-      const res = await fetch('/api/premium/verify-student-entitlement', {
+      const res = await authFetch('/api/premium/verify-student-entitlement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -106,7 +107,7 @@ export class AcademicWorkHubService {
     }
 
     try {
-      await fetch('/api/premium/purchase-single-assignment', {
+      await authFetch('/api/premium/purchase-single-assignment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -183,7 +184,7 @@ export class AcademicWorkHubService {
     let aiEvaluation: any = null;
 
     try {
-      const res = await fetch('/api/ai/grade-assignment', {
+      const res = await authFetch('/api/ai/grade-assignment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

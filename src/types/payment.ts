@@ -28,6 +28,7 @@ export interface GradePricingConfig {
 
 export interface PaymentSubmission {
   id: string;
+  userId?: string;
   studentId: string;
   studentName: string;
   studentEmail: string;

@@ -6,7 +6,6 @@ import {
   sendPasswordResetEmail,
   signOut,
   updateProfile,
-  deleteUser,
   User,
 } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc, increment, arrayUnion, serverTimestamp } from 'firebase/firestore';
@@ -45,27 +44,51 @@ interface AuthContextType {
 
 const INITIAL_GUEST_PROFILE: UserProfile = {
   id: 'guest',
-  name: 'ተማሪ (Guest Scholar)',
-  email: 'scholar@nur.edu.et',
+  name: 'እንግዳ (Guest)',
+  email: '',
   role: 'student',
-  grade: 10,
+  grade: 9,
   isGradeLocked: true,
   enrolledAt: '2026-09-01',
-  xp: 1450,
-  streakDays: 8,
-  completedLessonsCount: 12,
-  quizzesTakenCount: 8,
-  averageScore: 90,
+  xp: 0,
+  streakDays: 0,
+  completedLessonsCount: 0,
+  quizzesTakenCount: 0,
+  averageScore: 0,
+  isPremium: false,
+  streakFreezeAvailable: false,
+  streakFreezeActive: false,
+  gracePeriodActive: false,
+  unlockedBadges: [],
+  dailyQuizzesPassed: 0,
+  stemExperimentsCompleted: 0,
+  eueeHighScore: 0,
+  completedUnits: [],
+};
+
+const createDefaultStudentProfile = (u: User, grade: GradeLevel = 9): UserProfile => ({
+  id: u.uid,
+  name: u.displayName || u.email?.split('@')[0] || 'ተማሪ (Student)',
+  email: u.email || '',
+  role: 'student',
+  grade,
+  isGradeLocked: true,
+  enrolledAt: new Date().toISOString().split('T')[0],
+  xp: 0,
+  streakDays: 1,
+  completedLessonsCount: 0,
+  quizzesTakenCount: 0,
+  averageScore: 0,
   isPremium: false,
   streakFreezeAvailable: true,
   streakFreezeActive: false,
   gracePeriodActive: false,
-  unlockedBadges: ['math_prodigy'],
-  dailyQuizzesPassed: 2,
-  stemExperimentsCompleted: 4,
-  eueeHighScore: 82,
-  completedUnits: ['g10-math-u1'], // Unit 1 initially unlocked or sample completed
-};
+  unlockedBadges: [],
+  dailyQuizzesPassed: 0,
+  stemExperimentsCompleted: 0,
+  eueeHighScore: 0,
+  completedLessonIds: [],
+});
 
 const MAX_XP_PER_WRITE = 500; // mirrors firestore.rules
 
@@ -119,21 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authLoading, setAuthLoading] = useState(true);
   const [activeGrade, setActiveGradeState] = useState<GradeLevel>(9);
 
-  const [guestProfile, setGuestProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('nur_guest_profile');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // ignore fallback
-      }
-    }
-    return INITIAL_GUEST_PROFILE;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('nur_guest_profile', JSON.stringify(guestProfile));
-  }, [guestProfile]);
+  const [guestProfile, setGuestProfile] = useState<UserProfile>(INITIAL_GUEST_PROFILE);
 
   // 1) Follow the Firebase Auth session.
   useEffect(() => {
@@ -153,12 +162,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return onSnapshot(
       doc(db, 'users', firebaseUser.uid),
       (snap) => {
-        setProfile(snap.exists() ? normalizeProfile(snap.id, snap.data()) : null);
+        if (snap.exists()) {
+          setProfile(normalizeProfile(snap.id, snap.data()));
+        } else {
+          setProfile((prev) => prev ?? createDefaultStudentProfile(firebaseUser, activeGrade));
+        }
         setAuthLoading(false);
       },
       (err) => {
-        console.error('Profile listener error:', err);
-        setProfile(null);
+        console.warn('Profile listener notice:', err);
+        setProfile((prev) => prev ?? createDefaultStudentProfile(firebaseUser, activeGrade));
         setAuthLoading(false);
       }
     );
@@ -170,11 +183,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     else if (guestProfile) setActiveGradeState(guestProfile.grade);
   }, [profile?.id, profile?.grade, guestProfile?.grade]);
 
-  const isAuthenticated = Boolean(firebaseUser && profile);
-  const currentUser = profile ?? guestProfile;
-  const isSuperAdmin =
-    profile?.role === 'super_admin' ||
-    (Boolean(profile?.email) && profile?.email.toLowerCase() === 'mejennur669@gmail.com');
+  const isAuthenticated = Boolean(firebaseUser);
+  const currentUser = profile ?? (firebaseUser ? createDefaultStudentProfile(firebaseUser, activeGrade) : guestProfile);
+  const isSuperAdmin = profile?.role === 'super_admin';
   const isGradeLocked = !isSuperAdmin;
 
   const setActiveGrade = (grade: GradeLevel) => {
@@ -187,12 +198,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = useCallback(async ({ name, email, password, grade }: RegisterParams) => {
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    const newProfile: UserProfile = {
+      id: cred.user.uid,
+      name: name.trim(),
+      email: cred.user.email || email.trim(),
+      role: 'student',
+      grade,
+      isGradeLocked: true,
+      enrolledAt: new Date().toISOString().split('T')[0],
+      xp: 0,
+      streakDays: 1,
+      completedLessonsCount: 0,
+      quizzesTakenCount: 0,
+      averageScore: 0,
+      isPremium: false,
+      streakFreezeAvailable: true,
+      streakFreezeActive: false,
+      gracePeriodActive: false,
+      unlockedBadges: [],
+      dailyQuizzesPassed: 0,
+      stemExperimentsCompleted: 0,
+      eueeHighScore: 0,
+      completedLessonIds: [],
+    };
+    setProfile(newProfile);
+    setActiveGradeState(grade);
+
     try {
       await updateProfile(cred.user, { displayName: name.trim() });
+    } catch (e) {
+      console.warn('Could not update Auth displayName:', e);
+    }
+
+    try {
       await setDoc(doc(db, 'users', cred.user.uid), {
         id: cred.user.uid,
+        uid: cred.user.uid,
         name: name.trim(),
-        email: cred.user.email,
+        email: cred.user.email || email.trim(),
         role: 'student',
         grade,
         isGradeLocked: true,
@@ -214,9 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: serverTimestamp(),
       });
     } catch (err) {
-      // Don't leave an auth account without a profile behind.
-      await deleteUser(cred.user).catch(() => {});
-      throw err;
+      console.error('Firestore user profile write notice:', err);
     }
   }, []);
 

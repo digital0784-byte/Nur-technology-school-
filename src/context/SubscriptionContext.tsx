@@ -16,6 +16,7 @@ import {
   SUPER_ADMIN_EMAIL,
   SUPER_ADMIN_PHONE,
 } from '../services/paymentService';
+import { authFetch } from '../services/apiClient';
 
 interface SubscriptionContextType {
   status: PaymentSubscriptionStatus;
@@ -113,13 +114,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.warn('Subscription id listener:', err);
       });
       unsubs.push(unsubId);
-
-      if (currentUser.email) {
-        const unsubEmail = onSnapshot(doc(db, 'subscriptions', currentUser.email.toLowerCase()), handleSnap, (err) => {
-          console.warn('Subscription email listener:', err);
-        });
-        unsubs.push(unsubEmail);
-      }
     } catch (e) {
       console.warn('Could not attach subscription listener:', e);
     }
@@ -210,7 +204,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
 
       // Also notify backend server
-      fetch('/api/payment/verify', {
+      authFetch('/api/payment/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -256,7 +250,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (ok) {
       refreshState();
       // Also update server-side pricing
-      fetch('/api/payment/admin/pricing', {
+      authFetch('/api/payment/admin/pricing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

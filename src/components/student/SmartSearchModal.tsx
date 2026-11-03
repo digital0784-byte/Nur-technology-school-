@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Search, Loader2 } from 'lucide-react';
+import { authFetch } from '../../services/apiClient';
 
 export const SmartSearchModal: React.FC = () => {
   const { activeGrade } = useAuth();
@@ -15,7 +16,7 @@ export const SmartSearchModal: React.FC = () => {
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/ai/search', {
+      const res = await authFetch('/api/ai/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, grade: activeGrade, language }),

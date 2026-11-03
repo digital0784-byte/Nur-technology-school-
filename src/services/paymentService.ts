@@ -10,6 +10,7 @@ import {
 import { GradeLevel } from '../types';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
+import { authFetch } from './apiClient';
 
 export const SUPER_ADMIN_EMAIL = 'mejennur669@gmail.com';
 export const SUPER_ADMIN_NAME = 'Nuriye Ahmed Adem';
@@ -288,6 +289,7 @@ export class PaymentService {
     const all = this.getAllSubmissions();
     const newRecord: PaymentSubmission = {
       ...submission,
+      userId: submission.studentId,
       id: `pay-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
       submittedAt: new Date().toISOString(),
       status: 'PENDING',
@@ -325,6 +327,27 @@ export class PaymentService {
       setDoc(doc(db, 'payments', newRecord.id), newRecord).catch(() => {});
       setDoc(doc(db, 'subscriptions', submission.studentId), subscriptions[submission.studentId], { merge: true }).catch(() => {});
     }
+
+    // Broadcast in-app event so open admin dashboards update instantaneously
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nur_payment_submitted', { detail: newRecord }));
+    }
+
+    // Notify backend server admin queue
+    authFetch('/api/payment/notify-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: submission.studentId,
+        studentName: submission.studentName,
+        studentEmail: submission.studentEmail,
+        studentPhone: submission.studentPhone,
+        grade: submission.grade,
+        amount: submission.amount,
+        paymentGateway: submission.paymentGateway,
+        transactionRef: submission.transactionRef,
+      }),
+    }).catch(() => {});
 
     return newRecord;
   }

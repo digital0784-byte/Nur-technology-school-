@@ -4,6 +4,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { FirebaseService } from '../../services/firebaseService';
 import { PaymentGatewayId } from '../../types/payment';
+import { authFetch } from '../../services/apiClient';
 import {
   CreditCard,
   ShieldCheck,
@@ -14,8 +15,19 @@ import {
   PhoneCall,
   Copy,
   AlertCircle,
-  Sparkles,
+  Send,
+  MessageSquare,
+  Share2,
 } from 'lucide-react';
+
+interface SubmittedReceipt {
+  id: string;
+  refNo: string;
+  phone: string;
+  provider: PaymentGatewayId;
+  amount: number;
+  time: string;
+}
 
 export const SubscriptionPaymentView: React.FC = () => {
   const { isAuthenticated, currentUser, activeGrade } = useAuth();
@@ -35,7 +47,7 @@ export const SubscriptionPaymentView: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [refNo, setRefNo] = useState('');
   const [processing, setProcessing] = useState(false);
-  const [receipt, setReceipt] = useState<{ id: string } | null>(null);
+  const [receipt, setReceipt] = useState<SubmittedReceipt | null>(null);
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -79,25 +91,56 @@ export const SubscriptionPaymentView: React.FC = () => {
       setError('መጀመሪያ ይግቡ / Please log in first.');
       return;
     }
-    if (refNo.trim().length < 4 || phone.trim().length < 9) {
+    const cleanRef = refNo.trim();
+    const cleanPhone = phone.trim();
+
+    if (cleanRef.length < 4 || cleanPhone.length < 9) {
       setError('የስልክ ቁጥርና የግብይት ቁጥር (FT Transaction ID) በትክክል ያስገቡ / Enter a valid phone number and transaction ID.');
       return;
     }
     setProcessing(true);
     try {
       // 1. Submit through SubscriptionContext to update local app state
-      const res = await submitPayment(provider, refNo.trim(), phone.trim());
+      const res = await submitPayment(provider, cleanRef, cleanPhone);
 
       // 2. Submit to FirebaseService for live Firestore record
       const id = await FirebaseService.submitPaymentRequest({
         provider: provider.toUpperCase(),
-        transactionId: refNo.trim(),
+        transactionId: cleanRef,
         amount: cur.price,
-        phone: phone.trim(),
+        phone: cleanPhone,
         plan: cur.duration,
       });
 
-      setReceipt({ id: res.submission?.id || id });
+      // 3. Transmit transaction number directly to server Super Admin notifications queue
+      try {
+        await authFetch('/api/payment/notify-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: currentUser.id,
+            studentName: currentUser.name,
+            studentEmail: currentUser.email,
+            studentPhone: cleanPhone,
+            grade: activeGrade,
+            amount: cur.price,
+            paymentGateway: provider,
+            transactionRef: cleanRef,
+            plan: cur.title,
+          }),
+        });
+      } catch (err) {
+        console.warn('Backend payment notification notice:', err);
+      }
+
+      setReceipt({
+        id: res.submission?.id || id,
+        refNo: cleanRef,
+        phone: cleanPhone,
+        provider,
+        amount: cur.price,
+        time: new Date().toLocaleTimeString(),
+      });
       refreshState();
     } catch (e: any) {
       console.error(e);
@@ -340,11 +383,103 @@ export const SubscriptionPaymentView: React.FC = () => {
         </div>
 
         {receipt && (
-          <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 font-bold">
-              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> ጥያቄዎ ተልኳል፤ ሲስተሙ ቼክ እስከሚደረግ ድረስ በPending ሁኔታ ይቆያል።
-            </span>
-            <span className="font-mono">{receipt.id.slice(0, 10)}</span>
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-emerald-50 via-teal-50 to-indigo-50 dark:from-emerald-950/50 dark:via-slate-900 dark:to-indigo-950/50 border-2 border-emerald-400 dark:border-emerald-600 shadow-xl space-y-4 animate-in zoom-in-95">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                <CheckCircle className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-[10px] font-black uppercase mb-1">
+                  ✓ Transaction Delivered to Super Admin
+                </div>
+                <h4 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                  የትራንዛክሽን ቁጥርህ (FT: {receipt.refNo}) ወደ ዋና አስተዳዳሪ ተልኳል!
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                  የከፈሉበት ማረጋገጫ ኮድ ወደ ዋና አስተዳዳሪ <b>{superAdminContact.name} ({superAdminContact.phone})</b> ገቢ ሆኗል።
+                  በደቂቃዎች ውስጥ ተረጋግጦ ፈቃድዎ ነቅቶ (Active) ይሆናል።
+                </p>
+              </div>
+            </div>
+
+            {/* Transaction Summary Table */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-white dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">የተማሪ ስም:</span>
+                <span className="font-extrabold text-slate-900 dark:text-white truncate block">{currentUser.name}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">የክፍያ መጠን:</span>
+                <span className="font-black text-emerald-600 dark:text-emerald-400">{receipt.amount} ETB</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">የመክፈያ መንገድ:</span>
+                <span className="font-extrabold text-indigo-600 dark:text-indigo-400 uppercase">{receipt.provider}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">የከፈሉበት ስልክ:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{receipt.phone}</span>
+              </div>
+            </div>
+
+            {/* Highlighted FT Code Box */}
+            <div className="p-3 rounded-2xl bg-slate-900 text-white flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className="text-[10px] uppercase font-bold text-emerald-400 shrink-0">FT Code:</span>
+                <span className="font-mono text-sm sm:text-base font-black text-white tracking-wider truncate">
+                  {receipt.refNo}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopy(receipt.refNo, 'receipt-ft')}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-emerald-300 flex items-center gap-1 shrink-0 transition"
+              >
+                {copiedId === 'receipt-ft' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedId === 'receipt-ft' ? 'ኮፒ ተደርጓል!' : 'ኮፒ'}
+              </button>
+            </div>
+
+            {/* Direct Send / Message Action Buttons to Admin */}
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                ለፈጣን ማረጋገጫ ወደ አድሚን በቀጥታ ይላኩ:
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {/* 1-Click Telegram Share to Admin */}
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent('https://service-9-12-nur-ai-school-erp.ai.studio')}&text=${encodeURIComponent(
+                    `ሰላም አድሚን (ኑርዬ)፣ የ ${activeGrade}ኛ ክፍል የትምህርት ክፍያ በ${receipt.provider.toUpperCase()} ከፍያለሁ።\n• የተማሪ ስም፦ ${currentUser.name}\n• ስልክ፦ ${receipt.phone}\n• መጠን፦ ${receipt.amount} ETB\n• የትራንዛክሽን ቁጥር (FT)፦ ${receipt.refNo}\nእባክዎ ፈቃዴን ያጽድቁ።`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-xs"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  በቴሌግራም ላክ (Telegram)
+                </a>
+
+                {/* 1-Click SMS to Admin Phone */}
+                <a
+                  href={`sms:${superAdminContact.phone}?body=${encodeURIComponent(
+                    `ሰላም ኑርዬ፣ የክፍያ ማረጋገጫ FT ቁጥር፦ ${receipt.refNo}፣ ተማሪ፦ ${currentUser.name} (Grade ${activeGrade})፣ መጠን፦ ${receipt.amount} ETB፣ ስልክ፦ ${receipt.phone}`
+                  )}`}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-xs"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  በSMS ላክ (0910097862)
+                </a>
+
+                {/* Direct Call to Admin */}
+                <a
+                  href={`tel:${superAdminContact.phone}`}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center gap-1.5 transition"
+                >
+                  <PhoneCall className="w-3.5 h-3.5 text-amber-500" />
+                  ደውል (0910097862)
+                </a>
+              </div>
+            </div>
           </div>
         )}
       </div>

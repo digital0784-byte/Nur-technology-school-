@@ -425,7 +425,7 @@ export const GRADE_9_MATH_SUBJECT: CurriculumSubject = {
           summary: '',
           content: '',
           estimatedStudyMinutes: 30,
-          pageReference: 'MoE Grade 9 Mathematics, pp. 313-345',
+          pageReference: 'MoE Grade 9 Mathematics, from p. 311',
         },
         {
           id: 'g9-math-9.2',
@@ -434,7 +434,7 @@ export const GRADE_9_MATH_SUBJECT: CurriculumSubject = {
           summary: '',
           content: '',
           estimatedStudyMinutes: 30,
-          pageReference: 'MoE Grade 9 Mathematics, pp. 346-357',
+          pageReference: 'MoE Grade 9 Mathematics, from p. 311',
         },
       ],
     },

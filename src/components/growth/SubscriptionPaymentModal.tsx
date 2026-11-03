@@ -3,6 +3,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PaymentGatewayId } from '../../types/payment';
+import { authFetch } from '../../services/apiClient';
 import {
   X,
   CreditCard,
@@ -14,6 +15,8 @@ import {
   Loader2,
   Sparkles,
   Lock,
+  Send,
+  MessageSquare,
 } from 'lucide-react';
 
 interface SubscriptionPaymentModalProps {
@@ -60,7 +63,10 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!transactionRef.trim()) {
+    const cleanRef = transactionRef.trim();
+    const cleanPhone = (phone || '0910000000').trim();
+
+    if (!cleanRef || cleanRef.length < 3) {
       setSubmitError('እባክዎ ትክክለኛ የግብይት ማረጋገጫ (FT Reference) ያስገቡ።');
       return;
     }
@@ -70,9 +76,30 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
 
     const res = await submitPayment(
       selectedGateway,
-      transactionRef.trim(),
-      phone || '0910000000'
+      cleanRef,
+      cleanPhone
     );
+
+    // Notify backend server directly
+    try {
+      await authFetch('/api/payment/notify-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: currentUser.id,
+          studentName: currentUser.name,
+          studentEmail: currentUser.email,
+          studentPhone: cleanPhone,
+          grade: activeGrade,
+          amount: singlePriceETB || currentGradePrice,
+          paymentGateway: selectedGateway,
+          transactionRef: cleanRef,
+          plan: targetItemTitle || `Grade ${activeGrade} Access`,
+        }),
+      });
+    } catch (err) {
+      console.warn('Backend payment notify error:', err);
+    }
 
     setIsSubmitting(false);
     if (res.success) {
@@ -109,18 +136,62 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
         </div>
 
         {submitSuccess ? (
-          <div className="p-6 rounded-2xl bg-emerald-950/60 border border-emerald-500/50 text-center space-y-3">
+          <div className="p-6 rounded-2xl bg-emerald-950/60 border border-emerald-500/50 text-center space-y-4">
             <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
               <CheckCircle2 className="w-8 h-8" />
             </div>
-            <h4 className="text-lg font-bold text-white">የክፍያ ማረጋገጫው በተሳካ ሁኔታ ተልኳል!</h4>
-            <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
-              የላኩት የግብይት ማረጋገጫ ቁጥር <b>{transactionRef}</b> በሲስተም አስተዳዳሪ (Nuriye Ahmed Adem) እየተረጋገጠ ነው።
-              ሁኔታው በቅርቡ ገቢር (ACTIVE) ይሆናል።
-            </p>
+            <div>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase">
+                ✓ Delivered to Super Admin
+              </span>
+              <h4 className="text-lg font-black text-white mt-1">
+                የትራንዛክሽን ቁጥርህ (FT: {transactionRef}) ወደ ዋና አስተዳዳሪ ተልኳል!
+              </h4>
+              <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed mt-1">
+                የላኩት የግብይት ማረጋገጫ ቁጥር ወደ ዋና አስተዳዳሪ <b>{superAdminContact.name} ({superAdminContact.phone})</b> ገቢ ሆኗል።
+                በጥቂት ደቂቃዎች ውስጥ ተረጋግጦ ፈቃድዎ ይነቃል።
+              </p>
+            </div>
+
+            {/* Quick Action Buttons to contact Admin */}
+            <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-2 text-left">
+              <span className="text-[11px] font-bold text-slate-400 block">
+                ለበለጠ ፍጥነት ወደ አድሚን በቀጥታ ይላኩ:
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent('https://service-9-12-nur-ai-school-erp.ai.studio')}&text=${encodeURIComponent(
+                    `ሰላም አድሚን (ኑርዬ)፣ የክፍያ ማረጋገጫ ልኬያለሁ፦\n• ተማሪ፦ ${currentUser.name}\n• ክፍል፦ ${activeGrade}ኛ ክፍል\n• መንገድ፦ ${selectedGateway.toUpperCase()}\n• FT ቁጥር፦ ${transactionRef}\n• ስልክ፦ ${phone || '09...'}\nእባክዎ ፈቃዴን ያጽድቁ።`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  በቴሌግራም ላክ
+                </a>
+                <a
+                  href={`sms:${superAdminContact.phone}?body=${encodeURIComponent(
+                    `ሰላም ኑርዬ፣ የክፍያ ማረጋገጫ FT ቁጥር፦ ${transactionRef}፣ ተማሪ፦ ${currentUser.name}፣ ስልክ፦ ${phone || ''}`
+                  )}`}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  በSMS ላክ (0910097862)
+                </a>
+                <a
+                  href={`tel:${superAdminContact.phone}`}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5"
+                >
+                  <PhoneCall className="w-3.5 h-3.5 text-amber-400" />
+                  ደውል (0910097862)
+                </a>
+              </div>
+            </div>
+
             <button
               onClick={onClose}
-              className="py-2.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+              className="py-2.5 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 transition"
             >
               ተመለስ (Close)
             </button>

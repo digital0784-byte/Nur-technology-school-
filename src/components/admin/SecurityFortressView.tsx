@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { DrmProtectedContainer } from '../common/DrmProtectedContainer';
 import { AuditLog, DeviceSession, SecurityUser } from '../../types';
+import { authFetch } from '../../services/apiClient';
 import {
   Shield,
   ShieldCheck,
@@ -75,7 +76,7 @@ export const SecurityFortressView: React.FC = () => {
   // Fetch RBAC users
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/security/users');
+      const res = await authFetch('/api/security/users');
       const data = await res.json();
       if (data.success && data.users) {
         setUsers(data.users);
@@ -88,7 +89,7 @@ export const SecurityFortressView: React.FC = () => {
   // Fetch device sessions
   const fetchDevices = async () => {
     try {
-      const res = await fetch('/api/security/devices');
+      const res = await authFetch('/api/security/devices');
       const data = await res.json();
       if (data.success && data.activeSessions) {
         setDeviceSessions(data.activeSessions);
@@ -101,7 +102,7 @@ export const SecurityFortressView: React.FC = () => {
   // Fetch rate limits
   const fetchRateLimits = async () => {
     try {
-      const res = await fetch('/api/security/rate-limits');
+      const res = await authFetch('/api/security/rate-limits');
       const data = await res.json();
       if (data.success) {
         setRateLimitData(data);
@@ -120,7 +121,7 @@ export const SecurityFortressView: React.FC = () => {
       if (roleFilter !== 'ALL') params.set('actorRole', roleFilter);
       if (resultFilter !== 'ALL') params.set('result', resultFilter);
 
-      const res = await fetch(`/api/security/audit-logs?${params.toString()}`);
+      const res = await authFetch(`/api/security/audit-logs?${params.toString()}`);
       const data = await res.json();
       if (data.success && data.logs) {
         setAuditLogs(data.logs);
@@ -152,7 +153,7 @@ export const SecurityFortressView: React.FC = () => {
     setUpdatingUser(true);
     setUserUpdateMessage(null);
     try {
-      const res = await fetch('/api/security/users/update-role', {
+      const res = await authFetch('/api/security/users/update-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -186,7 +187,7 @@ export const SecurityFortressView: React.FC = () => {
   const handleRevokeDevice = async (deviceId: string) => {
     setDeviceActionMsg(null);
     try {
-      const res = await fetch('/api/security/devices/revoke', {
+      const res = await authFetch('/api/security/devices/revoke', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -209,7 +210,7 @@ export const SecurityFortressView: React.FC = () => {
   // Handle Trust Device Session
   const handleTrustDevice = async (deviceId: string) => {
     try {
-      const res = await fetch('/api/security/devices/trust', {
+      const res = await authFetch('/api/security/devices/trust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId }),
@@ -226,7 +227,7 @@ export const SecurityFortressView: React.FC = () => {
     setSimulatingRateLimit(true);
     setRateLimitSimResult(null);
     try {
-      const res = await fetch('/api/security/rate-limits/simulate', {
+      const res = await authFetch('/api/security/rate-limits/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -248,7 +249,7 @@ export const SecurityFortressView: React.FC = () => {
   // Handle Unblock IP
   const handleUnblockIp = async (ip: string) => {
     try {
-      await fetch('/api/security/rate-limits/unblock', {
+      await authFetch('/api/security/rate-limits/unblock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientIp: ip }),

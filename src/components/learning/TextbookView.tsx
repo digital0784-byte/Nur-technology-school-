@@ -13,6 +13,7 @@ import { AllTextbooksModal } from './AllTextbooksModal';
 import { SecureBookReaderModal } from './SecureBookReaderModal';
 import { SubTopicDeepDiveModal, SubTopicItem } from './SubTopicDeepDiveModal';
 import { Language } from '../../types';
+import { authFetch } from '../../services/apiClient';
 import {
   BookOpen,
   FileText,
@@ -135,7 +136,7 @@ export const TextbookView: React.FC = () => {
     setIsAnalyzing(true);
     setAiAnalysisResult(null);
     try {
-      const res = await fetch('/api/ai/tutor', {
+      const res = await authFetch('/api/ai/tutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -707,8 +708,8 @@ export const TextbookView: React.FC = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
                   <div>
-                    <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest">
-                      MoE Official Curriculum Text (ገፅ {currentChapter.startPage} – {currentChapter.endPage})
+                    <span className="text-[11px] font-bold text-emerald-600 tracking-wide">
+                      የምዕራፉ ማጠቃለያ (በ AI የተዘጋጀ) / AI-written chapter summary (ከመጽሐፉ ገፅ {currentChapter.startPage}–{currentChapter.endPage} ጋር ይዛመዳል / matches textbook pp. {currentChapter.startPage}–{currentChapter.endPage})
                     </span>
                     <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-0.5">
                       {currentChapter.title[selectedLanguageOverride] || currentChapter.title.am}
@@ -733,6 +734,9 @@ export const TextbookView: React.FC = () => {
                   <p>
                     {currentChapter.theoryContent[selectedLanguageOverride] ||
                       currentChapter.theoryContent.am}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 italic mt-2">
+                    ከመጽሐፍዎ ጋር ያመሳስሉ / Please verify with your textbook
                   </p>
                 </div>
 
@@ -785,7 +789,7 @@ export const TextbookView: React.FC = () => {
                   </div>
                 )}
 
-                {/* Verbatim AI Deep Analysis Action Button */}
+                {/* AI Deep Analysis Action Button */}
                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
                   <button
                     type="button"
@@ -799,7 +803,7 @@ export const TextbookView: React.FC = () => {
                     className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all"
                   >
                     <Sparkles className="w-4 h-4 text-amber-300" />
-                    {isAnalyzing ? 'በመተንተን ላይ...' : '🤖 ቃል በቃል በኑር ኤአይ አስረዳኝ (NUR AI Verbatim Deep Dive)'}
+                    {isAnalyzing ? 'በመተንተን ላይ...' : '🤖 በዝርዝር በኑር ኤአይ አስረዳኝ (NUR AI Detailed Deep Dive)'}
                   </button>
 
                   <span className="text-xs text-slate-400 font-mono">
@@ -1179,7 +1183,7 @@ export const TextbookView: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
                     <Sparkles className="w-4 h-4 text-amber-300" />
-                    የኑር ኤአይ ቃል በቃል ጥልቅ ትንታኔ ({langNames[selectedLanguageOverride].label})
+                    የኑር ኤአይ በዝርዝር ጥልቅ ትንታኔ ({langNames[selectedLanguageOverride].label})
                   </div>
                   <button
                     type="button"

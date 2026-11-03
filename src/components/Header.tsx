@@ -32,11 +32,12 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfileModal,
 }) => {
   const { currentUser, activeGrade, setActiveGrade, isSuperAdmin, isGradeLocked } = useAuth();
-  const { status, subscription } = useSubscription();
+  const { status, subscription, allSubmissions } = useSubscription();
   const { t, isRtl } = useLanguage();
   const [showRoleInfo, setShowRoleInfo] = useState(false);
 
   const availableGrades: GradeLevel[] = [9, 10, 11, 12];
+  const pendingCount = isSuperAdmin ? allSubmissions.filter((s) => s.status === 'PENDING').length : 0;
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
@@ -92,28 +93,39 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Dynamic Grade Switcher for Super Admin vs Strict Lock for Student */}
           {isSuperAdmin ? (
-            <div className="flex items-center bg-amber-50 dark:bg-amber-950/40 p-1 rounded-xl border border-amber-300 dark:border-amber-700/60 shadow-xs">
-              <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 dark:text-amber-200 px-2 py-0.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                Super Admin:
-              </span>
-              <div className="flex items-center gap-0.5">
-                {availableGrades.map((gradeNum) => (
-                  <button
-                    key={gradeNum}
-                    type="button"
-                    onClick={() => setActiveGrade(gradeNum)}
-                    className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
-                      activeGrade === gradeNum
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'text-amber-900 dark:text-amber-200 hover:bg-amber-200/50 dark:hover:bg-amber-900/40'
-                    }`}
-                    title={`Switch view to Grade ${gradeNum}`}
-                  >
-                    {t('grade')} {gradeNum}
-                  </button>
-                ))}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center bg-amber-50 dark:bg-amber-950/40 p-1 rounded-xl border border-amber-300 dark:border-amber-700/60 shadow-xs">
+                <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 dark:text-amber-200 px-2 py-0.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                  Super Admin:
+                </span>
+                <div className="flex items-center gap-0.5">
+                  {availableGrades.map((gradeNum) => (
+                    <button
+                      key={gradeNum}
+                      type="button"
+                      onClick={() => setActiveGrade(gradeNum)}
+                      className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                        activeGrade === gradeNum
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'text-amber-900 dark:text-amber-200 hover:bg-amber-200/50 dark:hover:bg-amber-900/40'
+                      }`}
+                      title={`Switch view to Grade ${gradeNum}`}
+                    >
+                      {t('grade')} {gradeNum}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {pendingCount > 0 && (
+                <span
+                  title={`${pendingCount} የክፍያ ማረጋገጫ (FT) ደርሷል`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 font-black text-[11px] shadow-sm animate-pulse"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{pendingCount} FT</span>
+                </span>
+              )}
             </div>
           ) : (
             /* Student Strictly Locked Grade Badge & VIP Status */

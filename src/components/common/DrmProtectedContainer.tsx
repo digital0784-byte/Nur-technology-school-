@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ShieldAlert, ShieldCheck, EyeOff, Lock } from 'lucide-react';
+import { authFetch } from '../../services/apiClient';
 
 interface DrmProtectedContainerProps {
   children: React.ReactNode;
@@ -59,7 +60,7 @@ export const DrmProtectedContainer: React.FC<DrmProtectedContainerProps> = ({
       }
 
       // Log violation to audit trail
-      fetch('/api/security/audit-logs', {
+      authFetch('/api/security/audit-logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,4 +1,5 @@
 import { GradeLevel, Language } from '../types';
+import { authFetch } from './apiClient';
 
 export class GeminiService {
   static async askTutor(params: {
@@ -9,7 +10,7 @@ export class GeminiService {
     unit?: string;
     language: Language;
   }) {
-    const res = await fetch('/api/ai/tutor', {
+    const res = await authFetch('/api/ai/tutor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -24,7 +25,7 @@ export class GeminiService {
     subject?: string;
     language: Language;
   }) {
-    const res = await fetch('/api/ai/ocr-solve', {
+    const res = await authFetch('/api/ai/ocr-solve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -39,7 +40,7 @@ export class GeminiService {
     chapter?: string;
     language: Language;
   }) {
-    const res = await fetch('/api/ai/exam-gen', {
+    const res = await authFetch('/api/ai/exam-gen', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -55,7 +56,7 @@ export class GeminiService {
     subject: string;
     language: Language;
   }) {
-    const res = await fetch('/api/ai/grade-assignment', {
+    const res = await authFetch('/api/ai/grade-assignment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -68,7 +69,7 @@ export class GeminiService {
     grade: GradeLevel;
     language: Language;
   }) {
-    const res = await fetch('/api/ai/search', {
+    const res = await authFetch('/api/ai/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),

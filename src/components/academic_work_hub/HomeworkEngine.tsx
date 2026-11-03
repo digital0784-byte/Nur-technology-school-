@@ -4,6 +4,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { CURRICULUM_HOMEWORK_BANK } from '../../data/academicWorkHubData';
 import { HomeworkQuestion } from '../../types/academicWorkHub';
 import { AcademicWorkHubService } from '../../services/academicWorkHubService';
+import { authFetch } from '../../services/apiClient';
 import {
   BookOpen,
   CheckCircle2,
@@ -106,7 +107,7 @@ export const HomeworkEngine: React.FC = () => {
   const handleGenerateAIHomework = async () => {
     setAiGenerating(true);
     try {
-      const res = await fetch('/api/ai/exam-gen', {
+      const res = await authFetch('/api/ai/exam-gen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

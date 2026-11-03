@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Camera, Mic, Sparkles, Loader2, CheckCircle } from 'lucide-react';
+import { authFetch } from '../../services/apiClient';
 
 export const PhotoVoiceTutorView: React.FC = () => {
   const { activeGrade, updateUserXP } = useAuth();
@@ -19,7 +20,7 @@ export const PhotoVoiceTutorView: React.FC = () => {
     setSolution(null);
     setIsCached(false);
     try {
-      const res = await fetch('/api/ai/ocr-solve', {
+      const res = await authFetch('/api/ai/ocr-solve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

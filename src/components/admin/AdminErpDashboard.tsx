@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { authFetch } from '../../services/apiClient';
 import {
   ShieldCheck,
   Lock,
@@ -118,6 +119,15 @@ export const AdminErpDashboard: React.FC = () => {
   useEffect(() => {
     setEditAccounts(accounts);
   }, [accounts]);
+
+  // Live listener for student payment submission so Admin sees new FT numbers instantly
+  useEffect(() => {
+    const handleNewPayment = () => {
+      refreshState();
+    };
+    window.addEventListener('nur_payment_submitted', handleNewPayment);
+    return () => window.removeEventListener('nur_payment_submitted', handleNewPayment);
+  }, [refreshState]);
 
   // Security Session Timer countdown
   useEffect(() => {
@@ -259,7 +269,7 @@ export const AdminErpDashboard: React.FC = () => {
     setTimeout(() => setIsPricingSaved(false), 3000);
 
     // Call server API as well
-    fetch('/api/payment/admin/pricing', {
+    authFetch('/api/payment/admin/pricing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -276,7 +286,7 @@ export const AdminErpDashboard: React.FC = () => {
     setTimeout(() => setIsAccountsSaved(false), 3000);
 
     // Sync to backend
-    fetch('/api/admin/accounts/update', {
+    authFetch('/api/admin/accounts/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

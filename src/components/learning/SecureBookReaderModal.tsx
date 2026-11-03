@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { TextbookRecord, TextbookChapter } from '../../data/textbooksRegistry';
+import { authFetch } from '../../services/apiClient';
 import {
   BookOpen,
   ZoomIn,
@@ -93,7 +94,7 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
     setIsBlinded(true);
 
     // Security audit log
-    fetch('/api/security/audit-logs', {
+    authFetch('/api/security/audit-logs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

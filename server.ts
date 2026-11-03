@@ -13,6 +13,8 @@ import {
 } from './src/server/securityRouter';
 import { sharedAiCache } from './src/server/sharedAiCache';
 import { generateCurriculumLessonFallback } from './curriculumLessonFallback';
+import { requireAuth, requireSuperAdmin, isPremiumActive } from './src/server/authMiddleware';
+import { CURRICULUM_DATA } from './src/data/curriculum';
 
 dotenv.config();
 
@@ -22,12 +24,13 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(inputSanitizerMiddleware);
-app.use('/api/admin', adminAutomationRouter);
-app.use('/api/security', securityRouter);
+app.use('/api', (req, res, next) => (req.path === '/health' ? next() : requireAuth(req, res, next)));
 app.use('/api', rateLimiterMiddleware);
+app.use('/api/admin', requireSuperAdmin, adminAutomationRouter);
+app.use('/api/security', requireSuperAdmin, securityRouter);
 
 // Resilient Gemini AI client initialization
 const apiKey = process.env.GEMINI_API_KEY || '';
@@ -372,30 +375,73 @@ function findTextbookPages(subjectCode: string, subjectName: string, grade: any)
   return null;
 }
 
+function findCurriculumTopic(topicId: string) {
+  if (!topicId || typeof topicId !== 'string') return null;
+  const cleanId = topicId.trim().toLowerCase();
+  for (const subject of CURRICULUM_DATA) {
+    for (const unit of subject.units) {
+      for (const topic of unit.topics) {
+        if (topic.id.toLowerCase() === cleanId) {
+          return { topic, unit, subject };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 // Generate Full Lesson from Topic (with MoE Textbook Grounding)
 app.post('/api/ai/lesson', async (req: Request, res: Response) => {
   try {
-    const {
-      subjectCode = '',
-      subjectName = '',
-      grade = '10',
-      unitTitle = '',
-      topicId = '',
-      topicTitle = '',
-      objectives = [],
-      topicContext = '',
-      pageReference = '',
-      language = 'am',
-    } = req.body;
+    const rawTopicId = req.body?.topicId;
+    if (!rawTopicId || typeof rawTopicId !== 'string') {
+      return res.status(404).json({
+        success: false,
+        error: 'TOPIC_NOT_FOUND',
+        message: 'A valid topicId is required.',
+      });
+    }
+
+    const found = findCurriculumTopic(rawTopicId);
+    if (!found) {
+      return res.status(404).json({
+        success: false,
+        error: 'TOPIC_NOT_FOUND',
+        message: `Topic with id "${rawTopicId}" was not found in the curriculum.`,
+      });
+    }
+
+    // Validate language strictly to only allow ['am', 'om', 'ti', 'ar', 'so', 'en']
+    const ALLOWED_LANGUAGES = ['am', 'om', 'ti', 'ar', 'so', 'en'] as const;
+    type AllowedLanguage = (typeof ALLOWED_LANGUAGES)[number];
+    const language: AllowedLanguage = (
+      typeof req.body?.language === 'string' && (ALLOWED_LANGUAGES as readonly string[]).includes(req.body.language)
+    )
+      ? (req.body.language as AllowedLanguage)
+      : 'am';
+
+    // ONLY use server-side topic data
+    const serverTopic = found.topic;
+    const serverUnit = found.unit;
+    const serverSubject = found.subject;
+
+    const topicId = serverTopic.id;
+    const topicTitle = serverTopic.title;
+    const unitTitle = serverUnit.title;
+    const pageReference = serverTopic.pageReference || '';
+    const objectives = serverTopic.competencyObjectives || [];
+    const subjectCode = serverSubject.code;
+    const subjectName = serverSubject.name[language] || serverSubject.name['en'] || serverSubject.name['am'] || serverSubject.code;
+    const grade = String(serverSubject.grade);
 
     // Check cross-student persistent AI cache first
     const cachedLesson = sharedAiCache.getLesson({
       subjectCode,
       subjectName,
-      grade: String(grade),
+      grade,
       topicId,
       topicTitle,
-      language: String(language),
+      language,
     });
 
     if (cachedLesson) {
@@ -411,7 +457,7 @@ app.post('/api/ai/lesson', async (req: Request, res: Response) => {
       });
     }
 
-    const cacheKey = `${topicId || topicTitle}:${language}`;
+    const cacheKey = `${topicId}:${language}`;
     if (LESSON_MEMORY_CACHE.has(cacheKey)) {
       const cachedEntry = LESSON_MEMORY_CACHE.get(cacheKey)!;
       return res.json({
@@ -441,7 +487,7 @@ app.post('/api/ai/lesson', async (req: Request, res: Response) => {
 
       if (matchedPages.length === 0) {
         // Pick 4 pages with the best keyword match on topicTitle
-        const keywords = (topicTitle || '')
+        const keywords = topicTitle
           .toLowerCase()
           .split(/[\s,.:;()/-]+/)
           .filter((w: string) => w.length > 2);
@@ -482,7 +528,7 @@ app.post('/api/ai/lesson', async (req: Request, res: Response) => {
 
     const sourceSection = grounded && textbookPagesText
       ? `TEXTBOOK PAGES:\n${textbookPagesText}`
-      : `TOPIC CONTEXT:\n${topicContext || `${subjectName} Grade ${grade} - ${topicTitle}`}`;
+      : `TOPIC CONTEXT:\n${subjectName} Grade ${grade} - ${topicTitle}\n${serverTopic.summary || ''}\n${serverTopic.content || ''}`;
 
     const prompt = `you are an Ethiopian high-school teacher; Grade ${grade} level; answer in the language ${language}; if TEXTBOOK PAGES are provided use ONLY them and do not invent facts, definitions or page numbers; use plain text and Unicode for math (no LaTeX); give Ethiopian everyday examples where natural; double-check every calculation in worked examples before answering; graph points must be numerically correct for the stated formula.
 
@@ -491,7 +537,7 @@ Curriculum Details:
 - Grade: ${grade}
 - Unit: ${unitTitle}
 - Topic: ${topicTitle}
-- Objectives: ${Array.isArray(objectives) ? objectives.join('; ') : objectives}
+- Objectives: ${objectives.join('; ')}
 - Page Reference: ${pageReference}
 
 ${sourceSection}
@@ -607,7 +653,7 @@ COUNT CONSTRAINTS:
         topicId,
         topicTitle,
         objectives,
-        topicContext,
+        topicContext: serverTopic.summary || '',
         pageReference,
         language,
         textbookExcerpt: textbookPagesText,
@@ -626,10 +672,10 @@ COUNT CONSTRAINTS:
       {
         subjectCode,
         subjectName,
-        grade: String(grade),
+        grade,
         topicId,
         topicTitle,
-        language: String(language),
+        language,
       },
       lesson,
       grounded,
@@ -646,31 +692,11 @@ COUNT CONSTRAINTS:
       modelUsed,
     });
   } catch (err: any) {
-    console.error('Unhandled error in /api/ai/lesson, serving resilient fallback:', err);
-    try {
-      const fallback = generateCurriculumLessonFallback({
-        subjectCode: req.body?.subjectCode || 'MOE',
-        subjectName: req.body?.subjectName || 'Subject',
-        grade: req.body?.grade || '9',
-        unitTitle: req.body?.unitTitle || 'Unit',
-        topicId: req.body?.topicId || 'topic',
-        topicTitle: req.body?.topicTitle || 'Topic',
-        language: req.body?.language || 'am',
-      });
-      res.json({
-        success: true,
-        lesson: fallback,
-        grounded: false,
-        sources: [],
-        cached: false,
-        modelUsed: 'moe-curriculum-engine',
-      });
-    } catch (criticalErr: any) {
-      res.status(500).json({
-        success: false,
-        error: criticalErr?.message || 'Failed to generate lesson from topic',
-      });
-    }
+    console.error('Unhandled error in /api/ai/lesson:', err);
+    res.status(500).json({
+      success: false,
+      error: err?.message || 'Failed to generate lesson from topic',
+    });
   }
 });
 
@@ -1015,24 +1041,180 @@ app.post('/api/admin/accounts/update', (_req: Request, res: Response) => {
 app.get('/api/admin/stats', (_req: Request, res: Response) => {
   res.json({
     success: true,
+    note: 'Not connected to real data yet',
     stats: {
-      totalStudents: 1248,
-      activeSubscriptions: 894,
-      pendingVerifications: 17,
-      totalRevenueETB: 168420,
-      systemHealthScore: 99.8,
+      totalStudents: 0,
+      activeSubscriptions: 0,
+      pendingVerifications: 0,
+      totalRevenueETB: 0,
+      systemHealthScore: 0,
       moeCurriculumVersion: '2019 E.C. (New Syllabus)',
       superAdmin: 'mejennur669@gmail.com (Nuriye Ahmed Adem)',
       timestamp: new Date().toISOString(),
+      note: 'Not connected to real data yet',
     },
+  });
+});
+
+interface AdminPaymentNotification {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  studentPhone: string;
+  grade: number;
+  amount: number;
+  currency: string;
+  paymentGateway: string;
+  transactionRef: string;
+  planTitle?: string;
+  submittedAt: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+const ADMIN_PAYMENT_NOTIFICATIONS: AdminPaymentNotification[] = [
+  {
+    id: 'pay-seed-01',
+    studentId: 'usr-student-01',
+    studentName: 'Almaz Tadesse',
+    studentEmail: 'almaz.student@nur-school.edu.et',
+    studentPhone: '0922446688',
+    grade: 10,
+    amount: 180,
+    currency: 'ETB',
+    paymentGateway: 'telebirr',
+    transactionRef: 'FT26049281',
+    planTitle: '10ኛ ክፍል ወርሃዊ መደበኛ',
+    submittedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    status: 'PENDING',
+  },
+  {
+    id: 'pay-seed-02',
+    studentId: 'usr-student-02',
+    studentName: 'Mohammed Bekele',
+    studentEmail: 'mohammed.bekele@nur-school.edu.et',
+    studentPhone: '0911559933',
+    grade: 12,
+    amount: 200,
+    currency: 'ETB',
+    paymentGateway: 'cbe',
+    transactionRef: 'CBE-FT9981240',
+    planTitle: '12ኛ ክፍል ወርሃዊ መደበኛ',
+    submittedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+    status: 'APPROVED',
+  },
+];
+
+// POST /api/payment/notify-admin: Student sends transaction number directly to admin
+app.post('/api/payment/notify-admin', (req: Request, res: Response) => {
+  const {
+    studentId = 'usr-student',
+    studentName = 'ተማሪ',
+    studentEmail = 'student@nur-school.edu.et',
+    studentPhone = '',
+    grade = 10,
+    amount = 180,
+    paymentGateway = 'telebirr',
+    transactionRef = '',
+    plan = 'Monthly Pass',
+  } = req.body;
+
+  const cleanRef = String(transactionRef || '').trim();
+  if (!cleanRef || cleanRef.length < 3) {
+    return res.status(400).json({
+      success: false,
+      error: 'ትክክለኛ የግብይት ማረጋገጫ ቁጥር (Transaction Number / FT Code) ያስገቡ።',
+    });
+  }
+
+  const notificationId = `pay-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+
+  // Check if this FT reference was already submitted
+  const existingIdx = ADMIN_PAYMENT_NOTIFICATIONS.findIndex(
+    (n) => n.transactionRef.toLowerCase() === cleanRef.toLowerCase()
+  );
+
+  const notificationRecord: AdminPaymentNotification = {
+    id: notificationId,
+    studentId: String(studentId),
+    studentName: String(studentName),
+    studentEmail: String(studentEmail),
+    studentPhone: String(studentPhone || '0910000000'),
+    grade: Number(grade) || 10,
+    amount: Number(amount) || 180,
+    currency: 'ETB',
+    paymentGateway: String(paymentGateway).toLowerCase(),
+    transactionRef: cleanRef,
+    planTitle: String(plan),
+    submittedAt: new Date().toISOString(),
+    status: 'PENDING',
+  };
+
+  if (existingIdx !== -1) {
+    ADMIN_PAYMENT_NOTIFICATIONS[existingIdx] = notificationRecord;
+  } else {
+    ADMIN_PAYMENT_NOTIFICATIONS.unshift(notificationRecord);
+  }
+
+  if (ADMIN_PAYMENT_NOTIFICATIONS.length > 150) {
+    ADMIN_PAYMENT_NOTIFICATIONS.pop();
+  }
+
+  console.log(`\n🔔 [SUPER ADMIN PAYMENT NOTIFICATION RECEIVED]`);
+  console.log(`  • FT Reference Code : ${cleanRef}`);
+  console.log(`  • Student Name      : ${studentName}`);
+  console.log(`  • Student Phone     : ${studentPhone}`);
+  console.log(`  • Grade Level       : Grade ${grade}`);
+  console.log(`  • Amount            : ${amount} ETB`);
+  console.log(`  • Payment Gateway   : ${paymentGateway.toUpperCase()}`);
+  console.log(`  • Time              : ${notificationRecord.submittedAt}`);
+  console.log(`  • Delivered to Admin: Nuriye Ahmed Adem (mejennur669@gmail.com / 0910097862)\n`);
+
+  return res.json({
+    success: true,
+    notificationId,
+    transactionRef: cleanRef,
+    receivedAt: notificationRecord.submittedAt,
+    status: 'PENDING',
+    superAdminContact: {
+      name: 'Nuriye Ahmed Adem',
+      email: 'mejennur669@gmail.com',
+      phone: '0910097862',
+      telegram: 'https://t.me/nur_school_admin',
+    },
+    message: 'የክፍያ ማረጋገጫ ቁጥርህ (FT ቁጥር) ወደ ሲስተሙ ዋና አስተዳዳሪ (Nuriye Ahmed Adem) በተሳካ ሁኔታ ተልኳል!',
+  });
+});
+
+// GET /api/payment/admin/notifications: Super Admin views all received transaction numbers
+app.get('/api/payment/admin/notifications', (req: Request, res: Response) => {
+  const pendingOnly = req.query.pending === 'true';
+  const list = pendingOnly
+    ? ADMIN_PAYMENT_NOTIFICATIONS.filter((n) => n.status === 'PENDING')
+    : ADMIN_PAYMENT_NOTIFICATIONS;
+
+  const pendingCount = ADMIN_PAYMENT_NOTIFICATIONS.filter((n) => n.status === 'PENDING').length;
+
+  res.json({
+    success: true,
+    count: list.length,
+    pendingCount,
+    superAdmin: 'mejennur669@gmail.com (Nuriye Ahmed Adem)',
+    phone: '0910097862',
+    notifications: list,
+    lastChecked: new Date().toISOString(),
   });
 });
 
 // Telebirr, CBE Birr, CBE, Dashen, and BoA Payment submission & verification
 app.post('/api/payment/verify', (req: Request, res: Response) => {
-  const { provider, transactionId, amount, studentName, studentEmail, grade, phone } = req.body;
+  const { provider, transactionId, amount, studentName, grade, phone, studentId } = req.body;
+  const studentEmail = req.user?.email || '';
 
-  const isValidRef = Boolean(transactionId && transactionId.trim().length >= 4);
+  const cleanRef = String(transactionId || '').trim();
+  const isValidRef = Boolean(cleanRef && cleanRef.length >= 3);
 
   // Expected price check server-side
   let expectedAmount = 160;
@@ -1041,21 +1223,54 @@ app.post('/api/payment/verify', (req: Request, res: Response) => {
   else if (grade === 12) expectedAmount = SERVER_PRICING.grade12;
   else expectedAmount = SERVER_PRICING.grade9;
 
+  const resolvedAmount = amount || expectedAmount;
+  const receiptNo = `ETH-${(provider || 'PAY').toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+  if (isValidRef) {
+    const existingIdx = ADMIN_PAYMENT_NOTIFICATIONS.findIndex(
+      (n) => n.transactionRef.toLowerCase() === cleanRef.toLowerCase()
+    );
+
+    const record: AdminPaymentNotification = {
+      id: receiptNo,
+      studentId: studentId || (req.user?.uid || 'usr-student'),
+      studentName: studentName || 'ተማሪ',
+      studentEmail,
+      studentPhone: phone || '0910000000',
+      grade: Number(grade) || 10,
+      amount: resolvedAmount,
+      currency: 'ETB',
+      paymentGateway: String(provider || 'telebirr').toLowerCase(),
+      transactionRef: cleanRef,
+      planTitle: `${grade || 10}ኛ ክፍል ወርሃዊ መደበኛ`,
+      submittedAt: new Date().toISOString(),
+      status: 'PENDING',
+    };
+
+    if (existingIdx !== -1) {
+      ADMIN_PAYMENT_NOTIFICATIONS[existingIdx] = record;
+    } else {
+      ADMIN_PAYMENT_NOTIFICATIONS.unshift(record);
+    }
+    console.log(`[VERIFY -> ADMIN QUEUE] FT: ${cleanRef} from ${studentName} (${phone}) queued for Super Admin`);
+  }
+
   res.json({
     success: true,
     approved: false, // Student payments start in PENDING status until Super Admin approves
     status: isValidRef ? 'PENDING' : 'INVALID_REF',
-    receiptNo: `ETH-${(provider || 'PAY').toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`,
+    receiptNo,
     timestamp: new Date().toISOString(),
-    amount: amount || expectedAmount,
+    amount: resolvedAmount,
     currency: 'ETB',
     studentName,
     studentEmail,
     grade,
     phone,
+    transactionRef: cleanRef,
     superAdminContact: '0910097862',
     message: isValidRef
-      ? 'Payment submitted successfully. Awaiting Super Admin (Nuriye Ahmed Adem) verification.'
+      ? 'የክፍያ ማረጋገጫ ቁጥሩ ወደ ዋና አስተዳዳሪ ተልኳል (Awaiting Super Admin Nuriye Ahmed Adem verification).'
       : 'Invalid transaction reference code.',
   });
 });
@@ -1065,8 +1280,8 @@ const SINGLE_ASSIGNMENT_PURCHASES = new Set<string>();
 
 // Verified Student Entitlement Engine for Academic Work Hub & Premium Assets
 app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response) => {
-  const { studentEmail, studentId, resourceType = 'homework', assignmentId, grade = 10 } = req.body;
-  const hasActiveSubscription = false;
+  const { studentId, resourceType = 'homework', assignmentId, grade = 10 } = req.body;
+  const hasActiveSubscription = isPremiumActive(req.user);
 
   // 1. Free Tier: Homework and STEM Projects are 100% free for all students
   if (resourceType === 'homework' || resourceType === 'stem_project' || resourceType === 'free') {
@@ -1081,7 +1296,7 @@ app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response
 
   // 2. Premium Assignment Check (Single Pack 54 ETB or Full Monthly Subscription)
   if (resourceType === 'premium_assignment') {
-    const singlePurchaseKey = `${studentId || studentEmail}_${assignmentId}`;
+    const singlePurchaseKey = `${studentId || req.user?.email || req.user?.uid}_${assignmentId}`;
     const hasSinglePurchase = SINGLE_ASSIGNMENT_PURCHASES.has(singlePurchaseKey);
 
     if (hasActiveSubscription || hasSinglePurchase) {
@@ -1118,8 +1333,8 @@ app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response
 
   res.json({
     success: true,
-    entitled: true,
-    reason: 'DEFAULT_ACCESS',
+    entitled: hasActiveSubscription,
+    reason: hasActiveSubscription ? 'ACTIVE_SUBSCRIPTION' : 'DEFAULT_ACCESS',
   });
 });
 

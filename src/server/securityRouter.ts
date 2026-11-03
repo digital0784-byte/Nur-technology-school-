@@ -222,15 +222,16 @@ export function rateLimiterMiddleware(req: Request, res: Response, next: NextFun
     return next();
   }
 
-  // Identify client by IP
+  // Identify client by (req as any).user?.uid first, then the existing IP logic
   const forwarded = req.headers['x-forwarded-for'];
   const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || '127.0.0.1';
+  const clientId = (req as any).user?.uid || ip;
 
   const now = Date.now();
-  let bucket = RATE_LIMIT_BUCKETS.get(ip);
+  let bucket = RATE_LIMIT_BUCKETS.get(clientId);
   if (!bucket) {
     bucket = { timestamps: [] };
-    RATE_LIMIT_BUCKETS.set(ip, bucket);
+    RATE_LIMIT_BUCKETS.set(clientId, bucket);
   }
 
   // Check if currently blocked
@@ -258,7 +259,7 @@ export function rateLimiterMiddleware(req: Request, res: Response, next: NextFun
     // Log to Audit Trail
     IMMUTABLE_AUDIT_LOGS.unshift({
       logId: `AUD-RL-${Date.now()}`,
-      actorId: ip,
+      actorId: clientId,
       actorRole: 'SYSTEM',
       action: 'RATE_LIMIT_EXCEEDED',
       resourceType: 'API_ENDPOINT',

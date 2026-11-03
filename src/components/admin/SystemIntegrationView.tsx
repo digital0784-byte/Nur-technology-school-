@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { authFetch } from '../../services/apiClient';
 import {
   Activity,
   RefreshCw,
@@ -295,7 +296,7 @@ export const SystemIntegrationView: React.FC = () => {
       }
 
       // Fetch live results from backend endpoint
-      const res = await fetch('/api/admin/diagnostics/14-point-check');
+      const res = await authFetch('/api/admin/diagnostics/14-point-check');
       if (res.ok) {
         const data = await res.json();
         if (data.probes && Array.isArray(data.probes)) {
@@ -317,7 +318,7 @@ export const SystemIntegrationView: React.FC = () => {
     setCurrentCheckingId(checkId);
     try {
       await new Promise((res) => setTimeout(res, 200));
-      const res = await fetch(`/api/admin/diagnostics/14-point-check?checkId=${checkId}`);
+      const res = await authFetch(`/api/admin/diagnostics/14-point-check?checkId=${checkId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.probe) {

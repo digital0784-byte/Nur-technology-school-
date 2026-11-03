@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getCurriculumByGrade } from '../../data/curriculum';
+import { authFetch } from '../../services/apiClient';
 import {
   getCurriculumExcerptForTopic,
   formatOfficialCitation,
@@ -118,7 +119,7 @@ ${formatOfficialCitation(activeGrade, activeSubject?.name.en || 'Mathematics', c
     setLoading(true);
 
     try {
-      const res = await fetch('/api/ai/tutor', {
+      const res = await authFetch('/api/ai/tutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
