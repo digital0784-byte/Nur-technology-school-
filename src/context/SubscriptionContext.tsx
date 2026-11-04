@@ -1,4 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+  writeBatch,
+} from 'firebase/firestore';
+import { db } from '../services/firebase';
 import { useAuth } from './AuthContext';
 import {
   PaymentAccountConfig,
@@ -9,14 +24,13 @@ import {
   PaymentGatewayId,
   PaymentAuditLog,
 } from '../types/payment';
+import { GradeLevel } from '../types';
 import {
-  PaymentService,
   INITIAL_PAYMENT_ACCOUNTS,
   INITIAL_PRICING_CONFIG,
   SUPER_ADMIN_EMAIL,
   SUPER_ADMIN_PHONE,
 } from '../services/paymentService';
-import { authFetch } from '../services/apiClient';
 
 interface SubscriptionContextType {
   status: PaymentSubscriptionStatus;
@@ -33,10 +47,10 @@ interface SubscriptionContextType {
     phone: string,
     receiptImageUrl?: string
   ) => Promise<{ success: boolean; submission?: PaymentSubmission; error?: string }>;
-  approvePayment: (paymentId: string) => boolean;
-  rejectPayment: (paymentId: string, reason: string) => boolean;
-  updatePricing: (newPricing: GradePricingConfig) => boolean;
-  updateAccounts: (newAccounts: PaymentAccountConfig[]) => boolean;
+  approvePayment: (paymentId: string) => Promise<boolean>;
+  rejectPayment: (paymentId: string, reason: string) => Promise<boolean>;
+  updatePricing: (newPricing: GradePricingConfig) => Promise<boolean>;
+  updateAccounts: (newAccounts: PaymentAccountConfig[]) => Promise<boolean>;
   refreshState: () => void;
   superAdminContact: {
     name: string;
@@ -45,237 +59,358 @@ interface SubscriptionContextType {
   };
 }
 
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from '../services/firebase';
-
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const tsToIso = (v: any): string => {
+  if (v && typeof v.toDate === 'function') return v.toDate().toISOString();
+  if (typeof v === 'string') return v;
+  return new Date().toISOString();
+};
+
+const toYmd = (d: Date): string => d.toISOString().split('T')[0];
+
+// Firestore rejects `undefined` values; strip them.
+const clean = <T,>(obj: T): T => JSON.parse(JSON.stringify(obj));
+
+const toSubmission = (id: string, d: any): PaymentSubmission => ({
+  id,
+  userId: d.userId,
+  studentId: d.userId,
+  studentName: d.studentName ?? '',
+  studentEmail: d.studentEmail ?? '',
+  studentPhone: d.studentPhone ?? '',
+  grade: d.grade,
+  amount: d.amount,
+  currency: 'ETB',
+  paymentGateway: d.paymentGateway,
+  transactionRef: d.transactionRef,
+  receiptImageUrl: d.receiptImageUrl,
+  submittedAt: tsToIso(d.createdAt),
+  status: String(d.status || 'pending').toUpperCase() as PaymentSubmission['status'],
+  reviewedAt: d.reviewedAt ? tsToIso(d.reviewedAt) : undefined,
+  reviewedBy: d.reviewedBy,
+  rejectionReason: d.rejectionReason,
+  expiresAt: d.expiresAt,
+});
+
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, activeGrade, isSuperAdmin } = useAuth();
+  const { currentUser, activeGrade, isSuperAdmin, isAuthenticated } = useAuth();
 
-  const [pricing, setPricing] = useState<GradePricingConfig>(() => PaymentService.getPricing());
-  const [accounts, setAccounts] = useState<PaymentAccountConfig[]>(() => PaymentService.getAccounts());
-  const [allSubmissions, setAllSubmissions] = useState<PaymentSubmission[]>(() => PaymentService.getAllSubmissions());
-  const [auditLogs, setAuditLogs] = useState<PaymentAuditLog[]>(() => PaymentService.getAuditLogs());
+  const [pricing, setPricing] = useState<GradePricingConfig>(INITIAL_PRICING_CONFIG);
+  const [accounts, setAccounts] = useState<PaymentAccountConfig[]>(INITIAL_PAYMENT_ACCOUNTS);
+  const [allSubmissions, setAllSubmissions] = useState<PaymentSubmission[]>([]);
+  const [auditLogs, setAuditLogs] = useState<PaymentAuditLog[]>([]);
 
-  // Current student subscription record
-  const [subscription, setSubscription] = useState<StudentSubscriptionRecord>(() => {
-    return PaymentService.getStudentSubscription(currentUser.id, currentUser.email, activeGrade);
-  });
-
-  const refreshState = useCallback(() => {
-    setPricing(PaymentService.getPricing());
-    setAccounts(PaymentService.getAccounts());
-    setAllSubmissions(PaymentService.getAllSubmissions());
-    setAuditLogs(PaymentService.getAuditLogs());
-    setSubscription(PaymentService.getStudentSubscription(currentUser.id, currentUser.email, activeGrade));
-  }, [currentUser.id, currentUser.email, activeGrade]);
-
-  // Sync state whenever activeGrade or user changes
+  // Shared payment configuration (prices + the accounts students pay into).
+  // Only the Super Admin can write it (firestore.rules: app_config).
   useEffect(() => {
-    refreshState();
-  }, [activeGrade, currentUser.id, currentUser.email, refreshState]);
+    if (!isAuthenticated) return;
+    return onSnapshot(
+      doc(db, 'app_config', 'payment'),
+      (snap) => {
+        if (!snap.exists()) return;
+        const d = snap.data() as any;
+        if (d.pricing) setPricing({ ...INITIAL_PRICING_CONFIG, ...d.pricing });
+        if (Array.isArray(d.accounts) && d.accounts.length > 0) setAccounts(d.accounts);
+      },
+      (err) => console.warn('Payment config listener:', err)
+    );
+  }, [isAuthenticated]);
 
-  // Firestore live subscription listener for logged in user (cross-device & logout/login sync)
+  // Payments: the admin sees all, a student sees only their own.
   useEffect(() => {
-    if (!isFirebaseConfigured || !currentUser.id || currentUser.id === 'guest') return;
+    if (!isAuthenticated) {
+      setAllSubmissions([]);
+      return;
+    }
+    const q = isSuperAdmin
+      ? query(collection(db, 'payments'), orderBy('createdAt', 'desc'), limit(500))
+      : query(collection(db, 'payments'), where('userId', '==', currentUser.id));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const rows = snap.docs.map((d) => toSubmission(d.id, d.data()));
+        rows.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+        setAllSubmissions(rows);
+      },
+      (err) => console.warn('Payments listener:', err)
+    );
+  }, [isAuthenticated, isSuperAdmin, currentUser.id]);
 
-    const unsubs: Array<() => void> = [];
+  // Audit trail (admin only).
+  useEffect(() => {
+    if (!isAuthenticated || !isSuperAdmin) {
+      setAuditLogs([]);
+      return;
+    }
+    const q = query(collection(db, 'audit_logs'), orderBy('createdAt', 'desc'), limit(200));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const rows: PaymentAuditLog[] = [];
+        snap.docs.forEach((d) => {
+          const v = d.data() as any;
+          if (v.scope !== 'payment') return;
+          rows.push({
+            id: d.id,
+            timestamp: tsToIso(v.createdAt),
+            actor: v.actorEmail ?? '',
+            action: v.action,
+            targetUserId: v.targetUserId ?? '',
+            targetPaymentId: v.targetPaymentId,
+            details: v.details ?? '',
+            previousStatus: v.previousStatus,
+            newStatus: v.newStatus,
+          });
+        });
+        setAuditLogs(rows);
+      },
+      (err) => console.warn('Audit log listener:', err)
+    );
+  }, [isAuthenticated, isSuperAdmin]);
 
-    const handleSnap = (snap: any) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const now = Date.now();
-        const expTime = data.expiresAt ? new Date(data.expiresAt).getTime() : 0;
-        const isActive = data.status === 'ACTIVE' && (!data.expiresAt || expTime > now);
-
-        if (isActive) {
-          const days = expTime > 0 ? Math.max(1, Math.ceil((expTime - now) / (1000 * 60 * 60 * 24))) : 30;
-          const restored: StudentSubscriptionRecord = {
-            userId: currentUser.id,
-            grade: data.grade || activeGrade,
-            status: 'ACTIVE',
-            planTitle: data.planTitle || `${data.grade || activeGrade}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
-            amountPaid: data.amountPaid || PaymentService.getPriceForGrade(activeGrade),
-            activePaymentId: data.activePaymentId,
-            activatedAt: data.activatedAt,
-            expiresAt: data.expiresAt,
-            daysRemaining: days,
-            lastUpdated: new Date().toISOString(),
-          };
-          setSubscription(restored);
-          PaymentService.saveSubscriptionRecord(currentUser.id, currentUser.email, restored);
-        }
+  const logAudit = useCallback(
+    async (entry: {
+      action: PaymentAuditLog['action'];
+      targetUserId: string;
+      targetPaymentId?: string;
+      details: string;
+      previousStatus?: string;
+      newStatus?: string;
+    }) => {
+      if (!isAuthenticated) return;
+      try {
+        await addDoc(
+          collection(db, 'audit_logs'),
+          clean({
+            scope: 'payment',
+            actorUid: currentUser.id,
+            actorEmail: currentUser.email,
+            ...entry,
+            createdAt: serverTimestamp(),
+          } as any)
+        );
+      } catch (e) {
+        console.warn('Audit log failed:', e);
       }
-    };
+    },
+    [isAuthenticated, currentUser.id, currentUser.email]
+  );
 
-    try {
-      const unsubId = onSnapshot(doc(db, 'subscriptions', currentUser.id), handleSnap, (err) => {
-        console.warn('Subscription id listener:', err);
-      });
-      unsubs.push(unsubId);
-    } catch (e) {
-      console.warn('Could not attach subscription listener:', e);
-    }
+  const priceFor = (g: GradeLevel): number =>
+    g === 9 ? pricing.grade9 : g === 10 ? pricing.grade10 : g === 11 ? pricing.grade11 : pricing.grade12;
+  const currentGradePrice = priceFor(activeGrade);
 
-    return () => {
-      unsubs.forEach((u) => u());
-    };
-  }, [currentUser.id, currentUser.email, activeGrade]);
+  // Premium comes ONLY from the user's Firestore profile, which no student can write.
+  const expiresAtStr = currentUser.premiumExpiresAt ?? '';
+  const expiresMs = expiresAtStr
+    ? new Date(expiresAtStr.includes('T') ? expiresAtStr : `${expiresAtStr}T23:59:59`).getTime()
+    : 0;
+  const profilePremiumActive = Boolean(currentUser.isPremium) && (!expiresAtStr || expiresMs > Date.now());
+  const isUnlocked: boolean = isSuperAdmin || profilePremiumActive;
 
-  // Determine current price based on student active grade
-  const currentGradePrice = PaymentService.getPriceForGrade(activeGrade);
+  const myLatest = allSubmissions.find((s) => s.studentId === currentUser.id);
+  const hasPending = allSubmissions.some((s) => s.studentId === currentUser.id && s.status === 'PENDING');
 
-  // Check if currentUser profile in Firestore has active premium subscription
-  const hasProfilePremium = (() => {
-    if (isSuperAdmin) return true;
-    if (currentUser.isPremium) {
-      if (!currentUser.premiumExpiresAt) return true;
-      const exp = new Date(
-        currentUser.premiumExpiresAt.includes('T')
-          ? currentUser.premiumExpiresAt
-          : `${currentUser.premiumExpiresAt}T23:59:59`
-      ).getTime();
-      return exp > Date.now();
-    }
-    return false;
-  })();
-
-  const isSubscriptionActive =
-    subscription.status === 'ACTIVE' &&
-    (!subscription.expiresAt || new Date(subscription.expiresAt).getTime() > Date.now());
-
-  // Master Unlocked condition: Super Admin, or active user profile premium, or active subscription record
-  const isUnlocked: boolean = isSuperAdmin || hasProfilePremium || isSubscriptionActive;
-
-  // Master Status: ACTIVE if unlocked, PENDING if awaiting approval, or previous status
   const status: PaymentSubscriptionStatus = isUnlocked
     ? 'ACTIVE'
-    : subscription.status === 'PENDING'
+    : hasPending
     ? 'PENDING'
-    : subscription.status;
+    : currentUser.isPremium
+    ? 'EXPIRED'
+    : myLatest?.status === 'REJECTED'
+    ? 'REJECTED'
+    : 'NONE';
 
-  // Ensure effective subscription has active days remaining if unlocked via profile
-  const effectiveSubscription: StudentSubscriptionRecord =
-    hasProfilePremium && subscription.status !== 'ACTIVE'
-      ? {
-          userId: currentUser.id,
-          grade: currentUser.grade || activeGrade,
-          status: 'ACTIVE',
-          planTitle: `${currentUser.grade || activeGrade}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
-          amountPaid: currentGradePrice,
-          daysRemaining: currentUser.premiumExpiresAt
-            ? Math.max(1, Math.ceil((new Date(currentUser.premiumExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-            : 30,
-          expiresAt: currentUser.premiumExpiresAt,
-          lastUpdated: new Date().toISOString(),
-        }
-      : subscription;
+  const lastApproved = allSubmissions.find((s) => s.studentId === currentUser.id && s.status === 'APPROVED');
+  const subscription: StudentSubscriptionRecord = {
+    userId: currentUser.id,
+    grade: (currentUser.grade || activeGrade) as GradeLevel,
+    status,
+    planTitle: `${currentUser.grade || activeGrade}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
+    amountPaid: lastApproved?.amount ?? 0,
+    activePaymentId: lastApproved?.id,
+    activatedAt: lastApproved?.reviewedAt,
+    expiresAt: expiresAtStr || undefined,
+    daysRemaining: isSuperAdmin
+      ? 365
+      : expiresMs > Date.now()
+      ? Math.max(1, Math.ceil((expiresMs - Date.now()) / DAY_MS))
+      : 0,
+    lastUpdated: new Date().toISOString(),
+    rejectionReason: status === 'REJECTED' ? myLatest?.rejectionReason : undefined,
+  };
 
-  // Keep local cache warm if unlocked
-  useEffect(() => {
-    if (isUnlocked && currentUser.id && currentUser.id !== 'guest') {
-      PaymentService.saveSubscriptionRecord(currentUser.id, currentUser.email, effectiveSubscription);
-    }
-  }, [isUnlocked, currentUser.id, currentUser.email, effectiveSubscription]);
-
-  // Student submits payment
+  // Student submits proof of payment. It is stored as PENDING; only the Super Admin can approve it.
+  // The document id (gateway + reference) makes it impossible to submit the same reference twice.
   const submitPayment = async (
     gateway: PaymentGatewayId,
     transactionRef: string,
     phone: string,
-    receiptImageUrl?: string
+    _receiptImageUrl?: string
   ): Promise<{ success: boolean; submission?: PaymentSubmission; error?: string }> => {
-    if (!transactionRef || transactionRef.trim().length < 4) {
+    if (!isAuthenticated) {
+      return { success: false, error: 'መጀመሪያ ይግቡ / Please sign in first.' };
+    }
+    const ref = transactionRef.trim().replace(/[^A-Za-z0-9_-]/g, '');
+    if (ref.length < 4 || ref.length > 64) {
       return { success: false, error: 'እባክዎ ትክክለኛ የግብይት ማረጋገጫ (FT Reference) ያስገቡ።' };
     }
+    const cleanPhone = (phone || '').trim();
+    if (cleanPhone.length < 9 || cleanPhone.length > 20) {
+      return { success: false, error: 'እባክዎ ትክክለኛ የስልክ ቁጥር ያስገቡ።' };
+    }
+
+    const id = `${gateway}_${ref}`;
+    const data = {
+      userId: currentUser.id,
+      studentName: currentUser.name,
+      studentEmail: currentUser.email,
+      studentPhone: cleanPhone,
+      grade: activeGrade,
+      amount: currentGradePrice,
+      currency: 'ETB',
+      paymentGateway: gateway,
+      transactionRef: ref,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+    };
 
     try {
-      const newSub = PaymentService.submitPayment({
-        studentId: currentUser.id,
-        studentName: currentUser.name,
-        studentEmail: currentUser.email,
-        studentPhone: phone || '0910000000',
-        grade: activeGrade,
-        amount: currentGradePrice,
-        paymentGateway: gateway,
-        transactionRef: transactionRef.trim(),
-        receiptImageUrl,
-      });
-
-      // Also notify backend server
-      authFetch('/api/payment/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: gateway,
-          transactionId: transactionRef.trim(),
-          amount: currentGradePrice,
-          studentName: currentUser.name,
-          studentEmail: currentUser.email,
-          grade: activeGrade,
-          phone,
-        }),
-      }).catch(() => {
-        // Local state is already authoritative in offline-first mode
-      });
-
-      refreshState();
-      return { success: true, submission: newSub };
+      await setDoc(doc(db, 'payments', id), data);
     } catch (err: any) {
+      if (err?.code === 'permission-denied') {
+        return {
+          success: false,
+          error: 'ይህ የግብይት ቁጥር ቀድሞ ገብቷል ወይም ፈቃድ የለም / This transaction ID was already submitted.',
+        };
+      }
       return { success: false, error: err?.message || 'Payment submission failed' };
     }
+
+    logAudit({
+      action: 'SUBMITTED',
+      targetUserId: currentUser.id,
+      targetPaymentId: id,
+      details: `${gateway} ${ref} ${currentGradePrice} ETB (Grade ${activeGrade})`,
+      newStatus: 'PENDING',
+    });
+
+    return { success: true, submission: toSubmission(id, { ...data, createdAt: null }) };
   };
 
-  // Super Admin approves payment
-  const approvePayment = (paymentId: string): boolean => {
+  // Super Admin approves: marks the payment approved AND switches Premium on, in one atomic write.
+  const approvePayment = async (paymentId: string): Promise<boolean> => {
     if (!isSuperAdmin) return false;
-    const ok = PaymentService.approvePayment(paymentId, currentUser.email);
-    if (ok) refreshState();
-    return ok;
-  };
+    const sub = allSubmissions.find((s) => s.id === paymentId);
+    if (!sub || sub.status !== 'PENDING') return false;
 
-  // Super Admin rejects payment
-  const rejectPayment = (paymentId: string, reason: string): boolean => {
-    if (!isSuperAdmin) return false;
-    const ok = PaymentService.rejectPayment(paymentId, currentUser.email, reason);
-    if (ok) refreshState();
-    return ok;
-  };
+    try {
+      const userRef = doc(db, 'users', sub.studentId);
+      const userSnap = await getDoc(userRef);
+      const curExp: string | undefined = userSnap.exists() ? (userSnap.data() as any).premiumExpiresAt : undefined;
+      const curDate = curExp ? new Date(`${curExp.split('T')[0]}T00:00:00`) : null;
+      const base = curDate && curDate.getTime() > Date.now() ? curDate : new Date();
+      base.setDate(base.getDate() + (pricing.billingCycleDays || 30));
+      const expiresAt = toYmd(base);
 
-  // Super Admin updates pricing
-  const updatePricing = (newPricing: GradePricingConfig): boolean => {
-    if (!isSuperAdmin) return false;
-    const ok = PaymentService.updatePricing(newPricing, currentUser.email);
-    if (ok) {
-      refreshState();
-      // Also update server-side pricing
-      authFetch('/api/payment/admin/pricing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          adminEmail: currentUser.email,
-          pricing: newPricing,
-        }),
-      }).catch(() => {});
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'payments', paymentId), {
+        status: 'approved',
+        reviewedAt: serverTimestamp(),
+        reviewedBy: currentUser.email,
+        expiresAt,
+      });
+      batch.update(userRef, {
+        isPremium: true,
+        premiumExpiresAt: expiresAt,
+        premiumPlan: `${sub.grade}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
+        premiumGateway: sub.paymentGateway,
+      });
+      await batch.commit();
+
+      logAudit({
+        action: 'APPROVED',
+        targetUserId: sub.studentId,
+        targetPaymentId: paymentId,
+        details: `Approved ${sub.amount} ETB until ${expiresAt}`,
+        previousStatus: 'PENDING',
+        newStatus: 'APPROVED',
+      });
+      return true;
+    } catch (e) {
+      console.error('Approve failed:', e);
+      return false;
     }
-    return ok;
   };
 
-  // Super Admin updates accounts
-  const updateAccounts = (newAccounts: PaymentAccountConfig[]): boolean => {
+  const rejectPayment = async (paymentId: string, reason: string): Promise<boolean> => {
     if (!isSuperAdmin) return false;
-    const ok = PaymentService.updateAccounts(newAccounts, currentUser.email);
-    if (ok) refreshState();
-    return ok;
+    const sub = allSubmissions.find((s) => s.id === paymentId);
+    if (!sub || sub.status !== 'PENDING') return false;
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'payments', paymentId), {
+        status: 'rejected',
+        reviewedAt: serverTimestamp(),
+        reviewedBy: currentUser.email,
+        rejectionReason: reason,
+      });
+      await batch.commit();
+      logAudit({
+        action: 'REJECTED',
+        targetUserId: sub.studentId,
+        targetPaymentId: paymentId,
+        details: reason,
+        previousStatus: 'PENDING',
+        newStatus: 'REJECTED',
+      });
+      return true;
+    } catch (e) {
+      console.error('Reject failed:', e);
+      return false;
+    }
   };
+
+  const updatePricing = async (newPricing: GradePricingConfig): Promise<boolean> => {
+    if (!isSuperAdmin) return false;
+    try {
+      await setDoc(doc(db, 'app_config', 'payment'), { pricing: clean(newPricing) }, { merge: true });
+      logAudit({ action: 'PRICE_MODIFIED', targetUserId: 'system', details: JSON.stringify(newPricing) });
+      return true;
+    } catch (e) {
+      console.error('Pricing update failed:', e);
+      return false;
+    }
+  };
+
+  const updateAccounts = async (newAccounts: PaymentAccountConfig[]): Promise<boolean> => {
+    if (!isSuperAdmin) return false;
+    try {
+      await setDoc(doc(db, 'app_config', 'payment'), { accounts: clean(newAccounts) }, { merge: true });
+      logAudit({
+        action: 'ACCOUNT_MODIFIED',
+        targetUserId: 'system',
+        details: `Accounts updated (${newAccounts.length})`,
+      });
+      return true;
+    } catch (e) {
+      console.error('Accounts update failed:', e);
+      return false;
+    }
+  };
+
+  // Everything is live (onSnapshot); kept so existing screens that call it keep working.
+  const refreshState = useCallback(() => {}, []);
 
   return (
     <SubscriptionContext.Provider
       value={{
         status,
         isUnlocked,
-        subscription: effectiveSubscription,
+        subscription,
         pricing,
         accounts,
         currentGradePrice,
