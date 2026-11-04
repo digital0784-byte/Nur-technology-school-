@@ -51,6 +51,7 @@ export const AdminBillingVerificationView: React.FC = () => {
   // Editable accounts state
   const [editAccounts, setEditAccounts] = useState<PaymentAccountConfig[]>(accounts);
   const [accountsSavedMessage, setAccountsSavedMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isSuperAdmin) {
     return (
@@ -75,29 +76,48 @@ export const AdminBillingVerificationView: React.FC = () => {
     return matchesFilter && matchesSearch;
   });
 
-  const handleApprove = (paymentId: string) => {
-    approvePayment(paymentId);
-  };
-
-  const handleConfirmReject = () => {
-    if (showRejectModal) {
-      rejectPayment(showRejectModal, rejectReason);
-      setShowRejectModal(null);
+  const handleApprove = async (paymentId: string) => {
+    setErrorMessage(null);
+    const ok = await approvePayment(paymentId);
+    if (!ok) {
+      setErrorMessage('ማስቀመጥ አልተቻለም / Could not save');
     }
   };
 
-  const handleSavePricing = (e: React.FormEvent) => {
-    e.preventDefault();
-    updatePricing(editPricing);
-    setPricingSavedMessage(true);
-    setTimeout(() => setPricingSavedMessage(false), 3000);
+  const handleConfirmReject = async () => {
+    if (showRejectModal) {
+      setErrorMessage(null);
+      const ok = await rejectPayment(showRejectModal, rejectReason);
+      if (ok) {
+        setShowRejectModal(null);
+      } else {
+        setErrorMessage('ማስቀመጥ አልተቻለም / Could not save');
+      }
+    }
   };
 
-  const handleSaveAccounts = (e: React.FormEvent) => {
+  const handleSavePricing = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateAccounts(editAccounts);
-    setAccountsSavedMessage(true);
-    setTimeout(() => setAccountsSavedMessage(false), 3000);
+    setErrorMessage(null);
+    const ok = await updatePricing(editPricing);
+    if (ok) {
+      setPricingSavedMessage(true);
+      setTimeout(() => setPricingSavedMessage(false), 3000);
+    } else {
+      setErrorMessage('ማስቀመጥ አልተቻለም / Could not save');
+    }
+  };
+
+  const handleSaveAccounts = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    const ok = await updateAccounts(editAccounts);
+    if (ok) {
+      setAccountsSavedMessage(true);
+      setTimeout(() => setAccountsSavedMessage(false), 3000);
+    } else {
+      setErrorMessage('ማስቀመጥ አልተቻለም / Could not save');
+    }
   };
 
   const pendingCount = allSubmissions.filter((s) => s.status === 'PENDING').length;
@@ -186,6 +206,11 @@ export const AdminBillingVerificationView: React.FC = () => {
       {/* Tab 1: Submissions Management */}
       {activeTab === 'submissions' && (
         <div className="space-y-4">
+          {errorMessage && (
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 text-rose-700 dark:text-rose-300 text-xs font-bold">
+              {errorMessage}
+            </div>
+          )}
           {/* Filters & Search */}
           <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-3 justify-between items-center">
             <div className="flex gap-1.5 w-full sm:w-auto overflow-x-auto">
@@ -412,6 +437,12 @@ export const AdminBillingVerificationView: React.FC = () => {
             </div>
           )}
 
+          {errorMessage && activeTab === 'pricing' && (
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 text-rose-700 dark:text-rose-300 text-xs font-bold">
+              {errorMessage}
+            </div>
+          )}
+
           <button
             type="submit"
             className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition"
@@ -495,6 +526,12 @@ export const AdminBillingVerificationView: React.FC = () => {
             <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-1.5">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
               የባንክ አካውንቶች መረጃ በተሳካ ሁኔታ ተሻሽሏል!
+            </div>
+          )}
+
+          {errorMessage && activeTab === 'accounts' && (
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 text-rose-700 dark:text-rose-300 text-xs font-bold">
+              {errorMessage}
             </div>
           )}
 
@@ -582,6 +619,12 @@ export const AdminBillingVerificationView: React.FC = () => {
                 </label>
               ))}
             </div>
+
+            {errorMessage && (
+              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 text-rose-700 dark:text-rose-300 text-xs font-bold">
+                {errorMessage}
+              </div>
+            )}
 
             <div className="flex gap-2 justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
               <button

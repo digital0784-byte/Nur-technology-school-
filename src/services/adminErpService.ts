@@ -290,7 +290,7 @@ export class AdminErpService {
   }
 
   // 6. Calculate real-time KPI metrics
-  static computeKpis(submissions: PaymentSubmission[] = PaymentService.getAllSubmissions()): AdminKpiStats {
+  static computeKpis(submissions: PaymentSubmission[]): AdminKpiStats {
     const students = this.getStudents();
     const totalStudents = students.length;
 
@@ -391,7 +391,7 @@ export class AdminErpService {
   }
 
   // 8. Generate and Download CSV Financial Ledger
-  static exportLedgerCsv(submissions: PaymentSubmission[] = PaymentService.getAllSubmissions()): void {
+  static exportLedgerCsv(submissions: PaymentSubmission[]): void {
     const headers = [
       'Transaction ID',
       'Date & Time (UTC)',

@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { FirebaseService } from '../../services/firebaseService';
 import { PaymentGatewayId } from '../../types/payment';
-import { authFetch } from '../../services/apiClient';
 import {
   CreditCard,
   ShieldCheck,
@@ -100,41 +98,14 @@ export const SubscriptionPaymentView: React.FC = () => {
     }
     setProcessing(true);
     try {
-      // 1. Submit through SubscriptionContext to update local app state
       const res = await submitPayment(provider, cleanRef, cleanPhone);
-
-      // 2. Submit to FirebaseService for live Firestore record
-      const id = await FirebaseService.submitPaymentRequest({
-        provider: provider.toUpperCase(),
-        transactionId: cleanRef,
-        amount: cur.price,
-        phone: cleanPhone,
-        plan: cur.duration,
-      });
-
-      // 3. Transmit transaction number directly to server Super Admin notifications queue
-      try {
-        await authFetch('/api/payment/notify-admin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId: currentUser.id,
-            studentName: currentUser.name,
-            studentEmail: currentUser.email,
-            studentPhone: cleanPhone,
-            grade: activeGrade,
-            amount: cur.price,
-            paymentGateway: provider,
-            transactionRef: cleanRef,
-            plan: cur.title,
-          }),
-        });
-      } catch (err) {
-        console.warn('Backend payment notification notice:', err);
+      if (!res.success) {
+        setError(res.error || 'ጥያቄው አልተላከም፣ እባክዎ እንደገና ይሞክሩ / Could not submit, please try again.');
+        return;
       }
 
       setReceipt({
-        id: res.submission?.id || id,
+        id: res.submission?.id || '',
         refNo: cleanRef,
         phone: cleanPhone,
         provider,

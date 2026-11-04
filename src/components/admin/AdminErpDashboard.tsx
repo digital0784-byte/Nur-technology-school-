@@ -199,8 +199,8 @@ export const AdminErpDashboard: React.FC = () => {
   };
 
   // Payment Actions
-  const handleApprove = (paymentId: string) => {
-    const success = approvePayment(paymentId);
+  const handleApprove = async (paymentId: string) => {
+    const success = await approvePayment(paymentId);
     if (success) {
       setApprovalFeedback(`ክፍያ #${paymentId} በተሳካ ሁኔታ ጸድቋል! ተማሪው ለ30 ቀናት ሙሉ ፍቃድ አግኝቷል።`);
       setTimeout(() => setApprovalFeedback(null), 4000);
@@ -220,9 +220,9 @@ export const AdminErpDashboard: React.FC = () => {
     }
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (rejectingPaymentId) {
-      rejectPayment(rejectingPaymentId, rejectionReason);
+      await rejectPayment(rejectingPaymentId, rejectionReason);
       setRejectingPaymentId(null);
       setAuditLogs(AdminErpService.getAuditEntries());
     }
