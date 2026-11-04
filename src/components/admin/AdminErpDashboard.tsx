@@ -59,12 +59,7 @@ export const AdminErpDashboard: React.FC = () => {
     refreshState,
   } = useSubscription();
 
-  // Dev bypass toggle for local sandbox testing if not logged in as mejennur669@gmail.com
-  const [devAdminOverride, setDevAdminOverride] = useState<boolean>(() => {
-    return localStorage.getItem('nur_admin_dev_bypass') === 'true';
-  });
-
-  const isSuperAdmin = authIsSuperAdmin || devAdminOverride || (currentUser.email && currentUser.email.toLowerCase() === 'mejennur669@gmail.com');
+  const isSuperAdmin = authIsSuperAdmin;
 
   const [activeTab, setActiveTab] = useState<AdminTab>('kpi');
 
@@ -347,19 +342,7 @@ export const AdminErpDashboard: React.FC = () => {
           <p>ሚና: {currentUser.role || 'Guest'}</p>
         </div>
 
-        {/* Development simulator toggle for evaluation */}
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-          <button
-            onClick={() => {
-              setDevAdminOverride(true);
-              localStorage.setItem('nur_admin_dev_bypass', 'true');
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-colors shadow-sm"
-          >
-            <ShieldCheck className="w-4 h-4" />
-            (Dev/Preview) እንደ ሱፐር አድሚን ግባ (Super Admin Bypass Simulator)
-          </button>
-        </div>
+
       </div>
     );
   }

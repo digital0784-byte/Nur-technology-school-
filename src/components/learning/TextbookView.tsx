@@ -39,6 +39,7 @@ import {
   ListOrdered,
   X,
   FileSpreadsheet,
+  RotateCcw,
 } from 'lucide-react';
 
 type ViewMode = 'catalog_index' | 'reader';
@@ -84,6 +85,8 @@ export const TextbookView: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<SectionTab>('theory');
   const [aiAnalysisResult, setAiAnalysisResult] = useState<string | null>(null);
+  const [aiAnalysisError, setAiAnalysisError] = useState<boolean>(false);
+  const [lastAnalysisPrompt, setLastAnalysisPrompt] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
@@ -135,12 +138,14 @@ export const TextbookView: React.FC = () => {
   const handleRequestVerbatimAiAnalysis = async (contentPrompt: string) => {
     setIsAnalyzing(true);
     setAiAnalysisResult(null);
+    setAiAnalysisError(false);
+    setLastAnalysisPrompt(contentPrompt);
     try {
       const res = await authFetch('/api/ai/tutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: `እባክህ የሚከተለውን የክፍል ${currentBook.grade} የ${currentBook.subjectName.en} የመማሪያ መጽሐፍ ክፍል በስድስቱም ቋንቋዎች ተደራሽ በሆነ መልኩ ቃል በቃል ተንትነህ አብራራልኝ:\n\n"${contentPrompt}"\n\nየመማሪያ መጽሐፉን ምሳሌዎች፣ አክቲቪቲዎች እና የላቦራቶሪ አሰራሩን አገናዝበህ አብራራ።`,
+          message: `እባክህ የሚከተለውን የክፍል ${currentBook.grade} የ${currentBook.subjectName.en} የመማሪያ መጽሐፍ ክፍል በስድስቱም ቋንቋዎች ተደራሽ በሆነ መልኩ በዝርዝር ተንትነህ አብራራልኝ:\n\n"${contentPrompt}"\n\nየመማሪያ መጽሐፉን ምሳሌዎች፣ አክቲቪቲዎች እና የላቦራቶሪ አሰራሩን አገናዝበህ አብራራ።`,
           grade: currentBook.grade,
           subject: currentBook.subjectName.en,
           unit: `Unit ${currentChapter.unitNumber}`,
@@ -149,15 +154,13 @@ export const TextbookView: React.FC = () => {
         }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.reply) {
         setAiAnalysisResult(data.reply);
       } else {
-        setAiAnalysisResult(data.fallbackReply || 'የትንታኔ ማብራሪያ ተዘጋጅቷል። በድጋሚ ይሞክሩ።');
+        setAiAnalysisError(true);
       }
     } catch {
-      setAiAnalysisResult(
-        `📖 [የመማሪያ መጽሐፍ ቃል በቃል ማብራሪያ - Grade ${currentBook.grade} ${currentBook.subjectName.en}]\n\nይህ የመማሪያ ክፍል በኢትዮጵያ አዲሱ ስርዓተ-ትምህርት (2019 ዓ.ም) መሰረት በ Firebase Storage ተመዝግቦ የተዘጋጀ ሲሆን፣ ቁልፍ ፅንሰ-ሀሳቦችን ከእለት ተእለት አተገባበር እና ከላቦራቶሪ ሙከራዎች ጋር ያቀናጃል።`
-      );
+      setAiAnalysisError(true);
     } finally {
       setIsAnalyzing(false);
     }
@@ -177,13 +180,13 @@ export const TextbookView: React.FC = () => {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-700/80 text-[11px] font-bold uppercase tracking-wider mb-2">
             <BookOpen className="w-3.5 h-3.5 text-amber-300" />
-            FDRE MoE Official Textbooks & Chapter Directory Engine
+            Textbooks & Chapter Directory
           </div>
           <h1 className="text-xl sm:text-2xl font-black">
             የክፍል {activeGrade} አጠቃላይ የመማሪያ እና አጋዥ መጻሕፍት ማውጫ
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1">
-            እያንዳንዱ መጽሐፍ ክሊክ ሲደረግ ሙሉ ማውጫው (Table of Contents) ይከፈታል • በ6 ቋንቋዎች ቃል በቃል ትንታኔ
+            እያንዳንዱ መጽሐፍ ክሊክ ሲደረግ ሙሉ ማውጫው (Table of Contents) ይከፈታል • በ6 ቋንቋዎች በዝርዝር ትንታኔ
           </p>
         </div>
 
@@ -1178,7 +1181,7 @@ export const TextbookView: React.FC = () => {
             )}
 
             {/* AI Verbatim Deep Dive Popup/Box */}
-            {aiAnalysisResult && (
+            {(aiAnalysisResult || aiAnalysisError) && (
               <div className="mt-6 p-5 sm:p-6 rounded-2xl bg-slate-900 text-slate-100 border border-emerald-500 shadow-2xl space-y-3 animate-in fade-in">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
@@ -1187,15 +1190,35 @@ export const TextbookView: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setAiAnalysisResult(null)}
+                    onClick={() => {
+                      setAiAnalysisResult(null);
+                      setAiAnalysisError(false);
+                    }}
                     className="text-xs text-slate-400 hover:text-white"
                   >
                     ✕ ዝጋ (Close)
                   </button>
                 </div>
-                <div className="prose prose-invert max-w-none text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
-                  {aiAnalysisResult}
-                </div>
+                {aiAnalysisError ? (
+                  <div className="space-y-3 py-2">
+                    <p className="text-xs sm:text-sm text-rose-300">
+                      የትንታኔ ማብራሪያውን ማግኘት አልተቻለም። እባክዎ እንደገና ይሞክሩ። / Could not load analysis. Please try again.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={isAnalyzing}
+                      onClick={() => handleRequestVerbatimAiAnalysis(lastAnalysisPrompt)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      {isAnalyzing ? 'በመሞከር ላይ...' : 'እንደገና ሞክር (Retry)'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="prose prose-invert max-w-none text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
+                    {aiAnalysisResult}
+                  </div>
+                )}
               </div>
             )}
             </div>

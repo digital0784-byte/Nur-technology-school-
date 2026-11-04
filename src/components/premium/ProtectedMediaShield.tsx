@@ -24,21 +24,13 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
   const { isUnlocked, currentGradePrice } = useSubscription();
   const { language } = useLanguage();
 
-  // Demo bypass toggle for easy evaluation/testing
-  const [demoBypass, setDemoBypass] = useState(false);
   const [isScreenProtected, setIsScreenProtected] = useState(false);
   const [printScreenAlert, setPrintScreenAlert] = useState(false);
   const [watermarkPosition, setWatermarkPosition] = useState({ x: 25, y: 35 });
   const [liveTimestamp, setLiveTimestamp] = useState<string>(() => new Date().toLocaleTimeString());
 
-  // Check if user is Super Admin (Nuriye Ahmed Adem / mejennur669@gmail.com)
-  const isOwnerAdmin =
-    isSuperAdmin ||
-    currentUser.email?.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase() ||
-    currentUser.name?.toLowerCase().includes('nuriye');
-
-  // Effective access allowed
-  const hasAccess = isOwnerAdmin || isUnlocked || demoBypass;
+  const isOwnerAdmin = isSuperAdmin;
+  const hasAccess = isOwnerAdmin || isUnlocked;
 
   // Live time ticker for dynamic watermark
   useEffect(() => {
@@ -136,15 +128,7 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
             </span>
           )}
 
-          {/* Demo evaluation toggle button */}
-          <button
-            type="button"
-            onClick={() => setDemoBypass((prev) => !prev)}
-            title="ለግምገማ እና ለሙከራ ፈቃድ መክፈቻ"
-            className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-          >
-            {demoBypass ? '🔒 መቆለፊያ መልስ' : '🔓 የግምገማ ፈቃድ (Demo)'}
-          </button>
+
         </div>
       </div>
 
@@ -251,15 +235,7 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
                   በቴሌብር ወይም ሲቢኢ ክፈት (Pay & Unlock)
                 </button>
 
-                <div className="flex items-center justify-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setDemoBypass(true)}
-                    className="text-xs text-slate-400 hover:text-white underline decoration-slate-600"
-                  >
-                    የሙከራ ግምገማ ፍቃድ አሳይ (Preview Demo Mode)
-                  </button>
-                </div>
+
               </div>
             </div>
           </div>

@@ -30,7 +30,7 @@ app.use(inputSanitizerMiddleware);
 app.use('/api', (req, res, next) => (req.path === '/health' ? next() : requireAuth(req, res, next)));
 app.use('/api', rateLimiterMiddleware);
 app.use('/api/admin', requireSuperAdmin, adminAutomationRouter);
-app.use('/api/security', requireSuperAdmin, securityRouter);
+app.use('/api/security', (req, res, next) => (req.method === 'POST' && req.path === '/audit-logs') ? next() : requireSuperAdmin(req, res, next), securityRouter);
 
 // Resilient Gemini AI client initialization
 const apiKey = process.env.GEMINI_API_KEY || '';
@@ -111,7 +111,7 @@ async function callResilientGemini(promptText: string, options: CallGeminiOption
 }
 
 // Shared AI Knowledge Cache Statistics & Savings Endpoint
-app.get('/api/ai/cache-stats', (_req: Request, res: Response) => {
+app.get('/api/ai/cache-stats', requireSuperAdmin, (_req: Request, res: Response) => {
   res.json(sharedAiCache.getStats());
 });
 
@@ -1189,7 +1189,7 @@ app.post('/api/payment/notify-admin', (req: Request, res: Response) => {
 });
 
 // GET /api/payment/admin/notifications: Super Admin views all received transaction numbers
-app.get('/api/payment/admin/notifications', (req: Request, res: Response) => {
+app.get('/api/payment/admin/notifications', requireSuperAdmin, (req: Request, res: Response) => {
   const pendingOnly = req.query.pending === 'true';
   const list = pendingOnly
     ? ADMIN_PAYMENT_NOTIFICATIONS.filter((n) => n.status === 'PENDING')
@@ -1340,21 +1340,18 @@ app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response
 
 // Single Assignment Pack Unlock (54 ETB)
 app.post('/api/premium/purchase-single-assignment', (req: Request, res: Response) => {
-  const { studentEmail, studentId, assignmentId, transactionRef, gateway = 'telebirr' } = req.body;
-  const isSuperAdmin = studentEmail && studentEmail.toLowerCase() === 'mejennur669@gmail.com';
-
-  const singlePurchaseKey = `${studentId || studentEmail}_${assignmentId}`;
-  SINGLE_ASSIGNMENT_PURCHASES.add(singlePurchaseKey);
+  const { assignmentId, transactionRef, gateway = 'telebirr' } = req.body;
+  const studentId = req.user?.uid;
 
   res.json({
     success: true,
-    entitled: true,
+    entitled: false,
+    status: 'PENDING',
     assignmentId,
     amount: 54,
     currency: 'ETB',
     receiptNo: `ETH-ASSIGN-${Math.floor(100000 + Math.random() * 900000)}`,
-    status: isSuperAdmin ? 'ACTIVE' : 'APPROVED',
-    message: 'Single assignment pack unlocked successfully (54 ETB).',
+    message: 'Payment request received. Access is unlocked after an admin verifies your payment.',
   });
 });
 
