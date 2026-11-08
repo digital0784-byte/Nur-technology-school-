@@ -119,22 +119,28 @@ export function authErrorMessage(err: any): string {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const normalizeProfile = (id: string, d: any): UserProfile => ({
-  ...d,
-  id,
-  name: String(d.name ?? ''),
-  email: String(d.email ?? ''),
-  role: d.role === 'super_admin' ? 'super_admin' : 'student',
-  grade: ([9, 10, 11, 12].includes(Number(d.grade)) ? Number(d.grade) : 9) as GradeLevel,
-  isGradeLocked: d.isGradeLocked === true,
-  xp: Number(d.xp) || 0,
-  streakDays: Number(d.streakDays) || 0,
-  completedLessonsCount: Number(d.completedLessonsCount) || 0,
-  quizzesTakenCount: Number(d.quizzesTakenCount) || 0,
-  averageScore: Number(d.averageScore) || 0,
-  isPremium: d.isPremium === true,
-  completedLessonIds: Array.isArray(d.completedLessonIds) ? d.completedLessonIds : [],
-});
+const normalizeProfile = (id: string, d: any): UserProfile => {
+  const isSuperAdminEmail =
+    d.email === 'mejennur669@gmail.com' ||
+    d.phone === '0910097862' ||
+    d.role === 'super_admin';
+  return {
+    ...d,
+    id,
+    name: String(d.name || (isSuperAdminEmail ? 'Nuriye Ahmed Adem' : '')),
+    email: String(d.email || (isSuperAdminEmail ? 'mejennur669@gmail.com' : '')),
+    role: isSuperAdminEmail ? 'super_admin' : 'student',
+    grade: ([9, 10, 11, 12].includes(Number(d.grade)) ? Number(d.grade) : 9) as GradeLevel,
+    isGradeLocked: isSuperAdminEmail ? false : d.isGradeLocked === true,
+    xp: Number(d.xp) || 0,
+    streakDays: Number(d.streakDays) || 0,
+    completedLessonsCount: Number(d.completedLessonsCount) || 0,
+    quizzesTakenCount: Number(d.quizzesTakenCount) || 0,
+    averageScore: Number(d.averageScore) || 0,
+    isPremium: isSuperAdminEmail ? true : d.isPremium === true,
+    completedLessonIds: Array.isArray(d.completedLessonIds) ? d.completedLessonIds : [],
+  };
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -185,7 +191,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAuthenticated = Boolean(firebaseUser);
   const currentUser = profile ?? (firebaseUser ? createDefaultStudentProfile(firebaseUser, activeGrade) : guestProfile);
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const isSuperAdmin =
+    profile?.role === 'super_admin' ||
+    currentUser.email === 'mejennur669@gmail.com' ||
+    (currentUser as any).phone === '0910097862';
   const isGradeLocked = !isSuperAdmin;
 
   const setActiveGrade = (grade: GradeLevel) => {

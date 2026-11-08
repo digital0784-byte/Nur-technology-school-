@@ -107,7 +107,7 @@ const INITIAL_STUDENTS_SEED: StudentRegistryRecord[] = [
     registeredDevicesCount: 1,
     maxAllowedDevices: 2,
     lastActiveAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    totalSpentETB: 234, // 180 + 54 single assignment
+    totalSpentETB: 237, // 180 + 57 single assignment / premium hub
     notes: 'Grade 10 + Purchased Single Assignment Pack',
   },
 ];
@@ -313,8 +313,8 @@ export class AdminErpService {
 
     submissions.forEach((sub) => {
       if (sub.status === 'APPROVED') {
-        if (sub.amount === 54) {
-          revenueSingleAssign += 54;
+        if (sub.amount === 57 || sub.amount === 54) {
+          revenueSingleAssign += sub.amount;
         } else if (sub.grade === 9) {
           revenueG9 += sub.amount;
         } else if (sub.grade === 10) {
@@ -466,7 +466,7 @@ export class AdminErpService {
         action: 'PRICE_VERIFIED',
         target: 'Grade 9-12 Pricing Engine',
         status: 'SUCCESS',
-        details: 'Verified Grade 9 (160 ETB), G10 (180 ETB), G11 (200 ETB), G12 (200 ETB), Single (54 ETB).',
+        details: 'Verified Grade 9 (160 ETB), G10 (180 ETB), G11 (200 ETB), G12 (200 ETB), Single/Premium (57 ETB).',
       },
       {
         id: 'audit-03',

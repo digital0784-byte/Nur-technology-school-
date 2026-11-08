@@ -60,7 +60,7 @@ export interface PremiumAssignment {
   title: string;
   subtitle: string;
   rigorLevel: 'Standard MoE' | 'Advanced Entrance (EUEE)' | 'University Preparatory' | 'STEM Honors';
-  priceETB: number; // 54 ETB
+  priceETB: number; // 57 ETB
   problemStatement: string;
   starterTemplate: string;
   guidingQuestions: string[];

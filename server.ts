@@ -128,17 +128,35 @@ app.post('/api/ai/tutor', async (req: Request, res: Response) => {
       contextExcerpts,
       diagnosticContext_weakAreas,
       language = 'am',
+      is_premium,
+      isPremium,
     } = req.body;
 
-    // Check shared cross-student AI cache before calling Gemini
-    const cachedReply = sharedAiCache.getTutorReply({
-      grade: String(grade),
-      subject: String(subject),
-      unit: String(unit),
-      topic: String(topic),
-      message: String(message || ''),
-      language: String(language),
-    });
+    const isVip = Boolean(is_premium || isPremium);
+
+    const vipTutorPrompt = isVip
+      ? `\n[VIP SOCRATIC TUTOR INSTRUCTION]
+You are NUR AI, the private VIP Tutor for an Ethiopian High School student.
+- Deep Socratic Reasoning: Do not merely give flat answers. Break complex concepts into intuitive 3-step insights:
+  1. The Real-World Intuition (relate physics/chemistry/math to Ethiopian daily life or technology).
+  2. The Rigorous Formula & LaTeX Derivation (show step-by-step cancellation and unit conversions).
+  3. The EUEE Exam Trap Alert (highlight common mistakes Ethiopian students make on this exact question in national exams).
+- Multimodal OCR Solver: If an image is provided, extract all printed/handwritten equations accurately, identify the diagram, and solve with complete working.
+- Multilingual Voice Adaptation: Format output with clear pacing, bold mathematical markers, and natural sentence structures suitable for Text-to-Speech (TTS) synthesis in the student's selected language:
+  Amharic (አማርኛ), Afaan Oromoo, Tigrinya (ትግርኛ), Arabic (العربية), Somali (Soomaali), or English.\n`
+      : '';
+
+    // Check shared cross-student AI cache before calling Gemini (skip cache if VIP to provide personalized Socratic reasoning)
+    const cachedReply = !isVip
+      ? sharedAiCache.getTutorReply({
+          grade: String(grade),
+          subject: String(subject),
+          unit: String(unit),
+          topic: String(topic),
+          message: String(message || ''),
+          language: String(language),
+        })
+      : null;
 
     if (cachedReply) {
       return res.json({
@@ -170,7 +188,7 @@ Classroom Context:
 
 Student Diagnostic Context:
 ${diagnosticContext_weakAreas || 'Student is actively studying this unit; guide them through any conceptual hurdles.'}
-
+${vipTutorPrompt}
 TEACHING RULES & PEDAGOGICAL CONSTRAINTS:
 1. Search and use the provided textbook excerpts as your PRIMARY knowledge source.
 2. Every textbook-based answer MUST cite: [Grade ${grade}, Subject: ${subject}, Unit: ${unit}, Topic: ${topic}, and Textbook Page Number].
@@ -237,20 +255,22 @@ TEACHING RULES & PEDAGOGICAL CONSTRAINTS:
 // Multimodal OCR Question Solver (Image & Voice)
 app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
   try {
-    const { imageBase64, mimeType = 'image/jpeg', questionPrompt, grade = '9-12', subject = 'Science', language = 'am' } = req.body;
+    const { imageBase64, mimeType = 'image/jpeg', questionPrompt, grade = '9-12', subject = 'Science', language = 'am', is_premium, isPremium } = req.body;
+
+    const isVip = Boolean(is_premium || isPremium);
 
     if (!imageBase64 && !questionPrompt) {
       return res.status(400).json({ success: false, error: 'Either imageBase64 or questionPrompt must be provided' });
     }
 
-    // Check shared cross-student AI cache
-    const cachedOcr = sharedAiCache.getOcrSolve({
+    // Check shared cross-student AI cache (skip cache for VIP for full deep Socratic derivation)
+    const cachedOcr = !isVip ? sharedAiCache.getOcrSolve({
       grade: String(grade),
       subject: String(subject),
       questionPrompt: questionPrompt ? String(questionPrompt) : undefined,
       imageBase64: imageBase64 ? String(imageBase64) : undefined,
       language: String(language),
-    });
+    }) : null;
 
     if (cachedOcr) {
       return res.json({
@@ -275,10 +295,22 @@ app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
       });
     }
 
+    const vipOcrInstruction = isVip
+      ? `\n[VIP SOCRATIC TUTOR INSTRUCTION]
+You are NUR AI, the private VIP Tutor for an Ethiopian High School student.
+- Deep Socratic Reasoning: Do not merely give flat answers. Break complex concepts into intuitive 3-step insights:
+  1. The Real-World Intuition (relate physics/chemistry/math to Ethiopian daily life or technology).
+  2. The Rigorous Formula & LaTeX Derivation (show step-by-step cancellation and unit conversions).
+  3. The EUEE Exam Trap Alert (highlight common mistakes Ethiopian students make on this exact question in national exams).
+- Multimodal OCR Solver: If an image is provided, extract all printed/handwritten equations accurately, identify the diagram, and solve with complete working.
+- Multilingual Voice Adaptation: Format output with clear pacing, bold mathematical markers, and natural sentence structures suitable for Text-to-Speech (TTS) synthesis in the student's selected language:
+  Amharic (አማርኛ), Afaan Oromoo, Tigrinya (ትግርኛ), Arabic (العربية), Somali (Soomaali), or English.\n`
+      : '';
+
     const promptText = `You are NUR AI, solving an Ethiopian High School problem for Grade ${grade}, Subject: ${subject} following the MoE New Curriculum (2019 E.C. / 2026).
 Student query/note: ${questionPrompt || 'Please solve this question using the 5-step Problem-Solving Protocol.'}
 Language of response: ${language}.
-
+${vipOcrInstruction}
 Format your response strictly using the Ethiopian High School 5-Step Problem-Solving Protocol:
 📖 [MoE Textbook Citation: Grade ${grade}, ${subject}, Curriculum Standard 2019 E.C.]
 
@@ -1008,7 +1040,7 @@ let SERVER_PRICING = {
   grade10: 180,
   grade11: 200,
   grade12: 200,
-  singleAssignment: 54,
+  singleAssignment: 57,
   billingCycleDays: 30,
   currency: 'ETB',
 };
@@ -1308,7 +1340,7 @@ app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response
         assignmentId,
         message: hasActiveSubscription
           ? 'Access granted via full active monthly grade subscription.'
-          : 'Access granted via 54 ETB single assignment pack purchase.',
+          : 'Access granted via 57 ETB premium access pack purchase.',
       });
     }
 
@@ -1323,11 +1355,11 @@ app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response
       reason: 'PAYMENT_REQUIRED',
       resourceType,
       assignmentId,
-      singlePriceETB: SERVER_PRICING.singleAssignment || 54,
+      singlePriceETB: SERVER_PRICING.singleAssignment || 57,
       monthlyPriceETB: gradeMonthly,
       currency: 'ETB',
       accounts: VERIFIED_PAYMENT_ACCOUNTS,
-      message: 'ይህ ልዩ አሳይመንት የ54 ብር ክፍያ ወይም ወርሃዊ ሰብስክሪብሽን ይፈልጋል። (Requires 54 ETB or monthly access).',
+      message: 'ይህ ልዩ ማዕከል/አሳይመንት በወር የ57 ብር ክፍያ ወይም ወርሃዊ ሰብስክሪብሽን ይፈልጋል። (Requires 57 ETB/month or monthly access).',
     });
   }
 
@@ -1338,7 +1370,7 @@ app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response
   });
 });
 
-// Single Assignment Pack Unlock (54 ETB)
+// Single Assignment / Premium Hub Pack Unlock (57 ETB)
 app.post('/api/premium/purchase-single-assignment', (req: Request, res: Response) => {
   const { assignmentId, transactionRef, gateway = 'telebirr' } = req.body;
   const studentId = req.user?.uid;
@@ -1348,7 +1380,7 @@ app.post('/api/premium/purchase-single-assignment', (req: Request, res: Response
     entitled: false,
     status: 'PENDING',
     assignmentId,
-    amount: 54,
+    amount: 57,
     currency: 'ETB',
     receiptNo: `ETH-ASSIGN-${Math.floor(100000 + Math.random() * 900000)}`,
     message: 'Payment request received. Access is unlocked after an admin verifies your payment.',

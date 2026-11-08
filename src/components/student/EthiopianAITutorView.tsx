@@ -36,7 +36,7 @@ interface ChatMessage {
 }
 
 export const EthiopianAITutorView: React.FC<EthiopianAITutorViewProps> = ({ initialContext }) => {
-  const { currentUser, activeGrade, updateUserXP } = useAuth();
+  const { currentUser, activeGrade, updateUserXP, isSuperAdmin } = useAuth();
   const { t, language } = useLanguage();
 
   const subjects = getCurriculumByGrade(activeGrade);
@@ -132,6 +132,7 @@ ${formatOfficialCitation(activeGrade, activeSubject?.name.en || 'Mathematics', c
           contextExcerpts: classroomData.excerpt,
           diagnosticContext_weakAreas: diagnosticFocus,
           language,
+          is_premium: currentUser.isPremium || isSuperAdmin,
         }),
       });
 

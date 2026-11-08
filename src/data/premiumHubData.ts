@@ -40,7 +40,7 @@ export const PREMIUM_VIDEO_MASTERCLASSES: VideoMasterclassItem[] = [
     durationSeconds: 2910,
     badge: 'EUEE High Yield ★★★★★',
     thumbnailGradient: 'from-amber-600 via-purple-900 to-indigo-950',
-    singlePriceETB: 54,
+    singlePriceETB: 57,
     formulaCheatsheet: [
       'f(x) = a_n x^n + a_{n-1} x^{n-1} + ... + a_1 x + a_0',
       'Remainder Theorem: If f(x) is divided by (x - c), remainder = f(c)',
@@ -205,7 +205,7 @@ export const PREMIUM_VIDEO_MASTERCLASSES: VideoMasterclassItem[] = [
     durationSeconds: 3135,
     badge: 'Crucial for EUEE Physics ★★★★★',
     thumbnailGradient: 'from-blue-700 via-cyan-900 to-slate-950',
-    singlePriceETB: 54,
+    singlePriceETB: 57,
     formulaCheatsheet: [
       'Magnetic Flux: Φ = B * A * cos(θ) [Weber, Wb]',
       'Faraday’s Law: ε = -N * (ΔΦ / Δt) [Volts]',
@@ -349,7 +349,7 @@ export const PREMIUM_VIDEO_MASTERCLASSES: VideoMasterclassItem[] = [
     durationSeconds: 2710,
     badge: 'Grade 11 & 12 Core ★★★★★',
     thumbnailGradient: 'from-emerald-700 via-teal-900 to-slate-950',
-    singlePriceETB: 54,
+    singlePriceETB: 57,
     formulaCheatsheet: [
       'aA + bB ⇌ cC + dD',
       'Kc = ([C]^c * [D]^d) / ([A]^a * [B]^b)',

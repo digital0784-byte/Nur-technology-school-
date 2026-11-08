@@ -5,7 +5,7 @@ import { Camera, Mic, Sparkles, Loader2, CheckCircle } from 'lucide-react';
 import { authFetch } from '../../services/apiClient';
 
 export const PhotoVoiceTutorView: React.FC = () => {
-  const { activeGrade, updateUserXP } = useAuth();
+  const { activeGrade, updateUserXP, currentUser, isSuperAdmin } = useAuth();
   const { t, language } = useLanguage();
 
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
@@ -29,6 +29,7 @@ export const PhotoVoiceTutorView: React.FC = () => {
           grade: activeGrade,
           subject: 'Mathematics & Science',
           language,
+          is_premium: currentUser.isPremium || isSuperAdmin,
         }),
       });
       const data = await res.json();

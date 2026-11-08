@@ -235,8 +235,8 @@ export const VideoMasterclassPlayer: React.FC<VideoMasterclassPlayerProps> = ({ 
               <p className="text-[11px] text-slate-400 mt-0.5">{activeVideo.instructor.credentials}</p>
             </div>
             <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center shrink-0">
-              <span className="text-xs font-bold text-amber-400 block">54 ETB</span>
-              <span className="text-[10px] text-slate-400">Single Video Pack</span>
+              <span className="text-xs font-bold text-amber-400 block">57 ETB</span>
+              <span className="text-[10px] text-slate-400">Monthly / Single Pack</span>
             </div>
           </div>
         </div>

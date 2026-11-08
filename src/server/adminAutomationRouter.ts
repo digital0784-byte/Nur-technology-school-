@@ -166,7 +166,7 @@ adminAutomationRouter.get('/diagnostics/14-point-check', (req: Request, res: Res
         'Automated receipt PDF generation with transaction status approved',
         'Instant entitlement creation with 30-day expiration calculation',
       ],
-      details: 'Verified Ethiopian financial gateway reconciliation for 54, 160, 180, and 200 ETB plans.',
+      details: 'Verified Ethiopian financial gateway reconciliation for 57, 160, 180, and 200 ETB plans.',
       detailsAm: 'የቴሌብር እና የኢትዮጵያ ንግድ ባንክ (CBE) ክፍያዎች በሰከንዶች ውስጥ ተረጋግጠው ፈቃድ መስጠታቸውን አረጋግጧል።',
     },
     {

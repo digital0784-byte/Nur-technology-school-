@@ -143,13 +143,13 @@ export const INITIAL_PAYMENT_ACCOUNTS: PaymentAccountConfig[] = [
 ];
 
 // Default Pricing strictly matching the prompt:
-// Grade 9: 160 ETB, Grade 10: 180 ETB, Grade 11: 200 ETB, Grade 12: 200 ETB, Single Assignment: 54 ETB
+// Grade 9: 160 ETB, Grade 10: 180 ETB, Grade 11: 200 ETB, Grade 12: 200 ETB, Premium Hub / Single: 57 ETB
 export const INITIAL_PRICING_CONFIG: GradePricingConfig = {
   grade9: 160,
   grade10: 180,
   grade11: 200,
   grade12: 200,
-  singleAssignment: 54,
+  singleAssignment: 57,
   billingCycleDays: 30,
   currency: 'ETB',
 };
@@ -672,7 +672,7 @@ export class PaymentService {
         actor: SUPER_ADMIN_EMAIL,
         action: 'PRICE_MODIFIED',
         targetUserId: 'SYSTEM',
-        details: 'Initial MoE Grade Tiered Pricing Activated (G9: 160 ETB, G10: 180 ETB, G11: 200 ETB, G12: 200 ETB, Assign: 54 ETB)',
+        details: 'Initial MoE Grade Tiered Pricing Activated (G9: 160 ETB, G10: 180 ETB, G11: 200 ETB, G12: 200 ETB, Premium Hub: 57 ETB)',
       },
       {
         id: 'audit-init-02',

@@ -17,7 +17,7 @@ const STORAGE_KEY_STEM_PROJECTS = 'eth_academic_hub_stem_projects_v1';
 const STORAGE_KEY_PURCHASES = 'eth_academic_hub_purchases_v1';
 
 export class AcademicWorkHubService {
-  // 1. Entitlement Verification (Super Admin bypass, Free Homework/STEM, 54 ETB Assignment Check)
+  // 1. Entitlement Verification (Super Admin bypass, Free Homework/STEM, 57 ETB Assignment Check)
   static async verifyEntitlement(
     studentEmail: string,
     studentId: string,
@@ -76,20 +76,20 @@ export class AcademicWorkHubService {
         entitled: Boolean(data.entitled),
         reason: data.reason || 'PAYMENT_REQUIRED',
         superAdmin: Boolean(data.superAdmin),
-        singlePriceETB: data.singlePriceETB || 54,
+        singlePriceETB: data.singlePriceETB || 57,
         monthlyPriceETB: data.monthlyPriceETB || 180,
       };
     } catch {
       return {
         entitled: hasActiveSubscription,
         reason: hasActiveSubscription ? 'ACTIVE_SUBSCRIPTION' : 'PAYMENT_REQUIRED',
-        singlePriceETB: 54,
+        singlePriceETB: 57,
         monthlyPriceETB: 180,
       };
     }
   }
 
-  // 2. Single Assignment 54 ETB Unlock
+  // 2. Single Assignment 57 ETB Unlock
   static async purchaseSingleAssignment(
     assignmentId: string,
     studentEmail: string,
@@ -124,7 +124,7 @@ export class AcademicWorkHubService {
 
     return {
       success: true,
-      message: 'የ54 ብር ክፍያ ተረጋግጧል። አሳይመንቱ ተከፍቷል! (54 ETB Single Pack Unlocked).',
+      message: 'የ57 ብር ክፍያ ተረጋግጧል። አሳይመንቱ ተከፍቷል! (57 ETB Single Pack Unlocked).',
     };
   }
 

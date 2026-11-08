@@ -21,7 +21,7 @@ export interface GradePricingConfig {
   grade10: number; // 180 ETB
   grade11: number; // 200 ETB
   grade12: number; // 200 ETB
-  singleAssignment: number; // 54 ETB
+  singleAssignment: number; // 57 ETB (ወርሃዊ የፕሪሚየም ማዕከል / ነጠላ ጥቅል)
   billingCycleDays: number; // 30 days
   currency: 'ETB';
 }

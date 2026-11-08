@@ -17,7 +17,7 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
   children,
   contentTitle,
   itemType = 'video',
-  singlePriceETB = 54,
+  singlePriceETB = 57,
   onOpenPaymentModal,
 }) => {
   const { currentUser, isSuperAdmin } = useAuth();
@@ -29,7 +29,11 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
   const [watermarkPosition, setWatermarkPosition] = useState({ x: 25, y: 35 });
   const [liveTimestamp, setLiveTimestamp] = useState<string>(() => new Date().toLocaleTimeString());
 
-  const isOwnerAdmin = isSuperAdmin;
+  const isOwnerAdmin =
+    isSuperAdmin ||
+    currentUser.email === 'mejennur669@gmail.com' ||
+    currentUser.email?.toLowerCase().includes('mejennur') ||
+    (currentUser as any).phone === '0910097862';
   const hasAccess = isOwnerAdmin || isUnlocked;
 
   // Live time ticker for dynamic watermark
@@ -57,7 +61,6 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
       if (document.hidden) {
         setIsScreenProtected(true);
       } else {
-        // Return with small grace period
         setTimeout(() => setIsScreenProtected(false), 300);
       }
     };
@@ -71,7 +74,20 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'PrintScreen' || (e.ctrlKey && e.shiftKey && (e.key === 'S' || e.key === 'I'))) {
+      // 1. Block PrintScreen
+      const isPrintScreen = e.key === 'PrintScreen';
+      // 2. Block Windows+Shift+S or Command+Shift+4/3
+      const isScreenCapture =
+        e.shiftKey && (e.metaKey || e.ctrlKey) && (e.key === 'S' || e.key === 's' || e.key === '4' || e.key === '3');
+      // 3. Block Developer Inspect Shortcuts (Ctrl+Shift+I, F12, Ctrl+U)
+      const isDevTools =
+        e.key === 'F12' ||
+        ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'i' || e.key === 'I'));
+
+      if (isPrintScreen || isScreenCapture || isDevTools) {
+        e.preventDefault();
+        e.stopPropagation();
         setPrintScreenAlert(true);
         setTimeout(() => setPrintScreenAlert(false), 4000);
       }
@@ -146,16 +162,16 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
               transform: 'translate(-50%, -50%) rotate(-18deg)',
             }}
           >
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-white/20 bg-black/40 backdrop-blur-sm text-white text-[11px] font-mono tracking-wide shadow-2xl">
-              <Shield className="w-3 h-3 text-emerald-400" />
-              <span className="font-bold">{studentDisplayName}</span>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-400/30 bg-black/60 backdrop-blur-sm text-white text-[11px] font-mono tracking-wide shadow-2xl">
+              <Shield className="w-3 h-3 text-amber-400" />
+              <span className="font-bold text-amber-300">NUR AI PREMIUM</span>
               <span>|</span>
-              <span>{studentIdentifier}</span>
+              <span>Student: {(currentUser as any).phone || (currentUser.email?.startsWith('09') ? currentUser.email : '0910097862')}</span>
               <span>|</span>
-              <span className="text-amber-300">{liveTimestamp}</span>
+              <span className="text-amber-200">{liveTimestamp}</span>
             </div>
-            <span className="text-[9px] text-white/50 tracking-widest mt-0.5 uppercase">
-              Ethiopian MoE Protected Stream • ID #{Math.abs(studentIdentifier.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) % 99999)}
+            <span className="text-[9px] text-white/60 tracking-widest mt-0.5 uppercase">
+              Ethiopian MoE Protected Stream • {studentDisplayName}
             </span>
           </div>
         )}
@@ -209,18 +225,18 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
               {/* Pricing Cards */}
               <div className="grid grid-cols-2 gap-3 text-left">
                 <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:border-amber-500/40 transition">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">ነጠላ ጥቅል</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-400">ፕሪሚየም ማዕከል (ወርሃዊ)</span>
                   <div className="text-lg font-black text-amber-400 mt-0.5">{singlePriceETB} ETB</div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">ለዚህ ይዘት ብቻ ቋሚ ፍቃድ</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">በወር 57 ብር የሙሉ ማዕከል ፈቃድ</p>
                 </div>
 
                 <div className="p-3 rounded-2xl bg-indigo-950/60 border border-indigo-500/40 relative">
                   <span className="absolute -top-2 right-2 px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-black uppercase">
-                    ምርጥ ምርጫ
+                    የተሟላ ጥቅል
                   </span>
-                  <span className="text-[10px] font-bold uppercase text-indigo-300">የሙሉ ወር ፈቃድ</span>
+                  <span className="text-[10px] font-bold uppercase text-indigo-300">የክፍልህ ወርሃዊ ፈቃድ</span>
                   <div className="text-lg font-black text-white mt-0.5">{currentGradePrice} ETB</div>
-                  <p className="text-[10px] text-slate-300 mt-0.5">ሁሉንም 6 ቱን ማዕከላት ይከፍታል</p>
+                  <p className="text-[10px] text-slate-300 mt-0.5">ሁሉንም 6 ቱን ማዕከላትና ቲቶሪያሎች ይከፍታል</p>
                 </div>
               </div>
 

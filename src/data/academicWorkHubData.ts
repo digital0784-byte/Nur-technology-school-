@@ -290,7 +290,7 @@ export const CURRICULUM_HOMEWORK_BANK: HomeworkQuestion[] = [
 ];
 
 // ==========================================
-// 2. PREMIUM ASSIGNMENTS (54 ETB Single Pack)
+// 2. PREMIUM ASSIGNMENTS (57 ETB Single Pack)
 // Evaluated with 4-part structured AI rubrics:
 // Comprehension (25%), Methodology (35%),
 // Factual Accuracy (25%), Presentation (15%)
@@ -305,7 +305,7 @@ export const PREMIUM_ASSIGNMENTS_BANK: PremiumAssignment[] = [
     title: 'Higher-Order Polynomial Optimization & Revenue Modeling in Ethiopian Trade',
     subtitle: 'Mathematical modeling of coffee supply chain yield and market equilibrium',
     rigorLevel: 'Advanced Entrance (EUEE)',
-    priceETB: 54,
+    priceETB: 57,
     problemStatement: `An agricultural exporter in Jimma models the net operational profit P(x) in thousands of Ethiopian Birr (ETB) from processing x metric tons of specialty Arabica coffee beans according to the cubic polynomial:
 P(x) = -x³ + 24x² - 144x + 500  (for domain 2 ≤ x ≤ 15 metric tons)
 
@@ -355,7 +355,7 @@ At critical points:
     title: 'Electromagnetic Induction & Turbine Generation at GERD',
     subtitle: 'Derivation of magnetic flux rate of change and terminal voltage regulation',
     rigorLevel: 'STEM Honors',
-    priceETB: 54,
+    priceETB: 57,
     problemStatement: `At the Grand Ethiopian Renaissance Dam (GERD), each Francis hydro turbine drives a 375 MW synchronous rotor generator inside a uniform magnetic field of B = 1.2 Tesla. The rotor coil has N = 450 turns with an effective cross-sectional area of A = 8.5 m² per turn, rotating at an angular frequency of ω = 100π rad/s (50 Hz grid frequency).
 
 Your Tasks:
@@ -402,7 +402,7 @@ V_rms = ε_max / √2 = ...
     title: 'Chemical Stoichiometry & Nitisols Neutralization in Ethiopian Highlands',
     subtitle: 'Balancing chemical equations and titration analysis of agricultural lime',
     rigorLevel: 'University Preparatory',
-    priceETB: 54,
+    priceETB: 57,
     problemStatement: `Highland Nitisols in western Ethiopia (e.g. East Wollega and Gojjam) frequently develop severe aluminum toxicity and soil acidity (pH < 4.8), significantly reducing Teff and wheat grain yields.
 An agronomy lab collects a 10-hectare soil sample contaminated with exchangeable hydrogen and aluminum ions equivalent to 0.04 moles of H⁺ ions per kilogram of topsoil.
 Assuming 1 hectare contains 2.5 × 10⁶ kg of active topsoil:

@@ -30,7 +30,7 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
   isOpen,
   onClose,
   targetItemTitle,
-  singlePriceETB = 54,
+  singlePriceETB = 57,
 }) => {
   const {
     accounts,
@@ -131,7 +131,7 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
             {targetItemTitle || `የ ${activeGrade}ኛ ክፍል ፕሪሚየም ፍቃድ`}
           </h3>
           <p className="text-xs text-slate-300 mt-1">
-            ወርሃዊ ተመን: <b>{currentGradePrice} ETB</b> | ነጠላ ጥቅል: <b>{singlePriceETB} ETB</b>
+            ወርሃዊ ተመን: <b>{currentGradePrice} ETB</b> | ፕሪሚየም ማዕከል / ነጠላ ጥቅል: <b>{singlePriceETB} ETB</b>
           </p>
         </div>
 

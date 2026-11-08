@@ -9,6 +9,8 @@ export class GeminiService {
     subject: string;
     unit?: string;
     language: Language;
+    is_premium?: boolean;
+    isPremium?: boolean;
   }) {
     const res = await authFetch('/api/ai/tutor', {
       method: 'POST',
@@ -24,6 +26,8 @@ export class GeminiService {
     grade: GradeLevel;
     subject?: string;
     language: Language;
+    is_premium?: boolean;
+    isPremium?: boolean;
   }) {
     const res = await authFetch('/api/ai/ocr-solve', {
       method: 'POST',

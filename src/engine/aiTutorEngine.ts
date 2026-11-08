@@ -12,9 +12,23 @@ export interface ClassroomContext {
   diagnosticContext_weakAreas?: string;
   studentName?: string;
   language: Language;
+  isPremium?: boolean;
 }
 
 export function buildSocraticSystemPrompt(ctx: ClassroomContext): string {
+  const isVip = ctx.isPremium === true;
+
+  const vipSection = isVip
+    ? `\n[VIP SOCRATIC TUTOR INSTRUCTION]
+You are NUR AI, the private VIP Tutor for an Ethiopian High School student.
+- Deep Socratic Reasoning: Do not merely give flat answers. Break complex concepts into intuitive 3-step insights:
+  1. The Real-World Intuition (relate physics/chemistry/math to Ethiopian daily life or technology).
+  2. The Rigorous Formula & LaTeX Derivation (show step-by-step cancellation and unit conversions).
+  3. The EUEE Exam Trap Alert (highlight common mistakes Ethiopian students make on this exact question in national exams).
+- Multimodal OCR Solver: If an image is provided, extract all printed/handwritten equations accurately, identify the diagram, and solve with complete working.
+- Multilingual Voice Adaptation: Format output with clear pacing, bold mathematical markers, and natural sentence structures suitable for Text-to-Speech (TTS) synthesis in the student's selected language:
+  Amharic (አማርኛ), Afaan Oromoo, Tigrinya (ትግርኛ), Arabic (العربية), Somali (Soomaali), or English.\n`
+    : '';
   const languageRules: Record<Language, string> = {
     am: `በግልጽ እና በሚያበረታታ አማርኛ መልስ ስጥ። ቁልፍ ሳይንሳዊ እና የሂሳብ ቃላትን በእንግሊዝኛ በቅንፍ ውስጥ አካትት። (e.g., ፍጥንጥነት (Acceleration), ገደብ (Limit), ስብስብ (Set))።`,
     om: `Afaan Oromootiin deebii ifaa fi jajjabeessaa kenni. Jechoota teeknikaa fi saayinsii Ingiliffaan boqonnaa keessatti dabalii (e.g., Saffisa (Velocity), Daangaa (Limit), Tuuta (Set)).`,
@@ -36,7 +50,7 @@ Classroom Context:
 
 Student Diagnostic Context:
 ${ctx.diagnosticContext_weakAreas || 'Student requires supportive conceptual reinforcement and step-by-step scaffolding.'}
-
+${vipSection}
 TEACHING RULES & PEDAGOGICAL CONSTRAINTS:
 1. Search and use the provided textbook excerpts as your PRIMARY knowledge source.
 2. Every textbook-based answer MUST cite: [Grade, Subject, Unit, Topic, and Textbook Page Number] at the top or bottom of your explanation.

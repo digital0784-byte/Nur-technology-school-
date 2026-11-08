@@ -683,7 +683,7 @@ export const AdminErpDashboard: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1">
-                    <span>ልዩ አሳይመንቶች (Single Assignment Pack - 54 ETB)</span>
+                    <span>ልዩ አሳይመንቶችና ፕሪሚየም ማዕከል (57 ETB Pack)</span>
                     <span className="font-mono text-emerald-600">{kpis.revenueByGrade.singleAssignment} ETB</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
@@ -1064,7 +1064,7 @@ export const AdminErpDashboard: React.FC = () => {
                             {p.amount} ETB
                           </div>
                           <div className="text-[10px] text-slate-400">
-                            {p.amount === 54 ? 'Single Assignment' : `${p.grade}ኛ ክፍል ወርሃዊ`}
+                            {p.amount === 57 || p.amount === 54 ? 'Premium Hub / Single Pack' : `${p.grade}ኛ ክፍል ወርሃዊ`}
                           </div>
                         </td>
                         <td className="p-4">
@@ -1520,7 +1520,7 @@ export const AdminErpDashboard: React.FC = () => {
                   />
                   <span className="text-xs font-bold text-emerald-600">ETB</span>
                 </div>
-                <span className="text-[10px] text-emerald-600">መደበኛ: 54 ETB</span>
+                <span className="text-[10px] text-emerald-600">መደበኛ: 57 ETB</span>
               </div>
             </div>
           </form>

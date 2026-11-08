@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { ModuleId } from '../../types';
-import { Home, BookOpen, Bot, Award, Camera } from 'lucide-react';
+import { Home, BookOpen, Bot, Award, Camera, Crown, Sparkles } from 'lucide-react';
 
 interface StudentPortalDashboardProps {
   onNavigateModule: (mod: ModuleId) => void;
@@ -99,6 +99,31 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
           </div>
         </button>
       </div>
+
+      {/* VIP Premium Learning Hub Card */}
+      <button
+        type="button"
+        onClick={() => onNavigateModule('premium_learning_center')}
+        className="w-full p-4.5 rounded-3xl bg-gradient-to-r from-amber-950/80 via-slate-900 to-indigo-950 border-2 border-amber-500/40 text-left hover:border-amber-400 transition-all shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold group-hover:scale-105 transition-transform border border-amber-500/30">
+            <Crown className="w-6 h-6 text-amber-400" />
+          </div>
+          <div>
+            <div className="text-sm font-black text-amber-300 flex items-center gap-1.5">
+              <span>NUR AI VIP Learning Center (6 ቱ ፕሪሚየም ማዕከላት)</span>
+              <Sparkles className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="text-xs text-slate-300 mt-0.5">
+              HD ቪዲዮ ማስተርክላስ፣ 3D STEM አኒሜሽን፣ የ EUEE ብሔራዊ ፈተና ሲሙሌተር እና የድምፅ ማዕከል
+            </div>
+          </div>
+        </div>
+        <span className="self-start sm:self-center px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 group-hover:from-amber-400 group-hover:to-amber-500 text-slate-950 font-black text-xs shadow-md transition shrink-0">
+          VIP ማዕከሉን ክፈት →
+        </span>
+      </button>
     </div>
   );
 };
