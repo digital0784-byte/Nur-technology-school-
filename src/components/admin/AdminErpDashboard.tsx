@@ -217,6 +217,9 @@ export const AdminErpDashboard: React.FC = () => {
         }
       }
       setAuditLogs(AdminErpService.getAuditEntries());
+    } else {
+      setApprovalFeedback(`ክፍያውን ማጽደቅ አልተቻለም (Could not approve). እባክዎ እንደገና ይሞክሩ።`);
+      setTimeout(() => setApprovalFeedback(null), 5000);
     }
   };
 
@@ -331,7 +334,7 @@ export const AdminErpDashboard: React.FC = () => {
             የዋና አስተዳዳሪ ቁጥጥር ማዕከል (Super Admin Only)
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
-            ይህ የትምህርት ቤት ERP ዳሽቦርድ ለዋና አስተዳዳሪ (mejennur669@gmail.com / Nuriye Ahmed Adem) ብቻ የተፈቀደ ነው።
+            ይህ የትምህርት ቤት ERP ዳሽቦርድ ለዋና አስተዳዳሪ (mejennur669@gmail.com / abuzinad7862@gmail.com / Nuriye Ahmed Adem) ብቻ የተፈቀደ ነው።
           </p>
         </div>
 

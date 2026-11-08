@@ -62,12 +62,15 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   try {
     const decoded = await getAuth().verifyIdToken(m[1]);
     const p = await loadProfile(decoded.uid, m[1]);
+    const email = (decoded.email || '').toLowerCase().trim();
+    const isSuper = email === 'mejennur669@gmail.com' || email === 'abuzinad7862@gmail.com' || p.role === 'super_admin';
+
     req.user = {
       uid: decoded.uid,
       email: decoded.email,
-      role: p.role,
-      isPremium: p.isPremium,
-      premiumExpiresAt: p.premiumExpiresAt,
+      role: isSuper ? 'super_admin' : p.role,
+      isPremium: isSuper ? true : p.isPremium,
+      premiumExpiresAt: isSuper ? undefined : p.premiumExpiresAt,
     };
     next();
   } catch {
@@ -76,7 +79,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 }
 
 export function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
-  if (req.user?.role === 'super_admin') return next();
+  const email = (req.user?.email || '').toLowerCase().trim();
+  const isSuper =
+    req.user?.role === 'super_admin' ||
+    email === 'mejennur669@gmail.com' ||
+    email === 'abuzinad7862@gmail.com';
+  if (isSuper) return next();
   return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Super Admin only.' });
 }
 

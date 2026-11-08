@@ -52,6 +52,7 @@ export const AdminBillingVerificationView: React.FC = () => {
   const [editAccounts, setEditAccounts] = useState<PaymentAccountConfig[]>(accounts);
   const [accountsSavedMessage, setAccountsSavedMessage] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [approvalSuccessMessage, setApprovalSuccessMessage] = useState<string | null>(null);
 
   if (!isSuperAdmin) {
     return (
@@ -59,7 +60,7 @@ export const AdminBillingVerificationView: React.FC = () => {
         <ShieldCheck className="w-12 h-12 text-amber-600 mx-auto" />
         <h2 className="text-lg font-black text-slate-900 dark:text-white">ይህ ሞጁል ለዋና አስተዳዳሪ ብቻ የተፈቀደ ነው</h2>
         <p className="text-xs text-slate-600 dark:text-slate-300">
-          Super Admin Email: mejennur669@gmail.com (Nuriye Ahmed Adem)
+          Super Admin: mejennur669@gmail.com / abuzinad7862@gmail.com (Nuriye Ahmed Adem - 0910097862)
         </p>
       </div>
     );
@@ -78,9 +79,13 @@ export const AdminBillingVerificationView: React.FC = () => {
 
   const handleApprove = async (paymentId: string) => {
     setErrorMessage(null);
+    setApprovalSuccessMessage(null);
     const ok = await approvePayment(paymentId);
     if (!ok) {
       setErrorMessage('ማስቀመጥ አልተቻለም / Could not save');
+    } else {
+      setApprovalSuccessMessage(`ክፍያ #${paymentId} በተሳካ ሁኔታ ጸድቋል! ተማሪው ለ30 ቀናት ሙሉ ፍቃድ አግኝቷል።`);
+      setTimeout(() => setApprovalSuccessMessage(null), 5000);
     }
   };
 
@@ -209,6 +214,12 @@ export const AdminBillingVerificationView: React.FC = () => {
           {errorMessage && (
             <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 text-rose-700 dark:text-rose-300 text-xs font-bold">
               {errorMessage}
+            </div>
+          )}
+          {approvalSuccessMessage && (
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-400 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>{approvalSuccessMessage}</span>
             </div>
           )}
           {/* Filters & Search */}

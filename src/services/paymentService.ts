@@ -13,8 +13,14 @@ import { db, isFirebaseConfigured } from './firebase';
 import { authFetch } from './apiClient';
 
 export const SUPER_ADMIN_EMAIL = 'mejennur669@gmail.com';
+export const SUPER_ADMIN_EMAILS = ['mejennur669@gmail.com', 'abuzinad7862@gmail.com'];
 export const SUPER_ADMIN_NAME = 'Nuriye Ahmed Adem';
 export const SUPER_ADMIN_PHONE = '0910097862';
+
+export const isSuperAdminEmail = (email?: string | null): boolean => {
+  const e = (email || '').toLowerCase().trim();
+  return SUPER_ADMIN_EMAILS.includes(e) || e === SUPER_ADMIN_EMAIL.toLowerCase();
+};
 
 // Default Verified Accounts according to Ethiopian Banking Standards
 export const INITIAL_PAYMENT_ACCOUNTS: PaymentAccountConfig[] = [
@@ -177,7 +183,7 @@ export class PaymentService {
 
   // Super Admin updates pricing dynamically
   static updatePricing(newPricing: GradePricingConfig, adminEmail: string): boolean {
-    if (adminEmail.toLowerCase() !== SUPER_ADMIN_EMAIL.toLowerCase()) {
+    if (!isSuperAdminEmail(adminEmail)) {
       console.error('Unauthorized pricing change attempt');
       return false;
     }
@@ -223,7 +229,7 @@ export class PaymentService {
 
   // Super Admin updates payment accounts
   static updateAccounts(newAccounts: PaymentAccountConfig[], adminEmail: string): boolean {
-    if (adminEmail.toLowerCase() !== SUPER_ADMIN_EMAIL.toLowerCase()) {
+    if (!isSuperAdminEmail(adminEmail)) {
       return false;
     }
     localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(newAccounts));
@@ -379,7 +385,7 @@ export class PaymentService {
     const now = Date.now();
 
     // 1. Super Admin permanent free bypass across all modules
-    if (cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
+    if (isSuperAdminEmail(cleanEmail)) {
       return {
         userId,
         grade: userGrade,
@@ -502,7 +508,7 @@ export class PaymentService {
 
   // Super Admin Approves Payment (ያጽድቁ)
   static approvePayment(paymentId: string, adminEmail: string): boolean {
-    if (adminEmail.toLowerCase() !== SUPER_ADMIN_EMAIL.toLowerCase()) {
+    if (!isSuperAdminEmail(adminEmail)) {
       console.error('Unauthorized approve payment attempt');
       return false;
     }
@@ -574,7 +580,7 @@ export class PaymentService {
 
   // Super Admin Rejects Payment (ውድቅ ያድርጉ)
   static rejectPayment(paymentId: string, adminEmail: string, reason: string): boolean {
-    if (adminEmail.toLowerCase() !== SUPER_ADMIN_EMAIL.toLowerCase()) {
+    if (!isSuperAdminEmail(adminEmail)) {
       return false;
     }
 

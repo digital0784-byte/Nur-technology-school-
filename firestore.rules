@@ -5,7 +5,10 @@ service cloud.firestore {
     function isSuperAdmin() {
       return request.auth != null && 
         (request.auth.token.email == 'mejennur669@gmail.com' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin');
+         request.auth.token.email == 'abuzinad7862@gmail.com' ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')));
     }
 
     // Helper function to verify user is authenticated
@@ -78,7 +81,11 @@ service cloud.firestore {
 
     // Payments: Users can create and read their own transactions, Super Admin can verify & approve
     match /payments/{paymentId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.studentId == request.auth.uid || 
+        isSuperAdmin()
+      );
       allow create: if isAuthenticated();
       allow update, delete: if isSuperAdmin();
     }

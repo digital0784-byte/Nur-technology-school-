@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -15,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from './AuthContext';
+import { authFetch } from '../services/apiClient';
 import {
   PaymentAccountConfig,
   GradePricingConfig,
@@ -30,6 +32,7 @@ import {
   INITIAL_PRICING_CONFIG,
   SUPER_ADMIN_EMAIL,
   SUPER_ADMIN_PHONE,
+  PaymentService,
 } from '../services/paymentService';
 
 interface SubscriptionContextType {
@@ -76,18 +79,18 @@ const clean = <T,>(obj: T): T => JSON.parse(JSON.stringify(obj));
 
 const toSubmission = (id: string, d: any): PaymentSubmission => ({
   id,
-  userId: d.userId,
-  studentId: d.userId,
-  studentName: d.studentName ?? '',
-  studentEmail: d.studentEmail ?? '',
-  studentPhone: d.studentPhone ?? '',
-  grade: d.grade,
-  amount: d.amount,
+  userId: d.userId || d.studentId || d.uid || '',
+  studentId: d.studentId || d.userId || d.uid || '',
+  studentName: d.studentName || d.name || '',
+  studentEmail: d.studentEmail || d.email || '',
+  studentPhone: d.studentPhone || d.phone || '',
+  grade: d.grade || 9,
+  amount: d.amount || 57,
   currency: 'ETB',
-  paymentGateway: d.paymentGateway,
-  transactionRef: d.transactionRef,
+  paymentGateway: d.paymentGateway || d.gateway || 'telebirr',
+  transactionRef: d.transactionRef || d.reference || '',
   receiptImageUrl: d.receiptImageUrl,
-  submittedAt: tsToIso(d.createdAt),
+  submittedAt: tsToIso(d.createdAt || d.submittedAt),
   status: String(d.status || 'pending').toUpperCase() as PaymentSubmission['status'],
   reviewedAt: d.reviewedAt ? tsToIso(d.reviewedAt) : undefined,
   reviewedBy: d.reviewedBy,
@@ -266,6 +269,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const id = `${gateway}_${ref}`;
     const data = {
       userId: currentUser.id,
+      studentId: currentUser.id,
       studentName: currentUser.name,
       studentEmail: currentUser.email,
       studentPhone: cleanPhone,
@@ -303,42 +307,154 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Super Admin approves: marks the payment approved AND switches Premium on, in one atomic write.
   const approvePayment = async (paymentId: string): Promise<boolean> => {
-    if (!isSuperAdmin) return false;
-    const sub = allSubmissions.find((s) => s.id === paymentId);
-    if (!sub || sub.status !== 'PENDING') return false;
+    if (!isSuperAdmin) {
+      console.warn('Approve blocked: not super admin');
+      return false;
+    }
+
+    // 1. Find submission in memory or fetch live from Firestore
+    let sub = allSubmissions.find((s) => s.id === paymentId);
+    if (!sub) {
+      try {
+        const paySnap = await getDoc(doc(db, 'payments', paymentId));
+        if (paySnap.exists()) {
+          sub = toSubmission(paySnap.id, paySnap.data());
+        }
+      } catch (err) {
+        console.warn('Live payment fetch warning:', err);
+      }
+    }
+
+    if (!sub) {
+      console.warn('Payment record not found for approval:', paymentId);
+      return false;
+    }
+
+    const currentStatus = String(sub.status || '').toUpperCase();
+    if (currentStatus !== 'PENDING') {
+      if (currentStatus === 'APPROVED') return true;
+    }
 
     try {
-      const userRef = doc(db, 'users', sub.studentId);
-      const userSnap = await getDoc(userRef);
-      const curExp: string | undefined = userSnap.exists() ? (userSnap.data() as any).premiumExpiresAt : undefined;
-      const curDate = curExp ? new Date(`${curExp.split('T')[0]}T00:00:00`) : null;
-      const base = curDate && curDate.getTime() > Date.now() ? curDate : new Date();
+      // 2. Resolve student UID
+      let studentUid = sub.studentId || sub.userId;
+      if (!studentUid && sub.studentEmail) {
+        try {
+          const uSnap = await getDocs(
+            query(collection(db, 'users'), where('email', '==', sub.studentEmail.trim()), limit(1))
+          );
+          if (!uSnap.empty) {
+            studentUid = uSnap.docs[0].id;
+          }
+        } catch (e) {
+          console.warn('User lookup by email warning:', e);
+        }
+      }
+
+      // Calculate expiration date
+      const base = new Date();
       base.setDate(base.getDate() + (pricing.billingCycleDays || 30));
       const expiresAt = toYmd(base);
+      const adminEmail = currentUser.email || 'mejennur669@gmail.com';
 
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'payments', paymentId), {
-        status: 'approved',
-        reviewedAt: serverTimestamp(),
-        reviewedBy: currentUser.email,
-        expiresAt,
-      });
-      batch.update(userRef, {
-        isPremium: true,
-        premiumExpiresAt: expiresAt,
-        premiumPlan: `${sub.grade}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
-        premiumGateway: sub.paymentGateway,
-      });
-      await batch.commit();
+      // 3. Update payment in Firestore using setDoc with merge: true (never throws missing doc)
+      await setDoc(
+        doc(db, 'payments', paymentId),
+        {
+          status: 'approved',
+          reviewedAt: serverTimestamp(),
+          reviewedBy: adminEmail,
+          expiresAt,
+        },
+        { merge: true }
+      );
 
+      // 4. Update student profile in Firestore
+      if (studentUid) {
+        await setDoc(
+          doc(db, 'users', studentUid),
+          {
+            isPremium: true,
+            premiumExpiresAt: expiresAt,
+            premiumPlan: `${sub.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
+            premiumGateway: sub.paymentGateway,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        // Also update subscriptions collection for backward compatibility
+        await setDoc(
+          doc(db, 'subscriptions', studentUid),
+          {
+            status: 'ACTIVE',
+            isPremium: true,
+            expiresAt,
+            planTitle: `${sub.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
+            amountPaid: sub.amount,
+            activePaymentId: paymentId,
+            activatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+
+        // Also update entitlements collection
+        await setDoc(
+          doc(db, 'entitlements', studentUid),
+          {
+            isPremium: true,
+            expiresAt,
+            plan: `${sub.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
+      // 5. Update local memory/storage service
+      PaymentService.approvePayment(paymentId, adminEmail);
+
+      // 6. Update local state immediately
+      setAllSubmissions((prev) =>
+        prev.map((s) =>
+          s.id === paymentId
+            ? {
+                ...s,
+                status: 'APPROVED',
+                reviewedAt: new Date().toISOString(),
+                reviewedBy: adminEmail,
+                expiresAt,
+              }
+            : s
+        )
+      );
+
+      // 7. Notify server endpoint (sync with server)
+      try {
+        await authFetch('/api/payment/admin/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentId,
+            studentId: studentUid,
+            studentEmail: sub.studentEmail,
+            expiresAt,
+          }),
+        });
+      } catch {
+        // non-critical
+      }
+
+      // 8. Log audit
       logAudit({
         action: 'APPROVED',
-        targetUserId: sub.studentId,
+        targetUserId: studentUid || sub.studentEmail,
         targetPaymentId: paymentId,
         details: `Approved ${sub.amount} ETB until ${expiresAt}`,
         previousStatus: 'PENDING',
         newStatus: 'APPROVED',
       });
+
       return true;
     } catch (e) {
       console.error('Approve failed:', e);
@@ -348,20 +464,49 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const rejectPayment = async (paymentId: string, reason: string): Promise<boolean> => {
     if (!isSuperAdmin) return false;
-    const sub = allSubmissions.find((s) => s.id === paymentId);
-    if (!sub || sub.status !== 'PENDING') return false;
+    let sub = allSubmissions.find((s) => s.id === paymentId);
+    if (!sub) {
+      try {
+        const paySnap = await getDoc(doc(db, 'payments', paymentId));
+        if (paySnap.exists()) {
+          sub = toSubmission(paySnap.id, paySnap.data());
+        }
+      } catch {}
+    }
+    if (!sub) return false;
+
     try {
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'payments', paymentId), {
-        status: 'rejected',
-        reviewedAt: serverTimestamp(),
-        reviewedBy: currentUser.email,
-        rejectionReason: reason,
-      });
-      await batch.commit();
+      const adminEmail = currentUser.email || 'mejennur669@gmail.com';
+      await setDoc(
+        doc(db, 'payments', paymentId),
+        {
+          status: 'rejected',
+          reviewedAt: serverTimestamp(),
+          reviewedBy: adminEmail,
+          rejectionReason: reason,
+        },
+        { merge: true }
+      );
+
+      PaymentService.rejectPayment(paymentId, reason, adminEmail);
+
+      setAllSubmissions((prev) =>
+        prev.map((s) =>
+          s.id === paymentId
+            ? {
+                ...s,
+                status: 'REJECTED',
+                reviewedAt: new Date().toISOString(),
+                reviewedBy: adminEmail,
+                rejectionReason: reason,
+              }
+            : s
+        )
+      );
+
       logAudit({
         action: 'REJECTED',
-        targetUserId: sub.studentId,
+        targetUserId: sub.studentId || sub.studentEmail,
         targetPaymentId: paymentId,
         details: reason,
         previousStatus: 'PENDING',

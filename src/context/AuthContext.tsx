@@ -66,29 +66,34 @@ const INITIAL_GUEST_PROFILE: UserProfile = {
   completedUnits: [],
 };
 
-const createDefaultStudentProfile = (u: User, grade: GradeLevel = 9): UserProfile => ({
-  id: u.uid,
-  name: u.displayName || u.email?.split('@')[0] || 'ተማሪ (Student)',
-  email: u.email || '',
-  role: 'student',
-  grade,
-  isGradeLocked: true,
-  enrolledAt: new Date().toISOString().split('T')[0],
-  xp: 0,
-  streakDays: 1,
-  completedLessonsCount: 0,
-  quizzesTakenCount: 0,
-  averageScore: 0,
-  isPremium: false,
-  streakFreezeAvailable: true,
-  streakFreezeActive: false,
-  gracePeriodActive: false,
-  unlockedBadges: [],
-  dailyQuizzesPassed: 0,
-  stemExperimentsCompleted: 0,
-  eueeHighScore: 0,
-  completedLessonIds: [],
-});
+const createDefaultStudentProfile = (u: User, grade: GradeLevel = 9): UserProfile => {
+  const isSuper =
+    (u.email && isSuperAdminEmailAddress(u.email)) ||
+    (u.phoneNumber && (u.phoneNumber === '0910097862' || u.phoneNumber.endsWith('7862')));
+  return {
+    id: u.uid,
+    name: u.displayName || u.email?.split('@')[0] || (isSuper ? 'Nuriye Ahmed Adem' : 'ተማሪ (Student)'),
+    email: u.email || '',
+    role: isSuper ? 'super_admin' : 'student',
+    grade,
+    isGradeLocked: !isSuper,
+    enrolledAt: new Date().toISOString().split('T')[0],
+    xp: 0,
+    streakDays: 1,
+    completedLessonsCount: 0,
+    quizzesTakenCount: 0,
+    averageScore: 0,
+    isPremium: Boolean(isSuper),
+    streakFreezeAvailable: true,
+    streakFreezeActive: false,
+    gracePeriodActive: false,
+    unlockedBadges: [],
+    dailyQuizzesPassed: 0,
+    stemExperimentsCompleted: 0,
+    eueeHighScore: 0,
+    completedLessonIds: [],
+  };
+};
 
 const MAX_XP_PER_WRITE = 500; // mirrors firestore.rules
 
@@ -117,13 +122,28 @@ export function authErrorMessage(err: any): string {
   }
 }
 
+export const isSuperAdminEmailAddress = (email?: string | null): boolean => {
+  const e = (email || '').toLowerCase().trim();
+  return e === 'mejennur669@gmail.com' || e === 'abuzinad7862@gmail.com';
+};
+
+export const checkIsSuperAdmin = (email?: string | null, phone?: string | null, role?: string | null): boolean => {
+  const e = (email || '').toLowerCase().trim();
+  const p = (phone || '').trim();
+  const r = (role || '').toLowerCase().trim();
+  return (
+    isSuperAdminEmailAddress(e) ||
+    p === '0910097862' ||
+    p.endsWith('7862') ||
+    r === 'super_admin' ||
+    r === 'admin'
+  );
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const normalizeProfile = (id: string, d: any): UserProfile => {
-  const isSuperAdminEmail =
-    d.email === 'mejennur669@gmail.com' ||
-    d.phone === '0910097862' ||
-    d.role === 'super_admin';
+  const isSuperAdminEmail = checkIsSuperAdmin(d.email, d.phone, d.role);
   return {
     ...d,
     id,
@@ -169,9 +189,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       doc(db, 'users', firebaseUser.uid),
       (snap) => {
         if (snap.exists()) {
-          setProfile(normalizeProfile(snap.id, snap.data()));
+          const norm = normalizeProfile(snap.id, snap.data());
+          setProfile(norm);
+          // If the authenticated user is super admin but their Firestore document doesn't reflect it,
+          // upgrade the Firestore doc so security rules pass.
+          if (norm.role === 'super_admin' && snap.data()?.role !== 'super_admin') {
+            setDoc(doc(db, 'users', firebaseUser.uid), { role: 'super_admin', isPremium: true }, { merge: true }).catch(() => {});
+          }
         } else {
-          setProfile((prev) => prev ?? createDefaultStudentProfile(firebaseUser, activeGrade));
+          const def = createDefaultStudentProfile(firebaseUser, activeGrade);
+          setProfile((prev) => prev ?? def);
+          // Create the Firestore doc if missing
+          setDoc(doc(db, 'users', firebaseUser.uid), def, { merge: true }).catch(() => {});
         }
         setAuthLoading(false);
       },
@@ -193,8 +222,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const currentUser = profile ?? (firebaseUser ? createDefaultStudentProfile(firebaseUser, activeGrade) : guestProfile);
   const isSuperAdmin =
     profile?.role === 'super_admin' ||
-    currentUser.email === 'mejennur669@gmail.com' ||
-    (currentUser as any).phone === '0910097862';
+    checkIsSuperAdmin(currentUser.email, (currentUser as any).phone, profile?.role) ||
+    checkIsSuperAdmin(firebaseUser?.email, firebaseUser?.phoneNumber, profile?.role);
   const isGradeLocked = !isSuperAdmin;
 
   const setActiveGrade = (grade: GradeLevel) => {
@@ -207,20 +236,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = useCallback(async ({ name, email, password, grade }: RegisterParams) => {
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    const isSuper = checkIsSuperAdmin(cred.user.email || email, null);
+    const assignedRole = isSuper ? 'super_admin' : 'student';
+
     const newProfile: UserProfile = {
       id: cred.user.uid,
       name: name.trim(),
       email: cred.user.email || email.trim(),
-      role: 'student',
+      role: assignedRole,
       grade,
-      isGradeLocked: true,
+      isGradeLocked: !isSuper,
       enrolledAt: new Date().toISOString().split('T')[0],
       xp: 0,
       streakDays: 1,
       completedLessonsCount: 0,
       quizzesTakenCount: 0,
       averageScore: 0,
-      isPremium: false,
+      isPremium: isSuper,
       streakFreezeAvailable: true,
       streakFreezeActive: false,
       gracePeriodActive: false,
@@ -245,16 +277,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         uid: cred.user.uid,
         name: name.trim(),
         email: cred.user.email || email.trim(),
-        role: 'student',
+        role: assignedRole,
         grade,
-        isGradeLocked: true,
+        isGradeLocked: !isSuper,
         enrolledAt: new Date().toISOString().split('T')[0],
         xp: 0,
         streakDays: 1,
         completedLessonsCount: 0,
         quizzesTakenCount: 0,
         averageScore: 0,
-        isPremium: false,
+        isPremium: isSuper,
         streakFreezeAvailable: true,
         streakFreezeActive: false,
         gracePeriodActive: false,

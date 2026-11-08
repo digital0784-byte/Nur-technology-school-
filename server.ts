@@ -1240,6 +1240,29 @@ app.get('/api/payment/admin/notifications', requireSuperAdmin, (req: Request, re
   });
 });
 
+// POST /api/payment/admin/approve: Super Admin marks payment approved
+app.post('/api/payment/admin/approve', requireSuperAdmin, (req: Request, res: Response) => {
+  const { paymentId, studentId, studentEmail, expiresAt } = req.body;
+  const adminEmail = req.user?.email || 'mejennur669@gmail.com';
+
+  const notification = ADMIN_PAYMENT_NOTIFICATIONS.find(
+    (n) => n.id === paymentId || n.transactionRef === paymentId || (n as any).studentEmail === studentEmail
+  );
+  if (notification) {
+    notification.status = 'APPROVED';
+    (notification as any).reviewedBy = adminEmail;
+    (notification as any).reviewedAt = new Date().toISOString();
+  }
+
+  res.json({
+    success: true,
+    message: `Payment ${paymentId} approved successfully by ${adminEmail}.`,
+    paymentId,
+    studentId,
+    expiresAt,
+  });
+});
+
 // Telebirr, CBE Birr, CBE, Dashen, and BoA Payment submission & verification
 app.post('/api/payment/verify', (req: Request, res: Response) => {
   const { provider, transactionId, amount, studentName, grade, phone, studentId } = req.body;
