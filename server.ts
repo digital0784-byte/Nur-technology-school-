@@ -407,41 +407,120 @@ function findTextbookPages(subjectCode: string, subjectName: string, grade: any)
   return null;
 }
 
-function findCurriculumTopic(topicId: string) {
-  if (!topicId || typeof topicId !== 'string') return null;
-  const cleanId = topicId.trim().toLowerCase();
-  for (const subject of CURRICULUM_DATA) {
-    for (const unit of subject.units) {
-      for (const topic of unit.topics) {
-        if (topic.id.toLowerCase() === cleanId) {
-          return { topic, unit, subject };
+function findCurriculumTopic(
+  topicId?: string,
+  topicTitle?: string,
+  subjectCode?: string,
+  grade?: string | number,
+  extra?: { summary?: string; pageReference?: string; objectives?: string[]; unitTitle?: string; subjectName?: string }
+) {
+  const cleanId = (topicId || '').trim().toLowerCase();
+  const cleanTitle = (topicTitle || '').trim().toLowerCase();
+  const cleanSub = (subjectCode || '').trim().toLowerCase();
+  const cleanGrade = grade ? String(grade).trim() : '';
+
+  // 1. Direct ID match
+  if (cleanId) {
+    for (const subject of CURRICULUM_DATA) {
+      for (const unit of subject.units) {
+        for (const topic of unit.topics) {
+          if (topic.id.toLowerCase() === cleanId) {
+            return { topic, unit, subject };
+          }
         }
       }
     }
   }
-  return null;
+
+  // 2. Title & Subject match
+  if (cleanTitle) {
+    for (const subject of CURRICULUM_DATA) {
+      if (cleanSub && !subject.code.toLowerCase().includes(cleanSub) && !subject.id.toLowerCase().includes(cleanSub)) {
+        continue;
+      }
+      if (cleanGrade && String(subject.grade) !== cleanGrade) {
+        continue;
+      }
+      for (const unit of subject.units) {
+        for (const topic of unit.topics) {
+          const tLower = topic.title.toLowerCase();
+          if (tLower === cleanTitle || tLower.includes(cleanTitle) || cleanTitle.includes(tLower)) {
+            return { topic, unit, subject };
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Fallback title match anywhere across curriculum
+  if (cleanTitle) {
+    for (const subject of CURRICULUM_DATA) {
+      for (const unit of subject.units) {
+        for (const topic of unit.topics) {
+          if (topic.title.toLowerCase() === cleanTitle) {
+            return { topic, unit, subject };
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Synthesize valid MoE Curriculum Topic on demand if not explicitly listed in static dataset
+  const fallbackTitle = topicTitle || topicId || 'Curriculum Topic';
+  const fallbackSubCode = subjectCode || 'GEN-10';
+  const fallbackSubName = extra?.subjectName || fallbackSubCode;
+  const fallbackGrade = grade ? Number(grade) : 10;
+  return {
+    topic: {
+      id: topicId || `dyn-${Date.now()}`,
+      title: fallbackTitle,
+      competencyObjectives: extra?.objectives || [],
+      summary: extra?.summary || '',
+      content: '',
+      pageReference: extra?.pageReference || `MoE Standard Textbook Grade ${fallbackGrade}`,
+    },
+    unit: {
+      id: `unit-dyn`,
+      unitNumber: 1,
+      title: extra?.unitTitle || 'Curriculum Core Unit',
+      description: 'MoE Core Unit',
+      topics: [],
+    },
+    subject: {
+      id: `sub-${fallbackSubCode.toLowerCase()}`,
+      code: fallbackSubCode,
+      grade: fallbackGrade as any,
+      icon: 'BookOpen',
+      color: 'emerald',
+      name: { am: fallbackSubName, en: fallbackSubName, om: fallbackSubName, ti: fallbackSubName, ar: fallbackSubName, so: fallbackSubName },
+      units: [],
+    },
+  };
 }
 
 // Generate Full Lesson from Topic (with MoE Textbook Grounding)
 app.post('/api/ai/lesson', async (req: Request, res: Response) => {
   try {
     const rawTopicId = req.body?.topicId;
-    if (!rawTopicId || typeof rawTopicId !== 'string') {
-      return res.status(404).json({
+    const rawTopicTitle = req.body?.topicTitle;
+    const rawSubjectCode = req.body?.subjectCode;
+    const rawGrade = req.body?.grade;
+
+    if (!rawTopicId && !rawTopicTitle) {
+      return res.status(400).json({
         success: false,
-        error: 'TOPIC_NOT_FOUND',
-        message: 'A valid topicId is required.',
+        error: 'TOPIC_REQUIRED',
+        message: 'A valid topicId or topicTitle is required.',
       });
     }
 
-    const found = findCurriculumTopic(rawTopicId);
-    if (!found) {
-      return res.status(404).json({
-        success: false,
-        error: 'TOPIC_NOT_FOUND',
-        message: `Topic with id "${rawTopicId}" was not found in the curriculum.`,
-      });
-    }
+    const found = findCurriculumTopic(rawTopicId, rawTopicTitle, rawSubjectCode, rawGrade, {
+      summary: req.body?.topicContext,
+      pageReference: req.body?.pageReference,
+      objectives: req.body?.objectives,
+      unitTitle: req.body?.unitTitle,
+      subjectName: req.body?.subjectName,
+    })!;
 
     // Validate language strictly to only allow ['am', 'om', 'ti', 'ar', 'so', 'en']
     const ALLOWED_LANGUAGES = ['am', 'om', 'ti', 'ar', 'so', 'en'] as const;
@@ -562,7 +641,7 @@ app.post('/api/ai/lesson', async (req: Request, res: Response) => {
       ? `TEXTBOOK PAGES:\n${textbookPagesText}`
       : `TOPIC CONTEXT:\n${subjectName} Grade ${grade} - ${topicTitle}\n${serverTopic.summary || ''}\n${serverTopic.content || ''}`;
 
-    const prompt = `you are an Ethiopian high-school teacher; Grade ${grade} level; answer in the language ${language}; if TEXTBOOK PAGES are provided use ONLY them and do not invent facts, definitions or page numbers; use plain text and Unicode for math (no LaTeX); give Ethiopian everyday examples where natural; double-check every calculation in worked examples before answering; graph points must be numerically correct for the stated formula.
+    const prompt = `you are a master Ethiopian high-school teacher and textbook author; Grade ${grade} level; answer in the language ${language}; if TEXTBOOK PAGES are provided use them faithfully; use plain text and Unicode for math (no LaTeX); give Ethiopian everyday examples where natural; double-check every calculation in worked examples and review questions before answering; write detailed, complete step-by-step procedures for activities and step-by-step solutions for review questions.
 
 Curriculum Details:
 - Subject: ${subjectName} (${subjectCode})
@@ -577,20 +656,36 @@ ${sourceSection}
 Respond ONLY with valid JSON following this exact shape:
 {
   "explanation": [
-    {"heading": "Section Heading", "body": "Comprehensive explanation paragraph"}
+    {"heading": "Section Heading", "body": "Comprehensive pedagogical explanation paragraph"}
   ],
   "keyTerms": [
     {"term": "Term Name", "meaning": "Precise definition"}
   ],
   "workedExamples": [
-    {"title": "Example Title", "problem": "Problem statement", "steps": ["Step 1: Given and formula", "Step 2: Substitution", "Step 3: Calculation"], "answer": "Final calculated answer"}
+    {
+      "title": "Example Title",
+      "problem": "Problem statement",
+      "steps": ["Step 1: Given and formula", "Step 2: Substitution", "Step 3: Calculation and unit verification"],
+      "answer": "Final calculated answer with standard units"
+    }
   ],
   "activity": {
-    "title": "Safe Hands-on Activity Title",
-    "materials": ["Material 1", "Material 2"],
-    "steps": ["Step 1: Setup", "Step 2: Execution", "Step 3: Measurement"],
-    "observe": "What the student should observe or conclude"
+    "title": "MoE Textbook Practical Activity / Lab Experiment",
+    "type": "lab_experiment",
+    "materials": ["Material 1", "Material 2", "Material 3"],
+    "steps": ["Step 1: Setup", "Step 2: Execution", "Step 3: Measurement", "Step 4: Recording"],
+    "observe": "What the student should observe or conclude",
+    "answer": "Step-by-step textbook activity worked solution and pedagogical conclusion",
+    "stepByStepSolution": ["Step 1: Procedure setup", "Step 2: Empirical observation analysis", "Step 3: Verification against curriculum theory"]
   },
+  "illustrations": [
+    {
+      "title": "Visual Conceptual Diagram",
+      "caption": "Pedagogical caption describing the diagram",
+      "svg": "<svg viewBox='0 0 500 220' xmlns='http://www.w3.org/2000/svg' class='w-full h-auto max-h-60 rounded-2xl bg-slate-900 border border-slate-700/60 p-2'><text x='250' y='110' fill='#ffffff' text-anchor='middle'>Educational Model</text></svg>",
+      "type": "diagram"
+    }
+  ],
   "graphs": [
     {
       "title": "Graph Title",
@@ -609,25 +704,66 @@ Respond ONLY with valid JSON following this exact shape:
     "Key takeaway point 3",
     "Key takeaway point 4"
   ],
+  "realLifeConnection": {
+    "title": "Everyday Life Practical Applications",
+    "summary": "Core overview of how this concept affects daily human life",
+    "dailyScenarios": [
+      {
+        "title": "Daily Scenario 1",
+        "scenario": "Concrete situation encountered in everyday life (home, transport, health, food)",
+        "practicalTakeaway": "Practical tip or action based on this science"
+      },
+      {
+        "title": "Daily Scenario 2",
+        "scenario": "Another practical situation",
+        "practicalTakeaway": "Practical takeaway"
+      }
+    ],
+    "ethiopianContext": "Specific real-world connection to Ethiopian industries, agriculture, or national infrastructure"
+  },
+  "programmingAndAiConnection": {
+    "title": "Connection to Programming, Algorithms & Artificial Intelligence",
+    "algorithmicThinking": "How computer scientists formulate this principle as an algorithm or mathematical model",
+    "codeSnippet": {
+      "language": "python",
+      "code": "# Runnable Python code demonstrating the principle\ndef calculate_metric():\n    pass",
+      "explanation": "Clear explanation of how the code models the topic"
+    },
+    "aiApplications": [
+      {
+        "area": "Specific AI/Machine Learning Application",
+        "description": "How modern AI models, neural networks, or computer vision utilize this principle"
+      }
+    ],
+    "futureSkillsTip": "Guidance on how learning this equips students for high-tech computing and AI careers"
+  },
   "reviewQuestions": [
     {
       "id": 1,
       "question": "Question text?",
       "options": ["A. Option 1", "B. Option 2", "C. Option 3", "D. Option 4"],
       "correctIndex": 0,
-      "explanation": "Detailed rationale"
+      "explanation": "Detailed rationale",
+      "stepByStepSolution": [
+        "Step 1: Identify given quantities and textbook concept",
+        "Step 2: Apply the governing formula or logic",
+        "Step 3: Conclude why the correct option is the exact answer"
+      ]
     }
   ]
 }
 
 COUNT CONSTRAINTS:
-- "explanation": Provide 3 to 5 clear sections.
+- "explanation": Provide 4 to 6 clear, deep sections.
 - "keyTerms": Provide 4 to 8 essential terms.
-- "workedExamples": Provide 2 to 3 worked examples with realistic numerical/conceptual values.
-- "activity": Provide 1 safe classroom or home activity.
-- "graphs": Provide 0 to 2 graphs (only when a graph genuinely helps this topic).
+- "workedExamples": Provide 2 to 3 worked examples with realistic numerical/conceptual values and step-by-step procedures.
+- "activity": Provide 1 safe classroom or laboratory activity WITH step-by-step solution/findings ("answer" and "stepByStepSolution").
+- "illustrations": Provide 1 visual SVG diagram for the concept.
+- "graphs": Provide 0 to 2 graphs.
 - "summary": Provide 4 to 6 bullet points.
-- "reviewQuestions": Provide exactly 5 review questions, each with 4 options and correctIndex 0, 1, 2, or 3.`;
+- "realLifeConnection": Provide detailed everyday real-life scenarios with Ethiopian context.
+- "programmingAndAiConnection": Provide clear algorithmic thinking, a Python code snippet, and 2 modern AI applications.
+- "reviewQuestions": Provide exactly 5 review questions, each with 4 options, correctIndex, explanation, AND "stepByStepSolution" array.`;
 
     let lesson: any = null;
     let modelUsed = 'gemini-3.8-flash';
@@ -661,14 +797,54 @@ COUNT CONSTRAINTS:
         activity: parsed.activity && typeof parsed.activity === 'object'
           ? {
               title: String(parsed.activity.title || ''),
+              type: String(parsed.activity.type || 'lab_experiment'),
               materials: Array.isArray(parsed.activity.materials) ? parsed.activity.materials : [],
               steps: Array.isArray(parsed.activity.steps) ? parsed.activity.steps : [],
               observe: String(parsed.activity.observe || ''),
+              answer: String(parsed.activity.answer || ''),
+              stepByStepSolution: Array.isArray(parsed.activity.stepByStepSolution) ? parsed.activity.stepByStepSolution : [],
             }
-          : { title: '', materials: [], steps: [], observe: '' },
+          : { title: '', materials: [], steps: [], observe: '', answer: '', stepByStepSolution: [] },
+        illustrations: Array.isArray(parsed.illustrations) && parsed.illustrations.length > 0 ? parsed.illustrations : [],
         graphs: Array.isArray(parsed.graphs) ? parsed.graphs : [],
         summary: Array.isArray(parsed.summary) ? parsed.summary : [],
-        reviewQuestions: Array.isArray(parsed.reviewQuestions) ? parsed.reviewQuestions : [],
+        realLifeConnection: parsed.realLifeConnection && typeof parsed.realLifeConnection === 'object'
+          ? {
+              title: String(parsed.realLifeConnection.title || ''),
+              summary: String(parsed.realLifeConnection.summary || ''),
+              dailyScenarios: Array.isArray(parsed.realLifeConnection.dailyScenarios)
+                ? parsed.realLifeConnection.dailyScenarios
+                : [],
+              ethiopianContext: String(parsed.realLifeConnection.ethiopianContext || ''),
+            }
+          : undefined,
+        programmingAndAiConnection: parsed.programmingAndAiConnection && typeof parsed.programmingAndAiConnection === 'object'
+          ? {
+              title: String(parsed.programmingAndAiConnection.title || ''),
+              algorithmicThinking: String(parsed.programmingAndAiConnection.algorithmicThinking || ''),
+              codeSnippet: parsed.programmingAndAiConnection.codeSnippet
+                ? {
+                    language: String(parsed.programmingAndAiConnection.codeSnippet.language || 'python'),
+                    code: String(parsed.programmingAndAiConnection.codeSnippet.code || ''),
+                    explanation: String(parsed.programmingAndAiConnection.codeSnippet.explanation || ''),
+                  }
+                : undefined,
+              aiApplications: Array.isArray(parsed.programmingAndAiConnection.aiApplications)
+                ? parsed.programmingAndAiConnection.aiApplications
+                : [],
+              futureSkillsTip: String(parsed.programmingAndAiConnection.futureSkillsTip || ''),
+            }
+          : undefined,
+        reviewQuestions: Array.isArray(parsed.reviewQuestions)
+          ? parsed.reviewQuestions.map((q: any, qIdx: number) => ({
+              id: q.id ?? (qIdx + 1),
+              question: String(q.question || ''),
+              options: Array.isArray(q.options) ? q.options : [],
+              correctIndex: typeof q.correctIndex === 'number' ? q.correctIndex : 0,
+              explanation: String(q.explanation || ''),
+              stepByStepSolution: Array.isArray(q.stepByStepSolution) ? q.stepByStepSolution : [],
+            }))
+          : [],
       };
 
       if (!lesson.explanation.length) {
@@ -690,6 +866,34 @@ COUNT CONSTRAINTS:
         language,
         textbookExcerpt: textbookPagesText,
       });
+    }
+
+    // Automated Quality & Completeness Check
+    if (
+      lesson &&
+      (!lesson.illustrations ||
+        lesson.illustrations.length === 0 ||
+        !lesson.realLifeConnection ||
+        !lesson.programmingAndAiConnection)
+    ) {
+      const fb = generateCurriculumLessonFallback({
+        subjectCode,
+        subjectName,
+        grade,
+        unitTitle,
+        topicId,
+        topicTitle,
+        language,
+      });
+      if (!lesson.illustrations || lesson.illustrations.length === 0) {
+        lesson.illustrations = fb.illustrations || [];
+      }
+      if (!lesson.realLifeConnection) {
+        lesson.realLifeConnection = fb.realLifeConnection;
+      }
+      if (!lesson.programmingAndAiConnection) {
+        lesson.programmingAndAiConnection = fb.programmingAndAiConnection;
+      }
     }
 
     LESSON_MEMORY_CACHE.set(cacheKey, {

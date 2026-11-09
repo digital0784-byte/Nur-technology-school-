@@ -25,20 +25,43 @@ import {
   ChevronRightCircle,
   Eye,
   Mail,
+  Globe,
+  Code2,
+  Cpu,
+  Copy,
+  Terminal,
+  Lightbulb,
 } from 'lucide-react';
 
 interface LessonViewProps {
   onAskAi?: (context: { subject: string; topic: string }) => void;
 }
 
-type LessonTabKey = 'explanation' | 'examples' | 'activity' | 'graphs' | 'summary' | 'questions';
+type LessonTabKey =
+  | 'explanation'
+  | 'examples'
+  | 'activity'
+  | 'graphs'
+  | 'real_life'
+  | 'programming_ai'
+  | 'summary'
+  | 'questions';
 
 interface GeneratedLessonData {
   lesson: {
     explanation: Array<{ heading: string; body: string }>;
     keyTerms: Array<{ term: string; meaning: string }>;
     workedExamples: Array<{ title: string; problem: string; steps: string[]; answer: string }>;
-    activity: { title: string; materials: string[]; steps: string[]; observe: string };
+    activity: {
+      title: string;
+      type?: string;
+      materials: string[];
+      steps: string[];
+      observe: string;
+      answer?: string;
+      stepByStepSolution?: string[];
+    };
+    illustrations?: Array<{ title: string; caption: string; svg: string; type?: string }>;
     graphs: GraphData[];
     summary: string[];
     reviewQuestions: Array<{
@@ -47,7 +70,32 @@ interface GeneratedLessonData {
       options: string[];
       correctIndex: number;
       explanation: string;
+      stepByStepSolution?: string[];
     }>;
+    realLifeConnection?: {
+      title: string;
+      summary: string;
+      dailyScenarios: Array<{
+        title: string;
+        scenario: string;
+        practicalTakeaway: string;
+      }>;
+      ethiopianContext: string;
+    };
+    programmingAndAiConnection?: {
+      title: string;
+      algorithmicThinking: string;
+      codeSnippet?: {
+        language: string;
+        code: string;
+        explanation: string;
+      };
+      aiApplications: Array<{
+        area: string;
+        description: string;
+      }>;
+      futureSkillsTip: string;
+    };
   };
   grounded: boolean;
   sources: Array<{ printedPage: number; unit: any }>;
@@ -78,6 +126,8 @@ export const LessonView: React.FC<LessonViewProps> = ({ onAskAi }) => {
 
   // Interactive Question State
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
+  const [showActivityAnswer, setShowActivityAnswer] = useState<boolean>(false);
+  const [revealedQuestionSteps, setRevealedQuestionSteps] = useState<Record<number, boolean>>({});
 
   // Interactive Step Revealer for Worked Examples
   const [revealedSteps, setRevealedSteps] = useState<Record<number, number>>({});
@@ -203,6 +253,34 @@ export const LessonView: React.FC<LessonViewProps> = ({ onAskAi }) => {
                 explanation: 'የተሰጡ እና የሚፈለጉ መጠኖችን ለይቶ መመዝገብ የስሌቱን ትክክለኛነት ያረጋግጣል።',
               },
             ],
+            realLifeConnection: {
+              title: `የ${cleanTitle} ተግባራዊ ጠቀሜታ በዕለታዊ ህይወት`,
+              summary: `${cleanTitle} በተማሪዎች እና በህብረተሰቡ የዕለት ተዕለት ኑሮ ውስጥ በቀጥታም ሆነ በተዘዋዋሪ የሚተገበር ወሳኝ የትምህርት ፅንሰ-ሀሳብ ነው።`,
+              dailyScenarios: [
+                {
+                  title: 'የዕለት ተዕለት አጠቃቀምና ምልከታ',
+                  scenario: `በቤት፣ በትምህርት ቤት ወይም በሥራ ቦታ ${cleanTitle}ን መሰረት ያደረጉ ውሳኔዎችን እና የተግባር ክንውኖችን እንመለከታለን።`,
+                  practicalTakeaway: 'ፅንሰ-ሀሳቡን መረዳት የዕለታዊ ችግሮችን በሳይንሳዊ እና ምክንያታዊ መንገድ ለመፍታት ያስችላል።',
+                },
+              ],
+              ethiopianContext: `በኢትዮጵያ በግብርና፣ በትምህርት፣ በኢነርጂ እና በፋይናንስ ዘርፍ ${cleanTitle}ን መረዳት ለሀገራዊ ልማት የጎላ አስተዋጽኦ ያበረክታል።`,
+            },
+            programmingAndAiConnection: {
+              title: `የ${cleanTitle} ትስስር ከኮዲንግ እና አርቲፊሻል ኢንተለጀንስ ጋር`,
+              algorithmicThinking: `${cleanTitle}ን ወደ ፕሮግራም ስንቀይር ግብዓቶችን (Inputs)፣ የስሌት ቀመሮችን (Formulas) እና የመጨረሻውን ውጤት (Outputs) በደረጃ በደረጃ አልጎሪዝም መልክ እንቀርጻለን።`,
+              codeSnippet: {
+                language: 'Python',
+                code: `# Simulation & Calculation for ${cleanTitle}\ndef solve_concept(param1, param2):\n    \"\"\"Calculates outcome based on curriculum rules\"\"\"\n    result = param1 * param2\n    return f"ውጤት: {result}"\n\nprint(solve_concept(10, 5))`,
+                explanation: 'ይህ የፓይዘን ኮድ የትምህርቱን ቀመር ወደ ተግባራዊ ስሌት የሚቀይር አጭር አልጎሪዝም ነው።',
+              },
+              aiApplications: [
+                {
+                  area: 'Machine Learning & Predictive Modeling',
+                  description: `ዘመናዊ የ AI ሞዴሎች ${cleanTitle}ን መሰረት በማድረግ ትንበያዎችን እና አውቶሜሽኖችን ይሰራሉ።`,
+                },
+              ],
+              futureSkillsTip: 'ሳይንስን ከኮዲንግ እና ከ AI ጋር አጣምሮ መማር ለነገው ዓለም አቀፍ የቴክኖሎጂ ስራዎች ዝግጁ ያደርጋል።',
+            },
           },
         };
         setLessonData(fallbackPayload);
@@ -213,6 +291,18 @@ export const LessonView: React.FC<LessonViewProps> = ({ onAskAi }) => {
     },
     [activeSubject, activeGrade, language]
   );
+
+  const [copiedCode, setCopiedCode] = useState<boolean>(false);
+  const handleCopyCode = (codeText: string) => {
+    if (!codeText) return;
+    try {
+      navigator.clipboard?.writeText(codeText);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch (e) {
+      console.warn('Clipboard write failed:', e);
+    }
+  };
 
   // Check cache and auto-generate whenever selectedTopic or language changes
   useEffect(() => {
@@ -245,6 +335,8 @@ export const LessonView: React.FC<LessonViewProps> = ({ onAskAi }) => {
     { id: 'examples', labelAm: 'ምሳሌ', labelEn: 'Examples', icon: ChevronRightCircle },
     { id: 'activity', labelAm: 'እንቅስቃሴ', labelEn: 'Activity', icon: Activity },
     { id: 'graphs', labelAm: 'ግራፍ', labelEn: 'Graphs', icon: LineChartIcon },
+    { id: 'real_life', labelAm: 'ዕለታዊ ህይወት', labelEn: 'Daily Life', icon: Globe },
+    { id: 'programming_ai', labelAm: 'Programming & AI', labelEn: 'Coding & AI', icon: Code2 },
     { id: 'summary', labelAm: 'ማጠቃለያ', labelEn: 'Summary', icon: ListChecks },
     { id: 'questions', labelAm: 'ጥያቄ', labelEn: 'Questions', icon: HelpCircle },
   ];
@@ -800,6 +892,58 @@ export const LessonView: React.FC<LessonViewProps> = ({ onAskAi }) => {
                               <p className="leading-relaxed">{lessonData.lesson.activity.observe}</p>
                             </div>
                           )}
+
+                          {/* Step-by-Step Activity Solution & Answer */}
+                          {(lessonData.lesson.activity.answer || (lessonData.lesson.activity.stepByStepSolution && lessonData.lesson.activity.stepByStepSolution.length > 0)) && (
+                            <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-3">
+                              <button
+                                type="button"
+                                onClick={() => setShowActivityAnswer(!showActivityAnswer)}
+                                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                              >
+                                <Sparkles className="w-4 h-4" />
+                                <span>
+                                  {showActivityAnswer
+                                    ? 'የሙከራውን ዝርዝር መልስ ደብቅ'
+                                    : '✨ የመማሪያ መጽሐፍ የተግባር ሙከራ መልስና አሰራር (Step-by-Step Answer)'}
+                                </span>
+                              </button>
+
+                              {showActivityAnswer && (
+                                <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 space-y-3 animate-in fade-in">
+                                  {lessonData.lesson.activity.answer && (
+                                    <div className="space-y-1">
+                                      <span className="text-[11px] font-extrabold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider block">
+                                        የመማሪያ መጽሐፍ የሙከራው መልስና ማጠቃለያ (Textbook Activity Solution):
+                                      </span>
+                                      <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed">
+                                        {lessonData.lesson.activity.answer}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {lessonData.lesson.activity.stepByStepSolution && lessonData.lesson.activity.stepByStepSolution.length > 0 && (
+                                    <div className="space-y-2 pt-2 border-t border-emerald-200 dark:border-emerald-800">
+                                      <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 block">
+                                        ደረጃ በደረጃ የስሌትና የትንታኔ ቅደም ተከተል፡
+                                      </span>
+                                      <div className="space-y-1.5">
+                                        {lessonData.lesson.activity.stepByStepSolution.map((step, stIdx) => (
+                                          <div
+                                            key={stIdx}
+                                            className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200/60 dark:border-emerald-800 text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2"
+                                          >
+                                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                                            <span>{step}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <p className="text-xs text-slate-400 text-center py-6">የተግባር እንቅስቃሴ አልተካተተም / No activity included</p>
@@ -807,21 +951,274 @@ export const LessonView: React.FC<LessonViewProps> = ({ onAskAi }) => {
                     </div>
                   )}
 
-                  {/* TAB 4: ግራፍ (Graphs) */}
+                  {/* TAB 4: ዲያግራሞችና ግራፎች (Visual SVG Diagrams & Graphs) */}
                   {activeLessonTab === 'graphs' && (
                     <div className="space-y-5 animate-in fade-in">
-                      {lessonData.lesson.graphs?.length > 0 ? (
-                        lessonData.lesson.graphs.map((g, gIdx) => (
-                          <SimpleChart key={gIdx} graph={g} />
-                        ))
+                      {/* SVG Illustrations if available */}
+                      {lessonData.lesson.illustrations && lessonData.lesson.illustrations.length > 0 && (
+                        <div className="space-y-4">
+                          {lessonData.lesson.illustrations.map((ill, illIdx) => (
+                            <div
+                              key={illIdx}
+                              className="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-3 shadow-md"
+                            >
+                              <div className="flex items-center justify-between text-white">
+                                <span className="font-extrabold text-sm text-emerald-400 flex items-center gap-1.5">
+                                  <Sparkles className="w-4 h-4" />
+                                  {ill.title || `ዲያግራም ${illIdx + 1}`}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                                  SVG Vector Illustration
+                                </span>
+                              </div>
+                              <div
+                                className="overflow-x-auto flex justify-center py-2"
+                                dangerouslySetInnerHTML={{ __html: ill.svg }}
+                              />
+                              {ill.caption && (
+                                <p className="text-xs text-slate-300 text-center italic border-t border-slate-800/80 pt-2">
+                                  {ill.caption}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Line/Bar Charts */}
+                      {lessonData.lesson.graphs?.length > 0 && (
+                        <div className="space-y-4">
+                          {lessonData.lesson.graphs.map((g, gIdx) => (
+                            <SimpleChart key={gIdx} graph={g} />
+                          ))}
+                        </div>
+                      )}
+
+                      {(!lessonData.lesson.illustrations || lessonData.lesson.illustrations.length === 0) &&
+                        (!lessonData.lesson.graphs || lessonData.lesson.graphs.length === 0) && (
+                          <div className="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center space-y-2">
+                            <LineChartIcon className="w-8 h-8 text-slate-400 mx-auto" />
+                            <p className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400">
+                              ለዚህ ርዕስ ግራፍ አያስፈልግም (No graph needed for this topic)
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              ይህ ርዕስ በዋነኝነት በፅንሰ-ሀሳብና በቀጥታ ስሌት የሚብራራ በመሆኑ ምስላዊ ግራፍ አልተካተተበትም።
+                            </p>
+                          </div>
+                        )}
+                    </div>
+                  )}
+
+                  {/* TAB: ከዕለታዊ ህይወት ጋር ያለው ግንኙነት (Connection to Daily Life) */}
+                  {activeLessonTab === 'real_life' && (
+                    <div className="space-y-6 animate-in fade-in">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <Globe className="w-4 h-4 text-emerald-500" />
+                          ከዕለታዊ ህይወት ጋር ያለው ተግባራዊ ግንኙነት (Real-World Daily Life Context)
+                        </span>
+                        <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300">
+                          🇪🇹 ኢትዮጵያዊ ምሳሌዎች
+                        </span>
+                      </div>
+
+                      {lessonData.lesson.realLifeConnection ? (
+                        <div className="space-y-5">
+                          {/* Connection Overview Banner */}
+                          <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50/50 to-slate-50 dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-slate-900 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2.5 shadow-xs">
+                            <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-extrabold text-sm sm:text-base">
+                              <Lightbulb className="w-5 h-5 text-amber-500 shrink-0" />
+                              <span>{lessonData.lesson.realLifeConnection.title || `${selectedTopic.title} በዕለታዊ ህይወት ውስጥ`}</span>
+                            </div>
+                            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line pl-7">
+                              {lessonData.lesson.realLifeConnection.summary}
+                            </p>
+                          </div>
+
+                          {/* Daily Life Scenarios */}
+                          {lessonData.lesson.realLifeConnection.dailyScenarios?.length > 0 && (
+                            <div className="space-y-3.5">
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                <span>🏠 የተግባር ሁኔታዎችና ተሞክሮዎች (Everyday Scenarios)</span>
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {lessonData.lesson.realLifeConnection.dailyScenarios.map((sc, scIdx) => (
+                                  <div
+                                    key={scIdx}
+                                    className="p-4.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-3 flex flex-col justify-between shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
+                                  >
+                                    <div className="space-y-2">
+                                      <div className="flex items-start gap-2">
+                                        <span className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                                          {scIdx + 1}
+                                        </span>
+                                        <h5 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
+                                          {sc.title}
+                                        </h5>
+                                      </div>
+                                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed pl-8">
+                                        {sc.scenario}
+                                      </p>
+                                    </div>
+                                    <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 pl-8">
+                                      <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 block mb-0.5">
+                                        💡 ተግባራዊ ትምህርት (Key Takeaway):
+                                      </span>
+                                      <p className="text-xs text-slate-700 dark:text-slate-300 italic">
+                                        {sc.practicalTakeaway}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Ethiopian Context Spotlight */}
+                          {lessonData.lesson.realLifeConnection.ethiopianContext && (
+                            <div className="p-5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/70 space-y-2 shadow-2xs">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">🇪🇹</span>
+                                <h4 className="font-extrabold text-xs sm:text-sm text-amber-950 dark:text-amber-200 uppercase tracking-wider">
+                                  ከኢትዮጵያ ነባራዊ ሁኔታና ልማት ጋር ያለው ትስስር (Ethiopian Context)
+                                </h4>
+                              </div>
+                              <p className="text-xs sm:text-sm text-amber-950/90 dark:text-amber-100/90 leading-relaxed pl-6 whitespace-pre-line">
+                                {lessonData.lesson.realLifeConnection.ethiopianContext}
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <div className="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center space-y-2">
-                          <LineChartIcon className="w-8 h-8 text-slate-400 mx-auto" />
+                          <Globe className="w-8 h-8 text-slate-400 mx-auto" />
                           <p className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400">
-                            ለዚህ ርዕስ ግራፍ አያስፈልግም (No graph needed for this topic)
+                            የዕለታዊ ህይወት ግንኙነት መረጃ በመዘጋጀት ላይ ነው
                           </p>
-                          <p className="text-xs text-slate-400">
-                            ይህ ርዕስ በዋነኝነት በፅንሰ-ሀሳብና በቀጥታ ስሌት የሚብራራ በመሆኑ ምስላዊ ግራፍ አልተካተተበትም።
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB: ከProgramming እና AI ጋር ያለው ግንኙነት (Connection to Programming & AI) */}
+                  {activeLessonTab === 'programming_ai' && (
+                    <div className="space-y-6 animate-in fade-in">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <Cpu className="w-4 h-4 text-indigo-500" />
+                          ከProgramming & Artificial Intelligence (AI) ጋር ያለው ትስስር
+                        </span>
+                        <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300">
+                          💻 Algorithms • Code • AI
+                        </span>
+                      </div>
+
+                      {lessonData.lesson.programmingAndAiConnection ? (
+                        <div className="space-y-5">
+                          {/* Algorithmic Thinking Box */}
+                          <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50 via-slate-50 to-purple-50 dark:from-indigo-950/30 dark:via-slate-900 dark:to-purple-950/20 border border-indigo-200/80 dark:border-indigo-800/60 space-y-2.5 shadow-xs">
+                            <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-300 font-extrabold text-sm sm:text-base">
+                              <Code2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                              <span>{lessonData.lesson.programmingAndAiConnection.title || `${selectedTopic.title} በፕሮግራሚንግ እና AI`}</span>
+                            </div>
+                            <div className="pl-7 space-y-1">
+                              <span className="text-[11px] font-bold text-indigo-800 dark:text-indigo-400 uppercase tracking-wider block">
+                                🧠 የአልጎሪዝም አስተሳሰብና የሒሳብ ሞዴል (Algorithmic Logic):
+                              </span>
+                              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                                {lessonData.lesson.programmingAndAiConnection.algorithmicThinking}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Code Snippet with Copy Button */}
+                          {lessonData.lesson.programmingAndAiConnection.codeSnippet && (
+                            <div className="rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden shadow-lg space-y-0">
+                              <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                  <Terminal className="w-4 h-4 text-emerald-400" />
+                                  <span className="font-mono font-bold text-slate-200">
+                                    {lessonData.lesson.programmingAndAiConnection.codeSnippet.language || 'Python 3'}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-mono">simulation.py</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyCode(lessonData.lesson.programmingAndAiConnection?.codeSnippet?.code || '')}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-mono text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  {copiedCode ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span className="text-emerald-400">ተገልብጧል / Copied!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3.5 h-3.5" />
+                                      <span>ኮፒ አድርግ</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                              <div className="p-4 overflow-x-auto">
+                                <pre className="text-xs sm:text-sm font-mono text-emerald-300 leading-relaxed">
+                                  <code>{lessonData.lesson.programmingAndAiConnection.codeSnippet.code}</code>
+                                </pre>
+                              </div>
+                              {lessonData.lesson.programmingAndAiConnection.codeSnippet.explanation && (
+                                <div className="px-4 py-3 bg-slate-900/90 border-t border-slate-800/80 text-xs text-slate-300">
+                                  <span className="font-bold text-emerald-400 mr-1.5">የኮዱ ማብራሪያ፡</span>
+                                  {lessonData.lesson.programmingAndAiConnection.codeSnippet.explanation}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* AI Applications Grid */}
+                          {lessonData.lesson.programmingAndAiConnection.aiApplications?.length > 0 && (
+                            <div className="space-y-3">
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                <span>በዘመናዊ AI እና ቴክኖሎጂ ውስጥ ያለው አተገባበር (Modern AI Applications)</span>
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                                {lessonData.lesson.programmingAndAiConnection.aiApplications.map((app, aIdx) => (
+                                  <div
+                                    key={aIdx}
+                                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-1.5 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                                      <h5 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
+                                        {app.area}
+                                      </h5>
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed pl-4">
+                                      {app.description}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Future Skills Tip */}
+                          {lessonData.lesson.programmingAndAiConnection.futureSkillsTip && (
+                            <div className="p-4.5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/70 space-y-1.5">
+                              <span className="text-[11px] font-extrabold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                                🚀 የወደፊት የዲጂታል ክህሎት ምክር (Future Skills Advice for Ethiopian Students):
+                              </span>
+                              <p className="text-xs sm:text-sm text-indigo-950/90 dark:text-indigo-100/90 leading-relaxed">
+                                {lessonData.lesson.programmingAndAiConnection.futureSkillsTip}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center space-y-2">
+                          <Cpu className="w-8 h-8 text-slate-400 mx-auto" />
+                          <p className="text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400">
+                            የ Programming & AI ትስስር መረጃ በመዘጋጀት ላይ ነው
                           </p>
                         </div>
                       )}
@@ -935,17 +1332,58 @@ export const LessonView: React.FC<LessonViewProps> = ({ onAskAi }) => {
 
                             {/* Explanation reveal */}
                             {isAnswered && (
-                              <div
-                                className={`p-3 rounded-xl text-xs space-y-1 animate-in fade-in ${
-                                  isCorrect
-                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800'
-                                    : 'bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-200 border border-red-300 dark:border-red-800'
-                                }`}
-                              >
-                                <span className="font-extrabold uppercase text-[10px] block">
-                                  {isCorrect ? '✅ ትክክል ነው!' : '❌ አልተሳሳተም፤ ትክክለኛ ማብራሪያ፡'}
-                                </span>
-                                <p className="leading-relaxed">{q.explanation}</p>
+                              <div className="space-y-2">
+                                <div
+                                  className={`p-3 rounded-xl text-xs space-y-1 animate-in fade-in ${
+                                    isCorrect
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800'
+                                      : 'bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-200 border border-red-300 dark:border-red-800'
+                                  }`}
+                                >
+                                  <span className="font-extrabold uppercase text-[10px] block">
+                                    {isCorrect ? '✅ ትክክል ነው!' : '❌ አልተሳሳተም፤ ትክክለኛ ማብራሪያ፡'}
+                                  </span>
+                                  <p className="leading-relaxed">{q.explanation}</p>
+                                </div>
+
+                                {/* Step-by-Step Derivation */}
+                                {q.stepByStepSolution && q.stepByStepSolution.length > 0 && (
+                                  <div className="space-y-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setRevealedQuestionSteps((prev) => ({
+                                          ...prev,
+                                          [q.id]: !prev[q.id],
+                                        }))
+                                      }
+                                      className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/80 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                                    >
+                                      <Sparkles className="w-3.5 h-3.5" />
+                                      <span>
+                                        {revealedQuestionSteps[q.id]
+                                          ? 'የስሌት ደረጃዎችን ደብቅ'
+                                          : '✨ ደረጃ በደረጃ አሰራርና ስሌት (Step-by-Step Derivation)'}
+                                      </span>
+                                    </button>
+
+                                    {revealedQuestionSteps[q.id] && (
+                                      <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-slate-700 dark:text-slate-300 space-y-1.5 animate-in fade-in">
+                                        <span className="font-bold text-emerald-700 dark:text-emerald-300 block">
+                                          ደረጃ በደረጃ የስሌት ቅደም ተከተል፡
+                                        </span>
+                                        {q.stepByStepSolution.map((st, sIdx) => (
+                                          <div key={sIdx} className="flex items-start gap-1.5">
+                                            <span className="font-bold text-emerald-600 shrink-0">
+                                              {sIdx + 1}.
+                                            </span>
+                                            <span className="leading-relaxed">{st}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

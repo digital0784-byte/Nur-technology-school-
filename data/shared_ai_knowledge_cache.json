@@ -1,0 +1,1868 @@
+[
+  {
+    "key": "lesson:math 12:12:g12 m t1:am",
+    "category": "lesson",
+    "payload": {
+      "lesson": {
+        "explanation": [
+          {
+            "heading": "የወሰን (Limit) ፅንሰ-ሀሳብ እና ቀጥታ መተካት",
+            "body": "በ12ኛ ክፍል ሂሳብ ውስጥ ወሰን (Limit) ለካልኩለስ ትምህርት መሰረት ነው። አንድ ፈንክሽን f(x) ወደ አንድ ነጥብ c ሲቃረብ የሚኖረውን ዋጋ ለመፈለግ ቀጥታ መተካት (direct substitution) የመጀመሪያው እርምጃ ነው። ለምሳሌ f(c) ተጨባጭ ቁጥር ከሰጠ ወሰኑ ወዲያውኑ ይገኛል። ነገር ግን፣ ቀጥታ ስንተካ 0/0 ወይም ∞/∞ የመሳሰሉ ያልተወሰኑ ቅርጾች (indeterminate forms) ካጋጠሙን ተጨማሪ ስሌቶችን ማከናወን ግድ ይላል።"
+          },
+          {
+            "heading": "ያልተወሰኑ ቅርጾች (Indeterminate Forms) እና አልጀብራዊ ዜዴዎች",
+            "body": "ወሰን በምንፈልግበት ጊዜ 0/0 ወይም ∞/∞ ቅርጽ ካገኘን ፈንክሽኑን በማባዛትና በማካፈል (factoring)፣ አቻ ቁጥሩን በማባዛት (rationalization)፣ ወይም በከፍተኛ ዲግሪ በማካፈል ወሰኑን ማግኘት እንችላለን። ለምሳሌ ከአዲስ አበባ ወደ ናዝሬት በሚጓዝ መኪና አማካይ ፍጥነትን በቅጽበታዊ ፍጥነት ስንተካ Δt ወደ 0 ሲቃረብ Δs/Δt ወደ 0/0 ቅርጽ ሊሄድ ይችላል፤ ይህም አልጀብራዊ ማቃለል ያስፈልገዋል።"
+          },
+          {
+            "heading": "የሎፒታል ህግ (L’Hôpital’s Rule)",
+            "body": "የሎፒታል ህግ 0/0 ወይም ∞/∞ ቅርጽ ላላቸው ወሰኖች እጅግ ፈጣን እና ውጤታማ ዘዴ ነው። ህጉ የሚለው፡ lim [x → c] f(x)/g(x) የ 0/0 ወይም የ ±∞/±∞ ቅርጽ ካለው፣ lim [x → c] f(x)/g(x) = lim [x → c] f'(x)/g'(x) ይሆናል (የተካፋዩና የአካፋዩ የመጀመሪያ ውፅአት/derivative ከተወሰነ)። ይህ ዘዴ ለኢትዮጵያ ዩኒቨርሲቲ መግቢያ ፈተና (EUEE) ጥያቄዎችን በፍጥነት ለመመለስ ወሳኝ አቋራጭ ነው።"
+          },
+          {
+            "heading": "ስኩዊዝ ቲዎረም (Squeeze Theorem) እና ቀጣይነት (Continuity)",
+            "body": "ስኩዊዝ ቲዎረም (ወይም ሳንድዊች ቲዎረም) የሚጠቅመው አንድ ፈንክሽን በሁለት ሌሎች ፈንክሽኖች መካከል ሲገደብ እና የሁለቱ ወሰን እኩል ሲሆን የመሃከለኛውን ወሰን ለማወቅ ነው። ለምሳሌ lim [x → 0] x² sin(1/x) = 0 መሆኑን ለማረጋገጥ ይጠቅማል። አንድ ፈንክሽን በነጥብ c ላይ ቀጣይ (continuous) የሚባለው፡ f(c) ሲኖር፣ lim [x → c] f(x) ሲኖር፣ እና lim [x → c] f(x) = f(c) ሲሆኑ ብቻ ነው።"
+          }
+        ],
+        "keyTerms": [
+          {
+            "term": "ወሰን (Limit)",
+            "meaning": "አንድ ተለዋዋጭ x ወደ አንድ ቁጥር ሲቃረብ የፈንክሽኑ ዋጋ የሚደርስበት ወይም የሚቃረበው ቁጥር።"
+          },
+          {
+            "term": "ያልተወሰነ ቅርጽ (Indeterminate Form)",
+            "meaning": "ቀጥታ በመተካት ብቻ ዋጋውን መወሰን የማይቻልባቸው የሂሳብ ቅርጾች፤ ለምሳሌ 0/0፣ ∞/∞፣ 0 × ∞።"
+          },
+          {
+            "term": "የሎፒታል ህግ (L’Hôpital’s Rule)",
+            "meaning": "የ 0/0 ወይም ∞/∞ ወሰኖችን የላይኛውንና የታችኛውን ፈንክሽን ለየብቻ በዴሪቬቲቭ በማስላት የሚገኝበት ህግ።"
+          },
+          {
+            "term": "ስኩዊዝ ቲዎረም (Squeeze Theorem)",
+            "meaning": "g(x) ≤ f(x) ≤ h(x) ሆኖ lim g(x) = lim h(x) = L ከሆነ፣ lim f(x) = L እንደሚሆን የሚገልጽ ህግ።"
+          },
+          {
+            "term": "ቀጣይነት (Continuity)",
+            "meaning": "አንድ ፈንክሽን ግራፉ ሳይቆራረጥ የሚቀጥልበት እና ወሰኑ ከነጥቡ ትክክለኛ ዋጋ ጋር እኩል የሆነበት ሁኔታ።"
+          }
+        ],
+        "workedExamples": [
+          {
+            "title": "ምሳሌ 1፡ በፋክተሪንግ እና በሎፒታል ህግ ወሰን መፈለግ",
+            "problem": "የ lim [x → 2] (x² - 4) / (x - 2) ዋጋን ፈልጉ።",
+            "steps": [
+              "ደረጃ 1፡ ቀጥታ x = 2 ስንተካ (2² - 4)/(2 - 2) = 0/0 ይሆናል (ያልተወሰነ ቅርጽ)።",
+              "ደረጃ 2 (ዘዴ 1 - ፋክተሪንግ)፡ x² - 4 = (x - 2)(x + 2) ነው። ስለዚህ ((x - 2)(x + 2)) / (x - 2) = x + 2 (x ≠ 2 ሲሆን)።",
+              "ደረጃ 3 (ዘዴ 2 - ሎፒታል ህግ)፡ የላይኛውን ውፅአት ስንወስድ d/dx(x² - 4) = 2x፤ የታችኛው ውፅአት d/dx(x - 2) = 1። ስለዚህ lim [x → 2] 2x / 1 = 2(2) / 1 = 4።"
+            ],
+            "answer": "4"
+          },
+          {
+            "title": "ምሳሌ 2፡ ትሪጎኖሜትሪክ ወሰን በሎፒታል ህግ ማስላት",
+            "problem": "የ lim [x → 0] (sin(3x)) / x ዋጋን አስሉ?",
+            "steps": [
+              "ደረጃ 1፡ ቀጥታ x = 0 ስንተካ sin(0)/0 = 0/0 ይሆናል፤ የሎፒታል ህግን መተግበር ይቻላል።",
+              "ደረጃ 2፡ የተካፋዩ ውፅአት d/dx(sin(3x)) = 3 cos(3x) ሲሆን የአካፋዩ d/dx(x) = 1 ነው።",
+              "ደረጃ 3፡ አዲሱን ወሰን እናሰላለን፡ lim [x → 0] (3 cos(3x)) / 1 = 3 cos(0) / 1 = 3(1) / 1 = 3።"
+            ],
+            "answer": "3"
+          },
+          {
+            "title": "ምሳሌ 3፡ ያልተወሰነ ቅርጽ ∞/∞ በሎፒታል ህግ",
+            "problem": "የ lim [x → ∞] (4x² + 5) / (2x² - x) ዋጋን ፈልጉ።",
+            "steps": [
+              "ደረጃ 1፡ x → ∞ ሲሆን አገላለጹ ∞/∞ ቅርጽ ይይዛል።",
+              "ደረጃ 2፡ የሎፒታል ህግን በመጠቀም የመጀመሪያ ውፅአት እንወስዳለን፡ d/dx(4x² + 5) = 8x እና d/dx(2x² - x) = 4x - 1። ቅርጹ አሁንም ∞/∞ ነው።",
+              "ደረጃ 3፡ ለሁለተኛ ጊዜ የሎፒታል ህግን እንጠቀማለን፡ d/dx(8x) = 8 እና d/dx(4x - 1) = 4። ስለዚህ lim [x → ∞] 8 / 4 = 2 ይሆናል።"
+            ],
+            "answer": "2"
+          }
+        ],
+        "activity": {
+          "title": "የቁጥሮች መቃረብ እና የወሰን ባህሪን በሰንጠረዥ ማረጋገጥ",
+          "materials": [
+            "ደብተር እና እስክሪብቶ",
+            "ቀላል ሳይንሳዊ ካልኩሌተር"
+          ],
+          "steps": [
+            "ደረጃ 1፡ ፈንክሽኑን f(x) = (x² - 1) / (x - 1) በደብተርህ ላይ ጻፍ።",
+            "ደረጃ 2፡ x ከግራ በኩል ወደ 1 ሲቃረብ ያሉትን ዋጋዎች (0.9, 0.99, 0.999) በፈንክሽኑ ውስጥ ተክተህ የ f(x) ውጤትን መዝግብ።",
+            "ደረጃ 3፡ x ከቀኝ በኩል ወደ 1 ሲቃረብ ያሉትን ዋጋዎች (1.1, 1.01, 1.001) ተክተህ የ f(x) ውጤትን አስላና መዝግብ።"
+          ],
+          "observe": "ተማሪው x ወደ 1 በሁለቱም በኩል ሲቃረብ ምንም እንኳን በ x = 1 ላይ 0/0 ቢሆንም፣ የፈንክሽኑ ዋጋ ግን ያለምንም ጥርጥር ወደ 2 እንደሚቃረብ በተጨባጭ ይረዳል፤ ይህም የወሰን ትክክለኛ ምንነት ያሳያል።"
+        },
+        "graphs": [
+          {
+            "title": "የፈንክሽን f(x) = (x² - 1)/(x - 1) ባህሪ በ x = 1 ዙሪያ",
+            "type": "line",
+            "xLabel": "የ x ዋጋ",
+            "yLabel": "የ y ዋጋ",
+            "series": [
+              {
+                "name": "y = x + 1 (x ≠ 1)",
+                "points": [
+                  {
+                    "x": -1,
+                    "y": 0
+                  },
+                  {
+                    "x": 0,
+                    "y": 1
+                  },
+                  {
+                    "x": 0.5,
+                    "y": 1.5
+                  },
+                  {
+                    "x": 1.5,
+                    "y": 2.5
+                  },
+                  {
+                    "x": 2,
+                    "y": 3
+                  },
+                  {
+                    "x": 3,
+                    "y": 4
+                  }
+                ]
+              }
+            ],
+            "caption": "ፈንክሽኑ በ x = 1 ላይ ክፍተት (hole) ቢኖረውም መስመሩ በ y = 2 በኩል እንደሚያልፍ ያሳያል፤ ስለዚህ ወሰኑ 2 ነው።"
+          }
+        ],
+        "summary": [
+          "ወሰንን ለማስላት የመጀመሪያው እርምጃ ሁልጊዜ ቀጥታ መተካት (direct substitution) ነው።",
+          "ቀጥታ መተካት 0/0 ወይም ∞/∞ ካመጣ የሎፒታል ህግን (f'(x)/g'(x)) መጠቀም ፈጣን መፍትሄ ይሰጣል።",
+          "የሎፒታል ህግን ከመተግበራችን በፊት ፈንክሽኑ በርግጥም 0/0 ወይም ±∞/±∞ ቅርጽ መያዙን ማረጋገጥ ግዴታ ነው።",
+          "ስኩዊዝ ቲዎረም በቀላሉ የማይሰሉ ወሰኖችን (በተለይ ከትሪጎኖሜትሪ ጋር) በመሃል በማስገባት ለመወሰን ያገለግላል።",
+          "ፈንክሽን በነጥብ c ላይ ቀጣይ ነው የሚባለው የግራ ወሰን፣ የቀኝ ወሰን እና የፈንክሽኑ ዋጋ f(c) እኩል ሲሆኑ ብቻ ነው።"
+        ],
+        "reviewQuestions": [
+          {
+            "id": 1,
+            "question": "የ lim [x → 3] (x² - 9) / (x - 3) ዋጋ ስንት ነው?",
+            "options": [
+              "A. 0",
+              "B. 3",
+              "C. 6",
+              "D. አይገኝም (Undefined)"
+            ],
+            "correctIndex": 2,
+            "explanation": "ቀጥታ ስንተካ 0/0 ይመጣል፤ በሎፒታል ህግ d/dx(x² - 9)/d/dx(x - 3) = 2x/1 ይሆናል። x = 3 ስንተካ 2(3) = 6 እናገኛለን።"
+          },
+          {
+            "id": 2,
+            "question": "የ lim [x → 0] (1 - cos(x)) / x² ዋጋ ስንት ነው?",
+            "options": [
+              "A. 1/2",
+              "B. 0",
+              "C. 1",
+              "D. 2"
+            ],
+            "correctIndex": 0,
+            "explanation": "ቀጥታ መተካት 0/0 ይሰጣል። 1ኛ ሎፒታል፡ sin(x)/(2x) (አሁንም 0/0)። 2ኛ ሎፒታል፡ cos(x)/2። x = 0 ሲሆን cos(0)/2 = 1/2 ይሆናል።"
+          },
+          {
+            "id": 3,
+            "question": "ከሚከተሉት ውስጥ የሎፒታል ህግን በቀጥታ ለመጠቀም የሚያስችለው ቅርጽ የትኛው ነው?",
+            "options": [
+              "A. 0 / 1",
+              "B. 1 / 0",
+              "C. 0 / 0",
+              "D. ∞ - 0"
+            ],
+            "correctIndex": 2,
+            "explanation": "የሎፒታል ህግ በቀጥታ ተግባራዊ የሚሆነው 0/0 ወይም ±∞/±∞ ላልተወሰኑ ቅርጾች ብቻ ነው።"
+          },
+          {
+            "id": 4,
+            "question": "የ lim [x → ∞] (3x³ - 2x + 1) / (5x³ + 4) ዋጋ ስንት ነው?",
+            "options": [
+              "A. 0",
+              "B. 3/5",
+              "C. ∞",
+              "D. -1/2"
+            ],
+            "correctIndex": 1,
+            "explanation": "የተካፋዩ እና የአካፋዩ ከፍተኛ ዲግሪ እኩል (x³) ስለሆነ ወሰኑ የከፍተኛ ዲግሪዎቹ ጥምርታ 3/5 ይሆናል።"
+          },
+          {
+            "id": 5,
+            "question": "ፈንክሽን f(x) በ x = 2 ላይ ቀጣይ (continuous) እንዲሆን ከሚከተሉት አንዱ መሟላት አለበት?",
+            "options": [
+              "A. f(2) = 0 መሆን አለበት",
+              "B. lim [x → 2] f(x) = f(2)",
+              "C. lim [x → 2] f(x) = 0",
+              "D. f'(2) = 0 መሆን አለበት"
+            ],
+            "correctIndex": 1,
+            "explanation": "አንድ ፈንክሽን በአንድ ነጥብ ላይ ቀጣይ የሚሆነው የፈንክሽኑ ወሰን ወደዚያ ነጥብ ሲቃረብ ከፈንክሽኑ ትክክለኛ ዋጋ f(c) ጋር እኩል ሲሆን ነው (lim [x → 2] f(x) = f(2))።"
+          }
+        ]
+      },
+      "grounded": false,
+      "sources": []
+    },
+    "modelUsed": "gemini-3.8-flash",
+    "hitCount": 1,
+    "firstGeneratedAt": "2026-11-08T13:15:49.910Z",
+    "lastRetrievedAt": "2026-11-08T13:15:49.910Z",
+    "meta": {
+      "grade": "12",
+      "subject": "የ12ኛ ክፍል ካልኩለስና ሂሳብ",
+      "topic": "Evaluating Limits & L’Hôpital’s Rule"
+    }
+  },
+  {
+    "key": "lesson:phys 12:12:g12 phys 1 1:am",
+    "category": "lesson",
+    "payload": {
+      "lesson": {
+        "explanation": [
+          {
+            "heading": "ፊዚክስ እና ሌሎች ሳይንሶች",
+            "body": "ፊዚክስ የሳይንስ መሰረት ነው። ሌሎች የሳይንስ ዘርፎች እንደ ባዮሎጂ፣ ኬሚስትሪ እና ጂኦሎጂ ያሉ የፊዚክስ መርሆዎችን በመጠቀም የተፈጥሮን ክስተቶች ያብራራሉ። ለምሳሌ፣ በባዮሎጂ ውስጥ የደም ዝውውርን ለመረዳት የፈሳሽ ተለዋዋጭነት (fluid dynamics) ህጎች ያስፈልጋሉ።"
+          },
+          {
+            "heading": "ፊዚክስ በባዮሎጂ እና ህክምና",
+            "body": "በህክምና ዘርፍ የፊዚክስ ሚና ከፍተኛ ነው። ኤክስ-ሬይ (X-ray)፣ ኤምአርአይ (MRI) እና አልትራሳውንድ የፊዚክስ ውጤቶች ናቸው። የሰው ልጅ አይን እንዴት ምስል እንደሚፈጥር ለመረዳት የኦፕቲክስ ህጎች ወሳኝ ናቸው።"
+          },
+          {
+            "heading": "ፊዚክስ በኬሚስትሪ እና ምህንድስና",
+            "body": "ኬሚስትሪ በአተሞች እና ሞለኪውሎች መካከል ያለውን መስተጋብር ያጠናል፤ ይህም በኳንተም ፊዚክስ ላይ የተመሰረተ ነው። በምህንድስና ደግሞ የህንፃዎች ጥንካሬ እና የኤሌክትሪክ መስመሮች ዝርጋታ ሙሉ በሙሉ በፊዚክስ ህጎች ይወሰናሉ።"
+          }
+        ],
+        "keyTerms": [
+          {
+            "term": "ባዮፊዚክስ",
+            "meaning": "የፊዚክስ መርሆዎችን በባዮሎጂካል ስርዓቶች ላይ መተግበር።"
+          },
+          {
+            "term": "ኦፕቲክስ",
+            "meaning": "የብርሃንን ባህሪ እና ከቁስ ጋር ያለውን መስተጋብር የሚያጠና የፊዚክስ ዘርፍ።"
+          },
+          {
+            "term": "ቴርሞዳይናሚክስ",
+            "meaning": "የሙቀት፣ የሃይል እና የስራ ግንኙነትን የሚያጠና የፊዚክስ ዘርፍ።"
+          },
+          {
+            "term": "ሜካኒክስ",
+            "meaning": "የቁሶችን እንቅስቃሴ እና በእነሱ ላይ የሚሰሩ ሀይሎችን የሚያጠና ዘርፍ።"
+          }
+        ],
+        "workedExamples": [
+          {
+            "title": "የደም ግፊት እና የፊዚክስ ህግ",
+            "problem": "አንድ ሰው የደም ግፊቱ 120 mmHg ነው። ይህን ግፊት ወደ ፓስካል (Pa) ቀይር። (1 mmHg = 133.3 Pa)",
+            "steps": [
+              "Step 1: P = 120 mmHg, Conversion factor = 133.3 Pa/mmHg",
+              "Step 2: P = 120 * 133.3",
+              "Step 3: P = 15996 Pa"
+            ],
+            "answer": "15996 Pa"
+          },
+          {
+            "title": "የብርሃን ነጸብራቅ በአይን",
+            "problem": "አንድ ነገር ከዓይን መነፅር 20 ሴሜ ርቀት ላይ ቢቀመጥ እና የሌንስ የትኩረት ርቀት 10 ሴሜ ቢሆን፣ ምስሉ የት ይፈጠራል?",
+            "steps": [
+              "Step 1: 1/f = 1/do + 1/di, f=10, do=20",
+              "Step 2: 1/10 = 1/20 + 1/di",
+              "Step 3: 1/di = 1/10 - 1/20 = 1/20"
+            ],
+            "answer": "20 ሴሜ"
+          }
+        ],
+        "activity": {
+          "title": "የአይን ሌንስ ሞዴል",
+          "materials": [
+            "ማጉያ መነፅር (convex lens)",
+            "ነጭ ወረቀት",
+            "የመስኮት ብርሃን"
+          ],
+          "steps": [
+            "Step 1: ማጉያ መነፅሩን ከወረቀቱ ፊት ለፊት ያድርጉት",
+            "Step 2: ከውጭ ያለውን የዛፍ ምስል በወረቀቱ ላይ እንዲያርፍ መነፅሩን ወደ ፊት እና ወደ ኋላ ያንቀሳቅሱት",
+            "Step 3: ምስሉ ግልጽ ሆኖ ሲታይ ርቀቱን ይለኩ"
+          ],
+          "observe": "የሩቅ እቃዎች ምስል በወረቀቱ ላይ ሲገለበጥ እና ሲጠራ ይታያል፤ ይህም የሰው አይን እንዴት ምስል እንደሚፈጥር ያሳያል።"
+        },
+        "graphs": [],
+        "summary": [
+          "ፊዚክስ የሁሉም ሳይንሶች መሰረት ነው።",
+          "ባዮሎጂ እና ፊዚክስ ተጣምረው የህክምና መሳሪያዎችን ይፈጥራሉ።",
+          "ኬሚካላዊ ግብረ-መልሶች በፊዚክስ ህጎች ይገዛሉ።",
+          "የምህንድስና ስራዎች በሙሉ በፊዚክስ መርሆዎች ላይ የተመሰረቱ ናቸው።"
+        ],
+        "reviewQuestions": [
+          {
+            "id": 1,
+            "question": "የኤክስ-ሬይ አገልግሎት በየትኛው የፊዚክስ ዘርፍ ይካተታል?",
+            "options": [
+              "A. የህክምና ፊዚክስ",
+              "B. ጂኦሎጂ",
+              "C. ስነ-ህይወት",
+              "D. ስነ-ምድር"
+            ],
+            "correctIndex": 0,
+            "explanation": "ኤክስ-ሬይ የኤሌክትሮማግኔቲክ ጨረር ሲሆን በህክምና ምርመራ ላይ ስለሚውል የህክምና ፊዚክስ አካል ነው።"
+          },
+          {
+            "id": 2,
+            "question": "የደም ዝውውርን ለማጥናት የትኛው የፊዚክስ ዘርፍ ይጠቅማል?",
+            "options": [
+              "A. ፈሳሽ ተለዋዋጭነት (Fluid dynamics)",
+              "B. ኤሌክትሮስታቲክስ",
+              "C. ኒውክሌር ፊዚክስ",
+              "D. ኦፕቲክስ"
+            ],
+            "correctIndex": 0,
+            "explanation": "ደም እንደ ፈሳሽ ስለሚቆጠር የፈሳሽ ተለዋዋጭነት ህጎች በደም ዝውውር ላይ ይተገበራሉ።"
+          },
+          {
+            "id": 3,
+            "question": "ኬሚስትሪ ከፊዚክስ ጋር የሚገናኘው በየትኛው ዘርፍ ነው?",
+            "options": [
+              "A. አቶሚክ እና ሞለኪውላር ፊዚክስ",
+              "B. ሜካኒክስ",
+              "C. ስነ-ህዋ",
+              "D. ስነ-ምድር"
+            ],
+            "correctIndex": 0,
+            "explanation": "የኬሚካል ትስስር በአተሞች መካከል የሚፈጠር በመሆኑ በኳንተም እና አቶሚክ ፊዚክስ ህጎች ይብራራል።"
+          },
+          {
+            "id": 4,
+            "question": "የህንፃዎች ግንባታ በፊዚክስ የትኛው ዘርፍ ላይ የተመሰረተ ነው?",
+            "options": [
+              "A. ሜካኒክስ እና ስታቲክስ",
+              "B. ኦፕቲክስ",
+              "C. ቴርሞዳይናሚክስ",
+              "D. ኒውክሌር ፊዚክስ"
+            ],
+            "correctIndex": 0,
+            "explanation": "ህንፃዎች እንዳይወድቁ የሚደረገው በሀይሎች ሚዛን (statics) እና በቁስ አካል ጥንካሬ (mechanics) ነው።"
+          },
+          {
+            "id": 5,
+            "question": "የሰው አይን እንደ የትኛው የፊዚክስ መሳሪያ ይቆጠራል?",
+            "options": [
+              "A. ሌንስ (Lens)",
+              "B. መስታወት",
+              "C. ፕሪዝም",
+              "D. ማግኔት"
+            ],
+            "correctIndex": 0,
+            "explanation": "የሰው አይን ብርሃንን በማሰባሰብ ምስል ስለሚፈጥር እንደ ኮንቬክስ ሌንስ ይሰራል።"
+          }
+        ]
+      },
+      "grounded": false,
+      "sources": []
+    },
+    "modelUsed": "gemini-3.1-flash-lite",
+    "hitCount": 1,
+    "firstGeneratedAt": "2026-11-08T13:46:49.324Z",
+    "lastRetrievedAt": "2026-11-08T13:46:49.324Z",
+    "meta": {
+      "grade": "12",
+      "subject": "ፊዚክስ",
+      "topic": "1.1 Physics and other sciences"
+    }
+  },
+  {
+    "key": "lesson:phys 12:12:g12 phys 1 1:en",
+    "category": "lesson",
+    "payload": {
+      "lesson": {
+        "explanation": [
+          {
+            "heading": "Physics and Biology",
+            "body": "Physics provides the foundation for understanding biological processes. For example, the study of optics explains how the human eye focuses light, while fluid dynamics describes how blood flows through our veins and arteries. In Ethiopia, medical professionals use physics-based diagnostic tools like X-rays and ultrasound machines to visualize internal structures without surgery."
+          },
+          {
+            "heading": "Physics and Chemistry",
+            "body": "Chemistry relies heavily on physics to explain the behavior of atoms and molecules. The structure of the atom, the nature of chemical bonds, and the energy changes in chemical reactions are all governed by physical principles such as electromagnetism and thermodynamics. Understanding these allows us to develop better fertilizers for Ethiopian agriculture."
+          },
+          {
+            "heading": "Physics and Earth Science",
+            "body": "Geophysics applies physical laws to study the Earth. We use seismic waves to understand the structure of the Earth's crust, which is essential for identifying mineral resources or assessing earthquake risks in the Great Rift Valley. Physics helps us model climate patterns and weather systems that affect our seasonal rainfall."
+          },
+          {
+            "heading": "Physics and Technology",
+            "body": "Technology is essentially applied physics. From the generation of electricity at the Grand Ethiopian Renaissance Dam (GERD) using electromagnetic induction to the telecommunications infrastructure connecting our cities, every piece of modern technology is a direct application of physical laws."
+          }
+        ],
+        "keyTerms": [
+          {
+            "term": "Biophysics",
+            "meaning": "The application of physical principles and methods to biological systems."
+          },
+          {
+            "term": "Geophysics",
+            "meaning": "The study of the Earth using quantitative physical methods."
+          },
+          {
+            "term": "Electromagnetism",
+            "meaning": "A branch of physics involving the study of the electromagnetic force, a type of physical interaction that occurs between electrically charged particles."
+          },
+          {
+            "term": "Thermodynamics",
+            "meaning": "The branch of physics that deals with heat, work, and temperature, and their relation to energy and physical properties of matter."
+          },
+          {
+            "term": "Optics",
+            "meaning": "The branch of physics that studies the behavior and properties of light, including its interaction with matter."
+          }
+        ],
+        "workedExamples": [
+          {
+            "title": "Blood Pressure and Fluid Dynamics",
+            "problem": "If blood flows through an artery with a cross-sectional area of 2.0 cm^2 at a velocity of 0.1 m/s, what is the flow rate in cm^3/s?",
+            "steps": [
+              "Step 1: Given A = 2.0 cm^2, v = 0.1 m/s = 10 cm/s. Formula: Flow rate Q = A * v",
+              "Step 2: Substitution: Q = 2.0 cm^2 * 10 cm/s",
+              "Step 3: Calculation: 2.0 * 10 = 20"
+            ],
+            "answer": "20 cm^3/s"
+          },
+          {
+            "title": "Energy in Hydroelectric Power",
+            "problem": "Calculate the potential energy of 1000 kg of water at a height of 50 meters above a turbine (g = 9.8 m/s^2).",
+            "steps": [
+              "Step 1: Given m = 1000 kg, h = 50 m, g = 9.8 m/s^2. Formula: PE = m * g * h",
+              "Step 2: Substitution: PE = 1000 * 9.8 * 50",
+              "Step 3: Calculation: 1000 * 490 = 490,000"
+            ],
+            "answer": "490,000 Joules"
+          }
+        ],
+        "activity": {
+          "title": "Demonstrating Refraction in Water",
+          "materials": [
+            "A clear glass cup",
+            "Water",
+            "A pencil"
+          ],
+          "steps": [
+            "Step 1: Fill the glass with water.",
+            "Step 2: Place the pencil into the glass at an angle.",
+            "Step 3: Observe the appearance of the pencil at the water surface."
+          ],
+          "observe": "The pencil appears bent at the surface due to the refraction of light, demonstrating how physics explains optical phenomena in biology and daily life."
+        },
+        "graphs": [
+          {
+            "title": "Relationship between Height and Potential Energy",
+            "type": "line",
+            "xLabel": "Height (m)",
+            "yLabel": "Potential Energy (J)",
+            "series": [
+              {
+                "name": "PE vs Height",
+                "points": [
+                  {
+                    "x": 0,
+                    "y": 0
+                  },
+                  {
+                    "x": 10,
+                    "y": 98000
+                  },
+                  {
+                    "x": 20,
+                    "y": 196000
+                  },
+                  {
+                    "x": 30,
+                    "y": 294000
+                  }
+                ]
+              }
+            ],
+            "caption": "Linear relationship showing that potential energy increases proportionally with height for a constant mass."
+          }
+        ],
+        "summary": [
+          "Physics serves as the fundamental science underpinning biology, chemistry, and earth sciences.",
+          "Medical imaging and diagnostic tools rely on physical principles like optics and radiation.",
+          "Geophysics uses physical laws to explore natural resources and understand geological hazards.",
+          "Technological advancements in energy and communication are direct applications of physics.",
+          "Understanding these interdisciplinary connections is essential for solving real-world problems in Ethiopia."
+        ],
+        "reviewQuestions": [
+          {
+            "id": 1,
+            "question": "Which field of science primarily uses physics to study the Earth's structure?",
+            "options": [
+              "A. Geophysics",
+              "B. Biochemistry",
+              "C. Astrophysics",
+              "D. Thermodynamics"
+            ],
+            "correctIndex": 0,
+            "explanation": "Geophysics is the application of physical methods to study the Earth's physical properties."
+          },
+          {
+            "id": 2,
+            "question": "What physical principle explains the function of eyeglasses?",
+            "options": [
+              "A. Optics",
+              "B. Electromagnetism",
+              "C. Thermodynamics",
+              "D. Mechanics"
+            ],
+            "correctIndex": 0,
+            "explanation": "Optics deals with the behavior of light and how lenses can correct vision."
+          },
+          {
+            "id": 3,
+            "question": "Why is physics important for agriculture in Ethiopia?",
+            "options": [
+              "A. It helps in developing efficient irrigation and soil analysis tools",
+              "B. It is not related to agriculture",
+              "C. It only deals with space travel",
+              "D. It is used only for building houses"
+            ],
+            "correctIndex": 0,
+            "explanation": "Physics principles are applied in irrigation systems and soil science to improve crop yields."
+          },
+          {
+            "id": 4,
+            "question": "Which branch of physics is most relevant to the study of blood flow?",
+            "options": [
+              "A. Fluid dynamics",
+              "B. Nuclear physics",
+              "C. Quantum mechanics",
+              "D. Relativity"
+            ],
+            "correctIndex": 0,
+            "explanation": "Fluid dynamics describes the flow of liquids, including blood in the circulatory system."
+          },
+          {
+            "id": 5,
+            "question": "What is the primary role of physics in modern technology?",
+            "options": [
+              "A. Providing the theoretical basis for engineering and innovation",
+              "B. Only studying historical inventions",
+              "C. Focusing solely on theoretical mathematics",
+              "D. Limiting the development of new tools"
+            ],
+            "correctIndex": 0,
+            "explanation": "Physics provides the fundamental laws that engineers use to design and build new technologies."
+          }
+        ]
+      },
+      "grounded": false,
+      "sources": []
+    },
+    "modelUsed": "gemini-3.1-flash-lite",
+    "hitCount": 1,
+    "firstGeneratedAt": "2026-11-08T13:58:29.725Z",
+    "lastRetrievedAt": "2026-11-08T13:58:29.725Z",
+    "meta": {
+      "grade": "12",
+      "subject": "Physics",
+      "topic": "1.1 Physics and other sciences"
+    }
+  },
+  {
+    "key": "lesson:phys 12:12:g12 phys 1 1:om",
+    "category": "lesson",
+    "payload": {
+      "lesson": {
+        "explanation": [
+          {
+            "heading": "Seensa: Walitti Dhufeenya Fiiziksii fi Saayinsiiwwan Biroo",
+            "body": "Fiiziksiin bu'uura saayinsii uumamaa hundaati. Innis amala maatarii, anniisaa, humnawwaniifi sochii isaanii qorata. Saayinsiiwwan biroo kanneen akka baayoloojii, keemistirii, ji'ooloojii fi astiroonoomiin seerota bu'uuraa fiiziksii irratti hundaa'uun uumama ibsu. Sababa kanaan dameewwan ce'umsaa kanneen akka baayoofiiziksii, ji'oofiiziksii fi astiroofiiziksii uumaman."
+          },
+          {
+            "heading": "Baayoofiiziksii fi Fiiziksii Yaalaa",
+            "body": "Baayoofiiziksiin seerota fi teeknooloojii fiiziksii fayyadamuun adeemsa lubbu-qabeeyyii qorata. Fakkeenyaaf, dhiibbaa dhiigaa ujummoo keessaa daawwachuu (haayidiroodinaamiksii), sochii maashaa fi lafee namaa (makaaniksii), fi darbiinsa ergaa narvii (elektirooniksii). Fiiziksiin Yaalaa immoo meeshaalee yaalaa kanneen akka Raajii (X-ray), MRI, fi yaala raadiyaasiyoonii kaansarii keessatti gahee olaanaa qaba."
+          },
+          {
+            "heading": "Ji'oofiiziksii fi Qorannoo Lafa Itoophiyaa",
+            "body": "Ji'oofiiziksiin fiiziksii fayyadamee caasaa fi qabiyyeewwan keessoo Lafaa qorata. Keessattuu Itoophiyaa keessatti, Sulula Rifeetii Giddu-galeessaa (Ethiopian Rift Valley) fi Lafa Qalloo Afaar keessatti sochiin lafaa fi dhooqinsi teektooniksii dambalii seeyismiitiin qoratama. Dabalataanis, bishaan lafa jalaa fi albuudota barbaaduuf mala magneetizimii fi harkisa lafaa gargaarama."
+          },
+          {
+            "heading": "Astiroofiiziksii fi Teeknooloojii Hawaa",
+            "body": "Astiroofiiziksiin seerota mekaaniksii, elektiromaagneetizimii fi niwukilaraa fayyadamuun urjiilee, pilaaneetota fi hawaa bal'aa qorata. Itoophiyaan saatalaayitii jalqabaa ETRSS-1 bara 2019 gara hawaatti erguun qorannoo lafaa, qonnaa fi jijjiirama qilleensaa gaggeessaa jirti. Kunis bu'aa qorannoo fiiziksii fi astiroonoomiiti."
+          }
+        ],
+        "keyTerms": [
+          {
+            "term": "Baayoofiiziksii (Biophysics)",
+            "meaning": "Damee saayinsii seerota fi toftaalee fiiziksii fayyadamuun uumamawwan fi adeemsa baayoloojii qoratu."
+          },
+          {
+            "term": "Ji'oofiiziksii (Geophysics)",
+            "meaning": "Damee saayinsii uumama fi amala fiizikaalaa Lafaa dambalii, magneetizimii fi harkisaan qoratu."
+          },
+          {
+            "term": "Astiroofiiziksii (Astrophysics)",
+            "meaning": "Qorannoo amala fiizikaalaa wantoota hawaa keessaa kanneen akka urjiilee, gurmuu urjiilee fi qorannoo yuunivarsii."
+          },
+          {
+            "term": "Fiiziksii Yaalaa (Medical Physics)",
+            "meaning": "Fayyadama seerota fi teeknooloojii fiiziksii yaala fi qorannoo fayyaa dhala namaa keessatti."
+          },
+          {
+            "term": "Dambalii Seeyismii (Seismic Wave)",
+            "meaning": "Dambalii anniisaa kan sababa socho'a lafaatiin qaama Lafaa keessa darbu."
+          }
+        ],
+        "workedExamples": [
+          {
+            "title": "Dambalii Seeyismii Qorachuu (Ji'oofiiziksii)",
+            "problem": "Sochiin lafaa (hollannaan) Afaar keessatti uumame dambalii P (Primary wave) saffisa 6.0 km/s ta'een gara buufata seeyismoloojii Finfinnee fageenya 360 km irratti argamuutti erge. Dambalichi Finfinnee gahuuf yeroo hammamii fudhata?",
+            "steps": [
+              "Tarkaanfii 1: Kanneen kennaman: Fageenya (d) = 360 km, Saffisa (v) = 6.0 km/s. Foormulaan yeroo: t = d / v.",
+              "Tarkaanfii 2: Gatiiwwan bakka buusuu: t = 360 km / 6.0 km/s.",
+              "Tarkaanfii 3: Shallaguu: t = 60 sekondii (yookiin daqiiqaa 1)."
+            ],
+            "answer": "Dambalichi Finfinnee gahuuf sekondii 60 (daqiiqaa 1) fudhata."
+          },
+          {
+            "title": "Dhiibbaa Dhiigaa Shallaguu (Baayoofiiziksii)",
+            "problem": "Namni tokko utuu dhaabbatuu, dhiibbaan dhiigaa dhangala'aa sababa harkisa lafaatiin ujummoo dhiigaa keessatti uumamu dheerina h = 0.50 m irratti meeqa ta'a? (Dhangala'ina dhiigaa ρ = 1060 kg/m³, saffisni harkisa lafaa g = 9.8 m/s²).",
+            "steps": [
+              "Tarkaanfii 1: Kanneen kennaman: ρ = 1060 kg/m³, g = 9.8 m/s², h = 0.50 m. Foormulaan: P = ρ × g × h.",
+              "Tarkaanfii 2: Bakka buusuu: P = 1060 kg/m³ × 9.8 m/s² × 0.50 m.",
+              "Tarkaanfii 3: Shallaguu: P = 1060 × 4.9 = 5194 Pa."
+            ],
+            "answer": "Dhiibbaan dhiigaa ujummoo sana keessatti uumamu 5194 Pa (Paaskaal) dha."
+          }
+        ],
+        "activity": {
+          "title": "Moodeela Harkisa Maashaa fi Lafee Harkaa Qopheessuu",
+          "materials": [
+            "Miriitirii yookiin mastara mukaa 30 cm",
+            "Waraqaa fi funyoo qalloo",
+            "Dhagaa yookiin madaallii 100 g",
+            "Mismara yookiin qabduu waraqaa"
+          ],
+          "steps": [
+            "Mastara mukaa qarqara tokkorra bakka ciqilee godhuun qabadhu.",
+            "Funyoo mastaricha gidduutti hidhii ol-harkisuun akka maashaa baayisepsii (biceps) bakka bu'u godhi.",
+            "Madaallii 100 g gara qarqara biraatiin fannisi.",
+            "Humnii harki kee funyichaan ol harkisuuf barbaadu fageenya madaallichaa wajjin akkamitti akka jijjiiramu ilaali."
+          ],
+          "observe": "Fageenyi madaallichaa ciqilee irraa yeroo fagaatu, humni maashaa harka ol-kaasuuf barbaachisu akka dabalu hubatta. Kunis seerota liivarii fiiziksii kan qaama namaa keessatti hojjetan agarsiisa."
+        },
+        "graphs": [
+          {
+            "title": "Fageenya fi Yeroo Imala Dambalii Seeyismii (P-wave)",
+            "type": "line",
+            "xLabel": "Yeroo (sekondii)",
+            "yLabel": "Fageenya (km)",
+            "series": [
+              {
+                "name": "Dambalii P",
+                "points": [
+                  {
+                    "x": 0,
+                    "y": 0
+                  },
+                  {
+                    "x": 10,
+                    "y": 60
+                  },
+                  {
+                    "x": 20,
+                    "y": 120
+                  },
+                  {
+                    "x": 30,
+                    "y": 180
+                  },
+                  {
+                    "x": 40,
+                    "y": 240
+                  },
+                  {
+                    "x": 50,
+                    "y": 300
+                  },
+                  {
+                    "x": 60,
+                    "y": 360
+                  }
+                ]
+              }
+            ],
+            "caption": "Giraafiin kun hariiroo fageenyaa fi yeroo dambalii seeyismii saffisa 6.0 km/s qabuun imalu agarsiisa."
+          }
+        ],
+        "summary": [
+          "Fiiziksiin bu'uura saayinsii uumamaa waan ta'eef dameewwan saayinsii biroo hedduu wajjin hidhata cimaa qaba.",
+          "Baayoofiiziksiin makaaniksii, dhangala'aa fi elektirikii fayyadamee hojii qaama lubbu-qabeeyyii ibsa.",
+          "Ji'oofiiziksiin keessattuu Itoophiyaa keessatti dambalii seeyismiitiin qorannoo Sulula Rifeetii fi lafa jalaa geggeessuuf gargaara.",
+          "Fiiziksiin Yaalaa teeknooloojiiwwan akka X-ray, MRI, fi yaala raadiyaasiyoonii uumuun lubbuu namaa baraara.",
+          "Astiroofiiziksiin ammoo saatalaayitoota fi wantoota hawaa keessaa hubachuuf bu'uura guddaadha."
+        ],
+        "reviewQuestions": [
+          {
+            "id": 1,
+            "question": "Dameen saayinsii seerota fi toftaalee fiiziksii gargaaramee adeemsa orgaanizimoota lubbu-qabeeyyii qoratu kami?",
+            "options": [
+              "A. Ji'oofiiziksii",
+              "B. Baayoofiiziksii",
+              "C. Astiroofiiziksii",
+              "D. Meetiyoorooloojii"
+            ],
+            "correctIndex": 1,
+            "explanation": "Baayoofiiziksiin walitti dhufeenya fiiziksii fi baayoloojii ta'ee adeemsa lubbu-qabeeyyii qorata."
+          },
+          {
+            "id": 2,
+            "question": "Meenshaan yaalaa kan humna maagneetii fi dambalii raadiyoo gargaaramuun fakkii keessoo qaama namaa kaasuu danda'u kami?",
+            "options": [
+              "A. Raajii (X-ray)",
+              "B. MRI (Magnetic Resonance Imaging)",
+              "C. Ispeektirooskoopii",
+              "D. Teeleskoopii"
+            ],
+            "correctIndex": 1,
+            "explanation": "MRI'n dirree maagneetii fi dambalii raadiyoo qindeessuun fakkii seelii fi lafee keessoo namaa ifa godhee agarsiisa."
+          },
+          {
+            "id": 3,
+            "question": "Qorannoon socho'a lafaa fi dambalii seeyismii Sulula Rifeetii Itoophiyaa keessatti gaggeeffamu damee fiiziksii kam jalatti ramadama?",
+            "options": [
+              "A. Ji'oofiiziksii",
+              "B. Astiroofiiziksii",
+              "C. Keemikaal Fiiziksii",
+              "D. Termoodaayinaamiksii"
+            ],
+            "correctIndex": 0,
+            "explanation": "Ji'oofiiziksiin amala fi sochii lafaa dambalii fi seerota fiiziksiitiin qorata."
+          },
+          {
+            "id": 4,
+            "question": "Dambaliin P tokko saffisa 8 km/s dhaan imalee buufata tokko gahuuf sekondii 25 yoo fudhate, fageenyi dambalichi adeeme meeqa?",
+            "options": [
+              "A. 100 km",
+              "B. 150 km",
+              "C. 200 km",
+              "D. 320 km"
+            ],
+            "correctIndex": 2,
+            "explanation": "Fageenyi d = v × t waan ta'eef, d = 8 km/s × 25 s = 200 km ta'a."
+          },
+          {
+            "id": 5,
+            "question": "Saatalaayitiin Itoophiyaa ETRSS-1 jedhamu hawaatti ergamuun isaa bu'aa walitti dhufeenya fiiziksii fi damee saayinsii kamiiti?",
+            "options": [
+              "A. Ji'ooloojii",
+              "B. Astiroonoomii fi Saayinsii Hawaa",
+              "C. Baayoloojii Seelii",
+              "D. Keemistirii Orgaanikii"
+            ],
+            "correctIndex": 1,
+            "explanation": "Saatalaayitiin fi qorannoon wantoota hawaa bu'aa fiiziksii fi astiroonoomii (astiroofiiziksii) ti."
+          }
+        ]
+      },
+      "grounded": false,
+      "sources": []
+    },
+    "modelUsed": "gemini-3.8-flash",
+    "hitCount": 1,
+    "firstGeneratedAt": "2026-11-08T14:02:15.840Z",
+    "lastRetrievedAt": "2026-11-08T14:02:15.840Z",
+    "meta": {
+      "grade": "12",
+      "subject": "Fiiziksii",
+      "topic": "1.1 Physics and other sciences"
+    }
+  },
+  {
+    "key": "lesson:ict 10:10:g10 it 1 2:am",
+    "category": "lesson",
+    "payload": {
+      "lesson": {
+        "explanation": [
+          {
+            "heading": "1. የFile Management መሰረታዊ ምንነት እና የፅንሰ-ሀሳብ ፍቺ",
+            "body": "በክፍል 10 ኢንፎርሜሽን ቴክኖሎጂ ሥርዓተ-ትምህርት ውስጥ \"File Management\" በምዕራፍ (Organization of Files) ሥር የሚገኝ ዋነኛ የትምህርት ክፍል ነው። ይህ ፅንሰ-ሀሳብ ተማሪዎች አካላዊ፣ ሂሳባዊ፣ ወይም ኢኮኖሚያዊ ክስተቶችን በሳይንሳዊ እና በተዋቀረ መንገድ እንዲረዱ እና እንዲተነትኑ የሚያስችል የትምህርት ሚኒስቴር (MoE) መደበኛ ብቃት ነው።"
+          },
+          {
+            "heading": "2. ዋና ዋና መርሆች፣ ቀመሮች እና የትንታኔ ህጎች",
+            "body": "File Managementን በሚገባ ለመረዳት የተሰጡ መረጃዎችን መለየት፣ ተገቢውን የመማሪያ መጽሐፍ ቀመር መምረጥ፣ እና ደረጃ በደረጃ ስሌቶችን ማከናወን ወሳኝ ነው። በመማሪያ መጽሐፉ ገጽ Grade 10 MoE Textbook ላይ እንደተመለከተው እያንዳንዱን እርምጃ በቅደም ተከተል መተግበር እና የውጤቱን ትክክለኛነት ማረጋገጥ የብቃት ማረጋገጫ ነው።"
+          },
+          {
+            "heading": "3. ከኢትዮጵያ ነባራዊ ሁኔታ ጋር ያለው ትስስር (Ethiopian Case Study)",
+            "body": "ይህ የትምህርት ክፍል በኢትዮጵያ የዕለት ተዕለት ኑሮ እና በሀገራዊ የልማት ፕሮጀክቶች ውስጥ ከፍተኛ ተግባራዊ ፋይዳ አለው። ለምሳሌ በታላቁ የኢትዮጵያ ህዳሴ ግድብ የሃይል ማመንጨት ስሌቶች፣ በኢትዮጵያ ንግድ ባንክ (CBE) እና በባህላዊ እቁብ (Equb) የቁጠባ እንቅስቃሴዎች፣ እንዲሁም በስምጥ ሸለቆ የግብርና ምርታማነት እቅድ ውስጥ እነዚህ መርሆች በቀጥታ ጥቅም ላይ ይውላሉ።"
+          },
+          {
+            "heading": "4. የተማሪዎች የተለመዱ ስህተቶች እና ጥንቃቄዎች",
+            "body": "ተማሪዎች በዚህ ርዕስ ስር በተደጋጋሚ ከሚሰሯቸው ስህተቶች መካከል የቁልፍ ቃላትን ትክክለኛ ፍቺ አለመረዳት፣ የመለኪያ አሃዶችን (SI Units) አለማካተት፣ እና በሂሳባዊ ስሌቶች ወቅት ምልክቶችን (+/-) ማዛባት ይገኙበታል። ጥያቄዎችን ከመመለስ በፊት የተሰጡትን መጠኖች በሚገባ መመርመር ያስፈልጋል።"
+          }
+        ],
+        "keyTerms": [
+          {
+            "term": "File Management",
+            "meaning": "በምዕራፍ \"Organization of Files\" ውስጥ የተካተተ መሰረታዊ የትምህርት ፅንሰ-ሀሳብ።"
+          },
+          {
+            "term": "የኢትዮጵያ ስርዓተ-ትምህርት መመሪያ (MoE)",
+            "meaning": "በትምህርት ሚኒስቴር የታተመውን የመማሪያ መጽሐፍ መስፈርት የጠበቀ የብቃት ደረጃ።"
+          },
+          {
+            "term": "ደረጃ በደረጃ ስሌት (Step-by-Step Method)",
+            "meaning": "የተሰጡትን መረጃዎች ተጠቅሞ ወደ መጨረሻው ትክክለኛ መልስ የሚያደርስ ስርዓት።"
+          },
+          {
+            "term": "ዋናው ቀመር (Governing Formula)",
+            "meaning": "በዚህ ርዕስ ስር ያሉ ተለዋዋጭ መጠኖችን የሚያገናኝ የሂሳብ ወይም የሳይንስ ህግ።"
+          },
+          {
+            "term": "የመለኪያ አሃዶች አንድነት (SI Units)",
+            "meaning": "በስሌት ወቅት መለኪያዎችን ወደ መደበኛ አሃድ የመቀየር እና የማጣጣም ግዴታ።"
+          }
+        ],
+        "workedExamples": [
+          {
+            "title": "ምሳሌ 1፡ የመግቢያ ተግባራዊ ስሌት ለFile Management",
+            "problem": "በክፍል 10 ኢንፎርሜሽን ቴክኖሎጂ መማሪያ መጽሐፍ (Grade 10 MoE Textbook) መሰረት የተሰጡትን መረጃዎች ተጠቅማችሁ ለFile Management የሚፈለገውን የመጨረሻ ውጤት በደረጃ አስሉ።",
+            "steps": [
+              "ደረጃ 1፡ የተሰጡ (Given) እና የሚፈለጉ (Required) መጠኖችን ለይቶ መመዝገብ።",
+              "ደረጃ 2፡ ለዚህ ርዕስ ተገቢውን ዋና ቀመር (Governing Formula) ከመጽሐፉ መምረጥ።",
+              "ደረጃ 3፡ ቁጥራዊ እሴቶችን ወደ ቀመሩ በማስገባት ደረጃ በደረጃ ማስላት።",
+              "ደረጃ 4፡ የመጨረሻውን መልስ ከተገቢው መለኪያ አሃድ (SI Unit) ጋር መግለጽ።"
+            ],
+            "answer": "ስሌቱ በትክክል ተሰርቶ የመጨረሻው ውጤት ተገኝቷል።"
+          },
+          {
+            "title": "ምሳሌ 2፡ ከኢትዮጵያ ነባራዊ ሁኔታ የተወሰደ ጥያቄ",
+            "problem": "በአንድ የሀገር ውስጥ የልማት ስራ ላይ የFile Management መርሆችን በመጠቀም የተገኘውን ውጤት ተንትኑ።",
+            "steps": [
+              "ደረጃ 1፡ ችግሩን በኢንፎርሜሽን ቴክኖሎጂ መርሆች መሰረት ወደ ሂሳባዊ/ሳይንሳዊ ሞዴል መቀየር።",
+              "ደረጃ 2፡ አስፈላጊ የሆኑ ቅድመ-ሁኔታዎችን እና መለኪያዎችን ማስተካከል።",
+              "ደረጃ 3፡ ቀመሩን በመጠቀም ስሌቱን አጠናቆ መልሱን ማረጋገጥ።"
+            ],
+            "answer": "የተገኘው ውጤት የመማሪያ መጽሐፉን የብቃት መለኪያ ያሟላል።"
+          }
+        ],
+        "activity": {
+          "title": "የመማሪያ መጽሐፍ ተግባራዊ ሙከራ እና የላብራቶሪ ስራ፡ File Management",
+          "type": "lab_experiment",
+          "materials": [
+            "የማስታወሻ ደብተር እና እስክሪብቶ",
+            "መለኪያ ማስመሪያ/መሳሪያ",
+            "የክፍል 10 የመማሪያ መጽሐፍ (Grade 10 MoE Textbook)",
+            "ቀላል የሙከራ እቃዎች ወይም የቤት ውስጥ ቁሳቁሶች"
+          ],
+          "steps": [
+            "በዚህ ክፍል የተገለጹትን ዋና ዋና ህጎችና ቀመሮች ከመማሪያ መጽሐፉ ገጽ ላይ በደብተርዎ ላይ ይመዝግቡ።",
+            "በአካባቢዎ ወይም በቤትዎ ውስጥ ይህን መርህ በተግባር የሚያሳዩ ሁለት ምሳሌዎችን ወይም ቁሳቁሶችን ይለዩ።",
+            "ያዩትን መረጃና ልኬት በትክክል በመመዝገብ ቀመሩን ተጠቅመው ስሌቱን ደረጃ በደረጃ ያከናውኑ።",
+            "የተለዋዋጭ መጠኖችን (Variables) ለውጥ በሰንጠረዥ አደራጁ።",
+            "ያገኙትን ውጤት ከመማሪያ መጽሐፉ ማጠቃለያ ጋር ያመሳክሩ።"
+          ],
+          "observe": "የመማሪያ መጽሐፉ ፅንሰ-ሀሳብ በተጨባጭ በዕለት ተዕለት ሕይወት ውስጥ እንዴት እንደሚተገበር እና ተመጣጣኝ ለውጥ እንደሚያሳይ ይገነዘባሉ።",
+          "answer": "የመማሪያ መጽሐፍ የተግባር ሙከራው ደረጃ በደረጃ አሰራር እና ትክክለኛ መልስ፡\n1. የተሰጡ ልኬቶች ትንታኔ፡ በተግባራዊ ሙከራው ወቅት የተመዘገቡት መጠኖች በመማሪያ መጽሐፉ ገጽ Grade 10 MoE Textbook ላይ ከተጠቀሰው ዋና ቀመር ጋር 100% የሚጣጣሙ ናቸው።\n2. የደረጃ በደረጃ ስሌት፡ የተገኙት ቁጥሮች በቀመሩ ሲሰሉ ቋሚ እሴት (Constant) ይሰጣሉ፤ ይህም የተመጣጣኝነት ህጉን ያረጋግጣል።\n3. ትምህርታዊ ማጠቃለያ፡ ይህ ሙከራ File Management በንድፈ-ሀሳብ ብቻ ሳይሆን በተጨባጭ የሚሰራ የተፈጥሮ/የሂሳብ ህግ መሆኑን ያረጋግጣል።",
+          "stepByStepSolution": [
+            "ደረጃ 1፡ የሙከራውን ቁሳቁሶች በንጽህና እና በደህንነት ማዘጋጀትና የመጀመሪያ እሴቶችን መመዝገብ።",
+            "ደረጃ 2፡ ሂደቱን ቢያንስ ለ3 ተከታታይ ጊዜያት በመድገም አማካይ ቁጥር (Mean Value) መውሰድ።",
+            "ደረጃ 3፡ ከመማሪያ መጽሐፉ የተገኘውን ቀመር በመጠቀም ውጤቱን ደረጃ በደረጃ ማስላት።",
+            "ደረጃ 4፡ የተገኘውን መልስ በማጠቃለል የብቃት ደረጃው መሟላቱን ማረጋገጥ።"
+          ]
+        },
+        "illustrations": [
+          {
+            "title": "የFile Management - የስርዓተ-ትምህርት ፅንሰ-ሀሳብ አወቃቀር",
+            "caption": "የትምህርት ክፍሉ ቁልፍ ክፍሎች፣ ተግባራዊ መርሆች እና የስሌት ቅደም ተከተል",
+            "type": "diagram",
+            "svg": "<svg viewBox=\"0 0 500 220\" xmlns=\"http://www.w3.org/2000/svg\" class=\"w-full h-auto max-h-60 rounded-2xl bg-slate-900 border border-slate-700/60 p-2\">\n        <rect x=\"30\" y=\"70\" width=\"120\" height=\"70\" rx=\"12\" fill=\"#1e293b\" stroke=\"#38bdf8\" stroke-width=\"2\"/>\n        <text x=\"90\" y=\"100\" fill=\"#38bdf8\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\">1. Definition</text>\n        <text x=\"90\" y=\"120\" fill=\"#cbd5e1\" font-size=\"10\" text-anchor=\"middle\">መሰረታዊ ፍቺ</text>\n        <path d=\"M 155 105 L 185 105\" stroke=\"#94a3b8\" stroke-width=\"2\" stroke-dasharray=\"4,2\"/>\n        <rect x=\"190\" y=\"70\" width=\"120\" height=\"70\" rx=\"12\" fill=\"#1e293b\" stroke=\"#34d399\" stroke-width=\"2\"/>\n        <text x=\"250\" y=\"100\" fill=\"#34d399\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\">2. Principles</text>\n        <text x=\"250\" y=\"120\" fill=\"#cbd5e1\" font-size=\"10\" text-anchor=\"middle\">መርሆችና ቀመሮች</text>\n        <path d=\"M 315 105 L 345 105\" stroke=\"#94a3b8\" stroke-width=\"2\" stroke-dasharray=\"4,2\"/>\n        <rect x=\"350\" y=\"70\" width=\"120\" height=\"70\" rx=\"12\" fill=\"#1e293b\" stroke=\"#fbbf24\" stroke-width=\"2\"/>\n        <text x=\"410\" y=\"100\" fill=\"#fbbf24\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\">3. Real World</text>\n        <text x=\"410\" y=\"120\" fill=\"#cbd5e1\" font-size=\"10\" text-anchor=\"middle\">የኢትዮጵያ ነባራዊ ሁኔታ</text>\n        <text x=\"250\" y=\"195\" fill=\"#64748b\" font-size=\"11\" text-anchor=\"middle\">MoE 2019 E.C. Ethiopian National Curriculum Competency Model</text>\n      </svg>"
+          }
+        ],
+        "graphs": [
+          {
+            "title": "File Management - Linear Relationship Curve",
+            "type": "line",
+            "xLabel": "ተለዋዋጭ መጠን (X)",
+            "yLabel": "ጥገኛ መጠን (Y)",
+            "series": [
+              {
+                "name": "የንድፈ-ሀሳብ ኩርባ",
+                "points": [
+                  {
+                    "x": 0,
+                    "y": 0
+                  },
+                  {
+                    "x": 1,
+                    "y": 2
+                  },
+                  {
+                    "x": 2,
+                    "y": 4
+                  },
+                  {
+                    "x": 3,
+                    "y": 6
+                  },
+                  {
+                    "x": 4,
+                    "y": 8
+                  }
+                ]
+              }
+            ],
+            "caption": "በFile Management ስሌት ውስጥ የቀጥታ ተመጣጣኝነትን (Direct Proportionality) የሚያሳይ ግራፍ።"
+          }
+        ],
+        "summary": [
+          "File Management በክፍል 10 ኢንፎርሜሽን ቴክኖሎጂ ሥርዓተ-ትምህርት ውስጥ ቁልፍ የሆነ የመማሪያ ብቃት ነው።",
+          "ችግሮችን ለመፍታት በመጀመሪያ የተሰጡትን መጠኖች ለይቶ ማወቅ እና ትክክለኛውን ቀመር መምረጥ ያስፈልጋል።",
+          "በስሌት ወቅት ሁልጊዜም የመለኪያ አሃዶችን (SI Units) እና ደረጃ በደረጃ ቅደም ተከተልን መከተል ወሳኝ ነው።",
+          "የመማሪያ መጽሐፉ የተግባር ሙከራዎች (Activities) ንድፈ-ሀሳቡን ወደ ተጨባጭ ልምድ ይቀይሩታል።",
+          "የርዕሱን ሀገራዊና ተግባራዊ ፋይዳ መረዳት ለብሔራዊ ፈተናዎች እና ለቀጣይ ክፍሎች ከፍተኛ ዝግጁነት ይፈጥራል።"
+        ],
+        "reviewQuestions": [
+          {
+            "id": 1,
+            "question": "በክፍል 10 ኢንፎርሜሽን ቴክኖሎጂ መሠረት የFile Management ዋና ዓላማ ምንድን ነው?",
+            "options": [
+              "ሀ. ፅንሰ-ሀሳቡን በሳይንሳዊ እና በተዋቀረ መንገድ ተረድቶ በተግባር መተግበር",
+              "ለ. ያለምንም ማረጋገጫ ቁጥሮችን በዘፈቀደ መገመት",
+              "ሐ. የመለኪያ አሃዶችን ችላ ማለት",
+              "መ. መልሶችን ብቻ በቃል መሸምደድ"
+            ],
+            "correctIndex": 0,
+            "explanation": "የኢትዮጵያ ስርዓተ-ትምህርት ዋና ግብ ተማሪዎች የትምህርቱን ፅንሰ-ሀሳብ በሚገባ ተረድተው በተግባር እንዲተገብሩ ማስቻል ነው።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የጥያቄውን ዋና ፍላጎት መረዳት እና የርዕሱን ዓላማ ከመማሪያ መጽሐፉ ማመሳከር።",
+              "ደረጃ 2፡ የትምህርት ሚኒስቴር (MoE) የብቃት መለኪያ ተግባራዊ እውቀትን እንጂ በግምት መመለስን እንደማያበረታታ ማረጋገጥ።",
+              "ደረጃ 3፡ ስለዚህ ትክክለኛው መልስ 'ሀ' መሆኑ ደረጃ በደረጃ ይረጋገጣል።"
+            ]
+          },
+          {
+            "id": 2,
+            "question": "ለFile Management ስሌት ከመስራታችን በፊት ቅድሚያ ልናከናውነው የሚገባው ወሳኝ ተግባር የቱ ነው?",
+            "options": [
+              "ሀ. የተሰጡትን መረጃዎች ወደ መደበኛ መለኪያ አሃድ (SI Unit) መቀየር",
+              "ለ. ጥያቄውን ሳያነቡ ቀጥታ ማስላት",
+              "ሐ. የመደመር እና የመቀነስ ምልክቶችን ማጥፋት",
+              "መ. የመጀመሪያውን ቁጥር ብቻ እንደ መልስ መውሰድ"
+            ],
+            "correctIndex": 0,
+            "explanation": "የመለኪያ አሃዶችን ወደ አንድ ወጥ የሆነ SI Unit መቀየር የስሌት ስህተቶችን ያስቀራል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ በችግሩ ውስጥ የተሰጡትን የመለኪያ አሃዶች መፈተሽ (ለምሳሌ ሴንቲሜትር ከሆነ ወደ ሜትር)።",
+              "ደረጃ 2፡ ቀመሩ ላይ ከመተካታቸው በፊት ሁሉም አሃዶች ወደ አለምአቀፍ SI Unit እንዲቀየሩ ማድረግ።",
+              "ደረጃ 3፡ ትክክለኛው መልስ አማራጭ 'ሀ' መሆኑን ማረጋገጥ።"
+            ]
+          },
+          {
+            "id": 3,
+            "question": "የFile Management መርሆች በኢትዮጵያ ነባራዊ ሁኔታ የት ላይ በስፋት ጥቅም ላይ ይውላሉ?",
+            "options": [
+              "ሀ. በሀገራዊ የልማት ፕሮጀክቶች (እንደ ህዳሴ ግድብ)፣ በፋይናንስ እና በግብርና እቅድ",
+              "ለ. ከክፍል ውጭ ምንም አይነት ተግባራዊ ፋይዳ የላቸውም",
+              "ሐ. በታሪክ መዝገቦች ላይ ብቻ",
+              "መ. በጥንታዊ አፈ-ታሪኮች ውስጥ ብቻ"
+            ],
+            "correctIndex": 0,
+            "explanation": "ይህ ርዕስ በሀገራችን የኢነርጂ፣ የኢኮኖሚ፣ የግብርና እና የቴክኖሎጂ ስራዎች ውስጥ ቀጥተኛ ጠቀሜታ አለው።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የFile Managementን ተዛማጅነት ከሀገራዊ ኢንዱስትሪና ልማት ጋር ማገናዘብ።",
+              "ደረጃ 2፡ በኢትዮጵያ ውስጥ ያሉ ትልልቅ ፕሮጀክቶች ይህን ሳይንሳዊ መርህ እንደሚጠቀሙ መገንዘብ።",
+              "ደረጃ 3፡ ትክክለኛው መልስ 'ሀ' መሆኑን ማጠቃለል።"
+            ]
+          },
+          {
+            "id": 4,
+            "question": "በዚህ ርዕስ ስር የሂሳብ ወይም ሳይንሳዊ ጥያቄዎችን በደረጃ ለመስራት የመጀመሪያው እርምጃ ምንድን ነው?",
+            "options": [
+              "ሀ. የተሰጡ (Given) እና የሚፈለጉ (Required) መጠኖችን ለይቶ መመዝገብ",
+              "ለ. ቀመሩን ሳያውቁ በግምት መመለስ",
+              "ሐ. ደረጃዎችን ሳያሳዩ መጨረሻውን ብቻ መጻፍ",
+              "መ. የሌላ ተማሪን ደብተር መመልከት"
+            ],
+            "correctIndex": 0,
+            "explanation": "የተሰጡ እና የሚፈለጉ መጠኖችን መለየት የስሌቱን አቅጣጫ ግልጽ ያደርገዋል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የችግሩን ፅሁፍ በጥንቃቄ በማንበብ ቁጥራዊ እሴቶችን መለየት።",
+              "ደረጃ 2፡ Given (የተሰጡ) እና Required (የሚፈለጉ) ተብለው በግልጽ እንዲቀመጡ ማድረግ።",
+              "ደረጃ 3፡ ይህ ስልት የስሌት ስህተትን ስለሚያስቀር 'ሀ' ትክክለኛ ምርጫ ነው።"
+            ]
+          },
+          {
+            "id": 5,
+            "question": "የተገኘው የመጨረሻ ውጤት ትክክል መሆኑን እንዴት ማረጋገጥ ይቻላል?",
+            "options": [
+              "ሀ. የመለኪያ አሃዱን እና የቁጥሩን ምክንያታዊነት በማረጋገጥ (Sanity Check)",
+              "ለ. ቀመሩን በዘፈቀደ በመቀየር",
+              "ሐ. መካከለኛውን ስሌት በሙሉ በማጥፋት",
+              "መ. የመጣውን ቁጥር ሳያረጋግጡ በመቀበል"
+            ],
+            "correctIndex": 0,
+            "explanation": "የውጤቱን ምክንያታዊነት እና የመለኪያ አሃድ ማረጋገጥ ትክክለኛውን መልስ ያረጋግጣል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የመጨረሻውን የቁጥር መጠን ከርዕሱ ተጨባጭ እውነታ ጋር ማመሳከር።",
+              "ደረጃ 2፡ የግራና የቀኝ የመለኪያ አሃዶች እኩል መሆናቸውን (Unit Balance) ማረጋገጥ።",
+              "ደረጃ 3፡ አማራጭ 'ሀ' ትክክለኛ የሳይንሳዊ ማረጋገጫ ዘዴ መሆኑን ማጠቃለል።"
+            ]
+          }
+        ]
+      },
+      "grounded": false,
+      "sources": []
+    },
+    "modelUsed": "moe-curriculum-engine",
+    "hitCount": 2,
+    "firstGeneratedAt": "2026-11-08T14:03:53.133Z",
+    "lastRetrievedAt": "2026-11-08T14:03:53.134Z",
+    "meta": {
+      "grade": "10",
+      "subject": "ኢንፎርሜሽን ቴክኖሎጂ",
+      "topic": "1.2 File Management"
+    }
+  },
+  {
+    "key": "lesson:chem 10:10:g10 chem u1 t1:am",
+    "category": "lesson",
+    "payload": {
+      "lesson": {
+        "explanation": [
+          {
+            "heading": "1. የIntroduction መሰረታዊ ምንነት እና የፅንሰ-ሀሳብ ፍቺ",
+            "body": "በክፍል 10 Chemistry ሥርዓተ-ትምህርት ውስጥ \"Introduction\" በምዕራፍ (Chemical Reactions) ሥር የሚገኝ ዋነኛ የትምህርት ክፍል ነው። ይህ ፅንሰ-ሀሳብ ተማሪዎች አካላዊ፣ ሂሳባዊ፣ ወይም ኢኮኖሚያዊ ክስተቶችን በሳይንሳዊ እና በተዋቀረ መንገድ እንዲረዱ እና እንዲተነትኑ የሚያስችል የትምህርት ሚኒስቴር (MoE) መደበኛ ብቃት ነው።"
+          },
+          {
+            "heading": "2. ዋና ዋና መርሆች፣ ቀመሮች እና የትንታኔ ህጎች",
+            "body": "Introductionን በሚገባ ለመረዳት የተሰጡ መረጃዎችን መለየት፣ ተገቢውን የመማሪያ መጽሐፍ ቀመር መምረጥ፣ እና ደረጃ በደረጃ ስሌቶችን ማከናወን ወሳኝ ነው። በመማሪያ መጽሐፉ ገጽ Grade 10 MoE Textbook ላይ እንደተመለከተው እያንዳንዱን እርምጃ በቅደም ተከተል መተግበር እና የውጤቱን ትክክለኛነት ማረጋገጥ የብቃት ማረጋገጫ ነው።"
+          },
+          {
+            "heading": "3. ከኢትዮጵያ ነባራዊ ሁኔታ ጋር ያለው ትስስር (Ethiopian Case Study)",
+            "body": "ይህ የትምህርት ክፍል በኢትዮጵያ የዕለት ተዕለት ኑሮ እና በሀገራዊ የልማት ፕሮጀክቶች ውስጥ ከፍተኛ ተግባራዊ ፋይዳ አለው። ለምሳሌ በታላቁ የኢትዮጵያ ህዳሴ ግድብ የሃይል ማመንጨት ስሌቶች፣ በኢትዮጵያ ንግድ ባንክ (CBE) እና በባህላዊ እቁብ (Equb) የቁጠባ እንቅስቃሴዎች፣ እንዲሁም በስምጥ ሸለቆ የግብርና ምርታማነት እቅድ ውስጥ እነዚህ መርሆች በቀጥታ ጥቅም ላይ ይውላሉ።"
+          },
+          {
+            "heading": "4. የተማሪዎች የተለመዱ ስህተቶች እና ጥንቃቄዎች",
+            "body": "ተማሪዎች በዚህ ርዕስ ስር በተደጋጋሚ ከሚሰሯቸው ስህተቶች መካከል የቁልፍ ቃላትን ትክክለኛ ፍቺ አለመረዳት፣ የመለኪያ አሃዶችን (SI Units) አለማካተት፣ እና በሂሳባዊ ስሌቶች ወቅት ምልክቶችን (+/-) ማዛባት ይገኙበታል። ጥያቄዎችን ከመመለስ በፊት የተሰጡትን መጠኖች በሚገባ መመርመር ያስፈልጋል።"
+          }
+        ],
+        "keyTerms": [
+          {
+            "term": "Introduction",
+            "meaning": "በምዕራፍ \"Chemical Reactions\" ውስጥ የተካተተ መሰረታዊ የትምህርት ፅንሰ-ሀሳብ።"
+          },
+          {
+            "term": "የኢትዮጵያ ስርዓተ-ትምህርት መመሪያ (MoE)",
+            "meaning": "በትምህርት ሚኒስቴር የታተመውን የመማሪያ መጽሐፍ መስፈርት የጠበቀ የብቃት ደረጃ።"
+          },
+          {
+            "term": "ደረጃ በደረጃ ስሌት (Step-by-Step Method)",
+            "meaning": "የተሰጡትን መረጃዎች ተጠቅሞ ወደ መጨረሻው ትክክለኛ መልስ የሚያደርስ ስርዓት።"
+          },
+          {
+            "term": "ዋናው ቀመር (Governing Formula)",
+            "meaning": "በዚህ ርዕስ ስር ያሉ ተለዋዋጭ መጠኖችን የሚያገናኝ የሂሳብ ወይም የሳይንስ ህግ።"
+          },
+          {
+            "term": "የመለኪያ አሃዶች አንድነት (SI Units)",
+            "meaning": "በስሌት ወቅት መለኪያዎችን ወደ መደበኛ አሃድ የመቀየር እና የማጣጣም ግዴታ።"
+          }
+        ],
+        "workedExamples": [
+          {
+            "title": "ምሳሌ 1፡ የመግቢያ ተግባራዊ ስሌት ለIntroduction",
+            "problem": "በክፍል 10 Chemistry መማሪያ መጽሐፍ (Grade 10 MoE Textbook) መሰረት የተሰጡትን መረጃዎች ተጠቅማችሁ ለIntroduction የሚፈለገውን የመጨረሻ ውጤት በደረጃ አስሉ።",
+            "steps": [
+              "ደረጃ 1፡ የተሰጡ (Given) እና የሚፈለጉ (Required) መጠኖችን ለይቶ መመዝገብ።",
+              "ደረጃ 2፡ ለዚህ ርዕስ ተገቢውን ዋና ቀመር (Governing Formula) ከመጽሐፉ መምረጥ።",
+              "ደረጃ 3፡ ቁጥራዊ እሴቶችን ወደ ቀመሩ በማስገባት ደረጃ በደረጃ ማስላት።",
+              "ደረጃ 4፡ የመጨረሻውን መልስ ከተገቢው መለኪያ አሃድ (SI Unit) ጋር መግለጽ።"
+            ],
+            "answer": "ስሌቱ በትክክል ተሰርቶ የመጨረሻው ውጤት ተገኝቷል።"
+          },
+          {
+            "title": "ምሳሌ 2፡ ከኢትዮጵያ ነባራዊ ሁኔታ የተወሰደ ጥያቄ",
+            "problem": "በአንድ የሀገር ውስጥ የልማት ስራ ላይ የIntroduction መርሆችን በመጠቀም የተገኘውን ውጤት ተንትኑ።",
+            "steps": [
+              "ደረጃ 1፡ ችግሩን በChemistry መርሆች መሰረት ወደ ሂሳባዊ/ሳይንሳዊ ሞዴል መቀየር።",
+              "ደረጃ 2፡ አስፈላጊ የሆኑ ቅድመ-ሁኔታዎችን እና መለኪያዎችን ማስተካከል።",
+              "ደረጃ 3፡ ቀመሩን በመጠቀም ስሌቱን አጠናቆ መልሱን ማረጋገጥ።"
+            ],
+            "answer": "የተገኘው ውጤት የመማሪያ መጽሐፉን የብቃት መለኪያ ያሟላል።"
+          }
+        ],
+        "activity": {
+          "title": "የመማሪያ መጽሐፍ ተግባራዊ ሙከራ እና የላብራቶሪ ስራ፡ Introduction",
+          "type": "lab_experiment",
+          "materials": [
+            "የማስታወሻ ደብተር እና እስክሪብቶ",
+            "መለኪያ ማስመሪያ/መሳሪያ",
+            "የክፍል 10 የመማሪያ መጽሐፍ (Grade 10 MoE Textbook)",
+            "ቀላል የሙከራ እቃዎች ወይም የቤት ውስጥ ቁሳቁሶች"
+          ],
+          "steps": [
+            "በዚህ ክፍል የተገለጹትን ዋና ዋና ህጎችና ቀመሮች ከመማሪያ መጽሐፉ ገጽ ላይ በደብተርዎ ላይ ይመዝግቡ።",
+            "በአካባቢዎ ወይም በቤትዎ ውስጥ ይህን መርህ በተግባር የሚያሳዩ ሁለት ምሳሌዎችን ወይም ቁሳቁሶችን ይለዩ።",
+            "ያዩትን መረጃና ልኬት በትክክል በመመዝገብ ቀመሩን ተጠቅመው ስሌቱን ደረጃ በደረጃ ያከናውኑ።",
+            "የተለዋዋጭ መጠኖችን (Variables) ለውጥ በሰንጠረዥ አደራጁ።",
+            "ያገኙትን ውጤት ከመማሪያ መጽሐፉ ማጠቃለያ ጋር ያመሳክሩ።"
+          ],
+          "observe": "የመማሪያ መጽሐፉ ፅንሰ-ሀሳብ በተጨባጭ በዕለት ተዕለት ሕይወት ውስጥ እንዴት እንደሚተገበር እና ተመጣጣኝ ለውጥ እንደሚያሳይ ይገነዘባሉ።",
+          "answer": "የመማሪያ መጽሐፍ የተግባር ሙከራው ደረጃ በደረጃ አሰራር እና ትክክለኛ መልስ፡\n1. የተሰጡ ልኬቶች ትንታኔ፡ በተግባራዊ ሙከራው ወቅት የተመዘገቡት መጠኖች በመማሪያ መጽሐፉ ገጽ Grade 10 MoE Textbook ላይ ከተጠቀሰው ዋና ቀመር ጋር 100% የሚጣጣሙ ናቸው።\n2. የደረጃ በደረጃ ስሌት፡ የተገኙት ቁጥሮች በቀመሩ ሲሰሉ ቋሚ እሴት (Constant) ይሰጣሉ፤ ይህም የተመጣጣኝነት ህጉን ያረጋግጣል።\n3. ትምህርታዊ ማጠቃለያ፡ ይህ ሙከራ Introduction በንድፈ-ሀሳብ ብቻ ሳይሆን በተጨባጭ የሚሰራ የተፈጥሮ/የሂሳብ ህግ መሆኑን ያረጋግጣል።",
+          "stepByStepSolution": [
+            "ደረጃ 1፡ የሙከራውን ቁሳቁሶች በንጽህና እና በደህንነት ማዘጋጀትና የመጀመሪያ እሴቶችን መመዝገብ።",
+            "ደረጃ 2፡ ሂደቱን ቢያንስ ለ3 ተከታታይ ጊዜያት በመድገም አማካይ ቁጥር (Mean Value) መውሰድ።",
+            "ደረጃ 3፡ ከመማሪያ መጽሐፉ የተገኘውን ቀመር በመጠቀም ውጤቱን ደረጃ በደረጃ ማስላት።",
+            "ደረጃ 4፡ የተገኘውን መልስ በማጠቃለል የብቃት ደረጃው መሟላቱን ማረጋገጥ።"
+          ]
+        },
+        "illustrations": [
+          {
+            "title": "የኬሚካል ምላሽ እና የሞለኪዩል ለውጥ ዲያግራም",
+            "caption": "የሪአክታንቶች መሰባበር እና የአዳዲስ ኬሚካላዊ ትስስሮች መፈጠር",
+            "type": "diagram",
+            "svg": "<svg viewBox=\"0 0 500 220\" xmlns=\"http://www.w3.org/2000/svg\" class=\"w-full h-auto max-h-60 rounded-2xl bg-slate-900 border border-slate-700/60 p-2\">\n          <circle cx=\"100\" cy=\"110\" r=\"45\" fill=\"#6366f1\" fill-opacity=\"0.4\" stroke=\"#818cf8\" stroke-width=\"2\"/>\n          <circle cx=\"140\" cy=\"110\" r=\"30\" fill=\"#ec4899\" fill-opacity=\"0.4\" stroke=\"#f472b6\" stroke-width=\"2\"/>\n          <text x=\"110\" y=\"115\" fill=\"#ffffff\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\">Reactants [A + B]</text>\n          <path d=\"M 210 110 L 290 110\" stroke=\"#10b981\" stroke-width=\"4\" stroke-dasharray=\"6,4\"/>\n          <polygon points=\"290,105 305,110 290,115\" fill=\"#10b981\"/>\n          <text x=\"250\" y=\"95\" fill=\"#34d399\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\">Activation Energy (E_a)</text>\n          <circle cx=\"380\" cy=\"110\" r=\"50\" fill=\"#10b981\" fill-opacity=\"0.4\" stroke=\"#34d399\" stroke-width=\"2\"/>\n          <text x=\"380\" y=\"115\" fill=\"#ffffff\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\">Products [C + D]</text>\n          <text x=\"250\" y=\"195\" fill=\"#94a3b8\" font-size=\"11\" text-anchor=\"middle\">MoE Standard Thermochemical & Stoichiometric Framework</text>\n        </svg>"
+          }
+        ],
+        "graphs": [
+          {
+            "title": "Introduction - Linear Relationship Curve",
+            "type": "line",
+            "xLabel": "ተለዋዋጭ መጠን (X)",
+            "yLabel": "ጥገኛ መጠን (Y)",
+            "series": [
+              {
+                "name": "የንድፈ-ሀሳብ ኩርባ",
+                "points": [
+                  {
+                    "x": 0,
+                    "y": 0
+                  },
+                  {
+                    "x": 1,
+                    "y": 2
+                  },
+                  {
+                    "x": 2,
+                    "y": 4
+                  },
+                  {
+                    "x": 3,
+                    "y": 6
+                  },
+                  {
+                    "x": 4,
+                    "y": 8
+                  }
+                ]
+              }
+            ],
+            "caption": "በIntroduction ስሌት ውስጥ የቀጥታ ተመጣጣኝነትን (Direct Proportionality) የሚያሳይ ግራፍ።"
+          }
+        ],
+        "summary": [
+          "Introduction በክፍል 10 Chemistry ሥርዓተ-ትምህርት ውስጥ ቁልፍ የሆነ የመማሪያ ብቃት ነው።",
+          "ችግሮችን ለመፍታት በመጀመሪያ የተሰጡትን መጠኖች ለይቶ ማወቅ እና ትክክለኛውን ቀመር መምረጥ ያስፈልጋል።",
+          "በስሌት ወቅት ሁልጊዜም የመለኪያ አሃዶችን (SI Units) እና ደረጃ በደረጃ ቅደም ተከተልን መከተል ወሳኝ ነው።",
+          "የመማሪያ መጽሐፉ የተግባር ሙከራዎች (Activities) ንድፈ-ሀሳቡን ወደ ተጨባጭ ልምድ ይቀይሩታል።",
+          "የርዕሱን ሀገራዊና ተግባራዊ ፋይዳ መረዳት ለብሔራዊ ፈተናዎች እና ለቀጣይ ክፍሎች ከፍተኛ ዝግጁነት ይፈጥራል።"
+        ],
+        "reviewQuestions": [
+          {
+            "id": 1,
+            "question": "በክፍል 10 Chemistry መሠረት የIntroduction ዋና ዓላማ ምንድን ነው?",
+            "options": [
+              "ሀ. ፅንሰ-ሀሳቡን በሳይንሳዊ እና በተዋቀረ መንገድ ተረድቶ በተግባር መተግበር",
+              "ለ. ያለምንም ማረጋገጫ ቁጥሮችን በዘፈቀደ መገመት",
+              "ሐ. የመለኪያ አሃዶችን ችላ ማለት",
+              "መ. መልሶችን ብቻ በቃል መሸምደድ"
+            ],
+            "correctIndex": 0,
+            "explanation": "የኢትዮጵያ ስርዓተ-ትምህርት ዋና ግብ ተማሪዎች የትምህርቱን ፅንሰ-ሀሳብ በሚገባ ተረድተው በተግባር እንዲተገብሩ ማስቻል ነው።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የጥያቄውን ዋና ፍላጎት መረዳት እና የርዕሱን ዓላማ ከመማሪያ መጽሐፉ ማመሳከር።",
+              "ደረጃ 2፡ የትምህርት ሚኒስቴር (MoE) የብቃት መለኪያ ተግባራዊ እውቀትን እንጂ በግምት መመለስን እንደማያበረታታ ማረጋገጥ።",
+              "ደረጃ 3፡ ስለዚህ ትክክለኛው መልስ 'ሀ' መሆኑ ደረጃ በደረጃ ይረጋገጣል።"
+            ]
+          },
+          {
+            "id": 2,
+            "question": "ለIntroduction ስሌት ከመስራታችን በፊት ቅድሚያ ልናከናውነው የሚገባው ወሳኝ ተግባር የቱ ነው?",
+            "options": [
+              "ሀ. የተሰጡትን መረጃዎች ወደ መደበኛ መለኪያ አሃድ (SI Unit) መቀየር",
+              "ለ. ጥያቄውን ሳያነቡ ቀጥታ ማስላት",
+              "ሐ. የመደመር እና የመቀነስ ምልክቶችን ማጥፋት",
+              "መ. የመጀመሪያውን ቁጥር ብቻ እንደ መልስ መውሰድ"
+            ],
+            "correctIndex": 0,
+            "explanation": "የመለኪያ አሃዶችን ወደ አንድ ወጥ የሆነ SI Unit መቀየር የስሌት ስህተቶችን ያስቀራል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ በችግሩ ውስጥ የተሰጡትን የመለኪያ አሃዶች መፈተሽ (ለምሳሌ ሴንቲሜትር ከሆነ ወደ ሜትር)።",
+              "ደረጃ 2፡ ቀመሩ ላይ ከመተካታቸው በፊት ሁሉም አሃዶች ወደ አለምአቀፍ SI Unit እንዲቀየሩ ማድረግ።",
+              "ደረጃ 3፡ ትክክለኛው መልስ አማራጭ 'ሀ' መሆኑን ማረጋገጥ።"
+            ]
+          },
+          {
+            "id": 3,
+            "question": "የIntroduction መርሆች በኢትዮጵያ ነባራዊ ሁኔታ የት ላይ በስፋት ጥቅም ላይ ይውላሉ?",
+            "options": [
+              "ሀ. በሀገራዊ የልማት ፕሮጀክቶች (እንደ ህዳሴ ግድብ)፣ በፋይናንስ እና በግብርና እቅድ",
+              "ለ. ከክፍል ውጭ ምንም አይነት ተግባራዊ ፋይዳ የላቸውም",
+              "ሐ. በታሪክ መዝገቦች ላይ ብቻ",
+              "መ. በጥንታዊ አፈ-ታሪኮች ውስጥ ብቻ"
+            ],
+            "correctIndex": 0,
+            "explanation": "ይህ ርዕስ በሀገራችን የኢነርጂ፣ የኢኮኖሚ፣ የግብርና እና የቴክኖሎጂ ስራዎች ውስጥ ቀጥተኛ ጠቀሜታ አለው።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የIntroductionን ተዛማጅነት ከሀገራዊ ኢንዱስትሪና ልማት ጋር ማገናዘብ።",
+              "ደረጃ 2፡ በኢትዮጵያ ውስጥ ያሉ ትልልቅ ፕሮጀክቶች ይህን ሳይንሳዊ መርህ እንደሚጠቀሙ መገንዘብ።",
+              "ደረጃ 3፡ ትክክለኛው መልስ 'ሀ' መሆኑን ማጠቃለል።"
+            ]
+          },
+          {
+            "id": 4,
+            "question": "በዚህ ርዕስ ስር የሂሳብ ወይም ሳይንሳዊ ጥያቄዎችን በደረጃ ለመስራት የመጀመሪያው እርምጃ ምንድን ነው?",
+            "options": [
+              "ሀ. የተሰጡ (Given) እና የሚፈለጉ (Required) መጠኖችን ለይቶ መመዝገብ",
+              "ለ. ቀመሩን ሳያውቁ በግምት መመለስ",
+              "ሐ. ደረጃዎችን ሳያሳዩ መጨረሻውን ብቻ መጻፍ",
+              "መ. የሌላ ተማሪን ደብተር መመልከት"
+            ],
+            "correctIndex": 0,
+            "explanation": "የተሰጡ እና የሚፈለጉ መጠኖችን መለየት የስሌቱን አቅጣጫ ግልጽ ያደርገዋል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የችግሩን ፅሁፍ በጥንቃቄ በማንበብ ቁጥራዊ እሴቶችን መለየት።",
+              "ደረጃ 2፡ Given (የተሰጡ) እና Required (የሚፈለጉ) ተብለው በግልጽ እንዲቀመጡ ማድረግ።",
+              "ደረጃ 3፡ ይህ ስልት የስሌት ስህተትን ስለሚያስቀር 'ሀ' ትክክለኛ ምርጫ ነው።"
+            ]
+          },
+          {
+            "id": 5,
+            "question": "የተገኘው የመጨረሻ ውጤት ትክክል መሆኑን እንዴት ማረጋገጥ ይቻላል?",
+            "options": [
+              "ሀ. የመለኪያ አሃዱን እና የቁጥሩን ምክንያታዊነት በማረጋገጥ (Sanity Check)",
+              "ለ. ቀመሩን በዘፈቀደ በመቀየር",
+              "ሐ. መካከለኛውን ስሌት በሙሉ በማጥፋት",
+              "መ. የመጣውን ቁጥር ሳያረጋግጡ በመቀበል"
+            ],
+            "correctIndex": 0,
+            "explanation": "የውጤቱን ምክንያታዊነት እና የመለኪያ አሃድ ማረጋገጥ ትክክለኛውን መልስ ያረጋግጣል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የመጨረሻውን የቁጥር መጠን ከርዕሱ ተጨባጭ እውነታ ጋር ማመሳከር።",
+              "ደረጃ 2፡ የግራና የቀኝ የመለኪያ አሃዶች እኩል መሆናቸውን (Unit Balance) ማረጋገጥ።",
+              "ደረጃ 3፡ አማራጭ 'ሀ' ትክክለኛ የሳይንሳዊ ማረጋገጫ ዘዴ መሆኑን ማጠቃለል።"
+            ]
+          }
+        ],
+        "realLifeConnection": {
+          "title": "ከዕለታዊ ህይወት ጋር ያለው ቁርኝት፡ Introduction",
+          "summary": "የኬሚስትሪ መርሆች ከኩሽናችን የዳቦ እና የእንጀራ እርሾ ዝግጅት አንስቶ እስከ ንጹህ የመጠጥ ውሃ ማጣሪያ እና የጨጓራ መድሃኒቶች ድረስ በየእለቱ ይተገበራሉ።",
+          "dailyScenarios": [
+            {
+              "title": "የጨጓራ አሲድ እና የአንታሲድ መድሃኒቶች ተግባር",
+              "scenario": "በጨጓራችን ውስጥ የሃይድሮክሎሪክ አሲድ (HCl) መጠን ሲጨምር፣ የምንወስዳቸው እንደ ማግኒዥየም ሃይድሮክሳይድ ያሉ መድሃኒቶች አሲዱን አክስመው (Neutralize አድርገው) ወደ ጨው እና ውሃ በመቀየር ፈጣን እፎይታ ይሰጣሉ።",
+              "practicalTakeaway": "ትንሽ ቤኪንግ ሶዳ በውሃ በጥብጦ መጠጣት የአሲድ እና የቤዝ ኬሚካላዊ ምላሽ በመፍጠር አሲድን ወዲያውኑ ያረጋጋል።"
+            },
+            {
+              "title": "የእንጀራ እርሾ እና የባህላዊ መጠጦች ዝግጅት",
+              "scenario": "የኢትዮጵያ እንጀራ ሲጋገጥ የጤፍ ሊጥ ለ 3-4 ቀናት በእርሾ ባክቴሪያዎች አማካኝነት ይቦካል (Fermentation)። ይህም የካርቦን ዳይኦክሳይድ ጋዝ በማመንጨት እንጀራው የሚያምሩ አይኖች እንዲያወጣ ያደርገዋል።",
+              "practicalTakeaway": "የክፍሉን ሙቀት መቆጣጠር የኬሚካላዊ ምላሹን ፍጥነት ይጨምራል፤ ይህም ሊጡ በፍጥነት እንዲቦካ ያደርጋል።"
+            }
+          ],
+          "ethiopianContext": "በሙገር እና በዳንጎቴ ሲሚንቶ ፋብሪካዎች የኖራ ድንጋይ በከፍተኛ ሙቀት ተቃጥሎ ወደ ካልሲየም ኦክሳይድ በመቀየር ለግንባታ የሚሆን ጠንካራ ሲሚንቶ ይዘጋጃል።"
+        },
+        "programmingAndAiConnection": {
+          "title": "ከProgramming እና Artificial Intelligence ጋር ያለው ቁርኝት፡ Introduction",
+          "algorithmicThinking": "ኬሚካላዊ ሞለኪዩሎች በኮምፒውተር ሳይንስ ውስጥ እንደ ግራፍ (Graph Data Structure) ይወከላሉ—አቶሞች እንደ ኖዶች፣ ትስስሮቻቸው ደግሞ እንደ መስመሮች ይቀመጣሉ። የኬሚካል ቀመሮችን ማመጣጠን በሊኒየር አልጀብራ ማትሪክስ ይሰራል።",
+          "codeSnippet": {
+            "language": "python",
+            "code": "# Chemical Molar Mass & Reaction Balancer in Python\nELEMENTS = {\"H\": 1.008, \"C\": 12.011, \"O\": 15.999, \"Na\": 22.990, \"Cl\": 35.45}\n\ndef calculate_molar_mass(formula_dict):\n    \"\"\"Computes total molar mass in g/mol from element stoichiometry\"\"\"\n    total_mass = sum(ELEMENTS.get(elem, 0) * count for elem, count in formula_dict.items())\n    return round(total_mass, 2)\n\n# Water (H2O) and Salt (NaCl)\nprint(\"H2O Molar Mass:\", calculate_molar_mass({\"H\": 2, \"O\": 1}), \"g/mol\")\nprint(\"NaCl Molar Mass:\", calculate_molar_mass({\"Na\": 1, \"Cl\": 1}), \"g/mol\")",
+            "explanation": "ይህ የፓይዘን ስክሪፕት የኬሚስትሪ ሶፍትዌሮች የአቶሚክ ክብደቶችን እና የሞለኪዩል መጠኖችን በኮድ እንዴት እንደሚያሰሉ ያሳያል።"
+          },
+          "aiApplications": [
+            {
+              "area": "የአዳዲስ መድሃኒቶች እና ሞለኪዩሎች AI ምርምር (AlphaFold)",
+              "description": "አርቴፊሻል ኢንተለጀንስ የሞለኪዩሎችን 3D ቅርጽ በሰከንዶች ውስጥ በመተንበይ ለአዳዲስ በሽታዎች ፈዋሽ መድሃኒቶችን በኮምፒውተር ይቀይሳል።"
+            },
+            {
+              "area": "የአካባቢ ብክለት እና የውሃ ጥራት መቆጣጠሪያ AI",
+              "description": "ዘመናዊ የውሃ መመርመሪያ ዳሳሾች የኬሚካል መርዞችን እና ብክለትን በ AI አልጎሪዝም ወዲያውኑ በመለየት ንጹህ ውሃ መኖሩን ያረጋግጣሉ።"
+            }
+          ],
+          "futureSkillsTip": "ኬሚስትሪን ከኮዲንግ ጋር ማጣመር በዘመናዊ የባዮቴክኖሎጂ፣ የመድሃኒት ምርምር እና የኤሌክትሪክ ባትሪ ቴክኖሎጂ ውስጥ ተፈላጊ ባለሙያ ያደርጋል።"
+        }
+      },
+      "grounded": true,
+      "sources": []
+    },
+    "modelUsed": "test-cache-generator",
+    "hitCount": 2,
+    "firstGeneratedAt": "2026-11-09T15:51:37.567Z",
+    "lastRetrievedAt": "2026-11-09T15:51:37.568Z",
+    "meta": {
+      "grade": "10",
+      "subject": "CHEM-10",
+      "topic": "1.1 Introduction"
+    }
+  },
+  {
+    "key": "lesson:chem 10:10:g10 chem u1 t1:am",
+    "category": "lesson",
+    "payload": {
+      "lesson": {
+        "explanation": [
+          {
+            "heading": "1. የIntroduction መሰረታዊ ምንነት እና የፅንሰ-ሀሳብ ፍቺ",
+            "body": "በክፍል 10 Chemistry ሥርዓተ-ትምህርት ውስጥ \"Introduction\" በምዕራፍ (Chemical Reactions) ሥር የሚገኝ ዋነኛ የትምህርት ክፍል ነው። ይህ ፅንሰ-ሀሳብ ተማሪዎች አካላዊ፣ ሂሳባዊ፣ ወይም ኢኮኖሚያዊ ክስተቶችን በሳይንሳዊ እና በተዋቀረ መንገድ እንዲረዱ እና እንዲተነትኑ የሚያስችል የትምህርት ሚኒስቴር (MoE) መደበኛ ብቃት ነው።"
+          },
+          {
+            "heading": "2. ዋና ዋና መርሆች፣ ቀመሮች እና የትንታኔ ህጎች",
+            "body": "Introductionን በሚገባ ለመረዳት የተሰጡ መረጃዎችን መለየት፣ ተገቢውን የመማሪያ መጽሐፍ ቀመር መምረጥ፣ እና ደረጃ በደረጃ ስሌቶችን ማከናወን ወሳኝ ነው። በመማሪያ መጽሐፉ ገጽ Grade 10 MoE Textbook ላይ እንደተመለከተው እያንዳንዱን እርምጃ በቅደም ተከተል መተግበር እና የውጤቱን ትክክለኛነት ማረጋገጥ የብቃት ማረጋገጫ ነው።"
+          },
+          {
+            "heading": "3. ከኢትዮጵያ ነባራዊ ሁኔታ ጋር ያለው ትስስር (Ethiopian Case Study)",
+            "body": "ይህ የትምህርት ክፍል በኢትዮጵያ የዕለት ተዕለት ኑሮ እና በሀገራዊ የልማት ፕሮጀክቶች ውስጥ ከፍተኛ ተግባራዊ ፋይዳ አለው። ለምሳሌ በታላቁ የኢትዮጵያ ህዳሴ ግድብ የሃይል ማመንጨት ስሌቶች፣ በኢትዮጵያ ንግድ ባንክ (CBE) እና በባህላዊ እቁብ (Equb) የቁጠባ እንቅስቃሴዎች፣ እንዲሁም በስምጥ ሸለቆ የግብርና ምርታማነት እቅድ ውስጥ እነዚህ መርሆች በቀጥታ ጥቅም ላይ ይውላሉ።"
+          },
+          {
+            "heading": "4. የተማሪዎች የተለመዱ ስህተቶች እና ጥንቃቄዎች",
+            "body": "ተማሪዎች በዚህ ርዕስ ስር በተደጋጋሚ ከሚሰሯቸው ስህተቶች መካከል የቁልፍ ቃላትን ትክክለኛ ፍቺ አለመረዳት፣ የመለኪያ አሃዶችን (SI Units) አለማካተት፣ እና በሂሳባዊ ስሌቶች ወቅት ምልክቶችን (+/-) ማዛባት ይገኙበታል። ጥያቄዎችን ከመመለስ በፊት የተሰጡትን መጠኖች በሚገባ መመርመር ያስፈልጋል።"
+          }
+        ],
+        "keyTerms": [
+          {
+            "term": "Introduction",
+            "meaning": "በምዕራፍ \"Chemical Reactions\" ውስጥ የተካተተ መሰረታዊ የትምህርት ፅንሰ-ሀሳብ።"
+          },
+          {
+            "term": "የኢትዮጵያ ስርዓተ-ትምህርት መመሪያ (MoE)",
+            "meaning": "በትምህርት ሚኒስቴር የታተመውን የመማሪያ መጽሐፍ መስፈርት የጠበቀ የብቃት ደረጃ።"
+          },
+          {
+            "term": "ደረጃ በደረጃ ስሌት (Step-by-Step Method)",
+            "meaning": "የተሰጡትን መረጃዎች ተጠቅሞ ወደ መጨረሻው ትክክለኛ መልስ የሚያደርስ ስርዓት።"
+          },
+          {
+            "term": "ዋናው ቀመር (Governing Formula)",
+            "meaning": "በዚህ ርዕስ ስር ያሉ ተለዋዋጭ መጠኖችን የሚያገናኝ የሂሳብ ወይም የሳይንስ ህግ።"
+          },
+          {
+            "term": "የመለኪያ አሃዶች አንድነት (SI Units)",
+            "meaning": "በስሌት ወቅት መለኪያዎችን ወደ መደበኛ አሃድ የመቀየር እና የማጣጣም ግዴታ።"
+          }
+        ],
+        "workedExamples": [
+          {
+            "title": "ምሳሌ 1፡ የመግቢያ ተግባራዊ ስሌት ለIntroduction",
+            "problem": "በክፍል 10 Chemistry መማሪያ መጽሐፍ (Grade 10 MoE Textbook) መሰረት የተሰጡትን መረጃዎች ተጠቅማችሁ ለIntroduction የሚፈለገውን የመጨረሻ ውጤት በደረጃ አስሉ።",
+            "steps": [
+              "ደረጃ 1፡ የተሰጡ (Given) እና የሚፈለጉ (Required) መጠኖችን ለይቶ መመዝገብ።",
+              "ደረጃ 2፡ ለዚህ ርዕስ ተገቢውን ዋና ቀመር (Governing Formula) ከመጽሐፉ መምረጥ።",
+              "ደረጃ 3፡ ቁጥራዊ እሴቶችን ወደ ቀመሩ በማስገባት ደረጃ በደረጃ ማስላት።",
+              "ደረጃ 4፡ የመጨረሻውን መልስ ከተገቢው መለኪያ አሃድ (SI Unit) ጋር መግለጽ።"
+            ],
+            "answer": "ስሌቱ በትክክል ተሰርቶ የመጨረሻው ውጤት ተገኝቷል።"
+          },
+          {
+            "title": "ምሳሌ 2፡ ከኢትዮጵያ ነባራዊ ሁኔታ የተወሰደ ጥያቄ",
+            "problem": "በአንድ የሀገር ውስጥ የልማት ስራ ላይ የIntroduction መርሆችን በመጠቀም የተገኘውን ውጤት ተንትኑ።",
+            "steps": [
+              "ደረጃ 1፡ ችግሩን በChemistry መርሆች መሰረት ወደ ሂሳባዊ/ሳይንሳዊ ሞዴል መቀየር።",
+              "ደረጃ 2፡ አስፈላጊ የሆኑ ቅድመ-ሁኔታዎችን እና መለኪያዎችን ማስተካከል።",
+              "ደረጃ 3፡ ቀመሩን በመጠቀም ስሌቱን አጠናቆ መልሱን ማረጋገጥ።"
+            ],
+            "answer": "የተገኘው ውጤት የመማሪያ መጽሐፉን የብቃት መለኪያ ያሟላል።"
+          }
+        ],
+        "activity": {
+          "title": "የመማሪያ መጽሐፍ ተግባራዊ ሙከራ እና የላብራቶሪ ስራ፡ Introduction",
+          "type": "lab_experiment",
+          "materials": [
+            "የማስታወሻ ደብተር እና እስክሪብቶ",
+            "መለኪያ ማስመሪያ/መሳሪያ",
+            "የክፍል 10 የመማሪያ መጽሐፍ (Grade 10 MoE Textbook)",
+            "ቀላል የሙከራ እቃዎች ወይም የቤት ውስጥ ቁሳቁሶች"
+          ],
+          "steps": [
+            "በዚህ ክፍል የተገለጹትን ዋና ዋና ህጎችና ቀመሮች ከመማሪያ መጽሐፉ ገጽ ላይ በደብተርዎ ላይ ይመዝግቡ።",
+            "በአካባቢዎ ወይም በቤትዎ ውስጥ ይህን መርህ በተግባር የሚያሳዩ ሁለት ምሳሌዎችን ወይም ቁሳቁሶችን ይለዩ።",
+            "ያዩትን መረጃና ልኬት በትክክል በመመዝገብ ቀመሩን ተጠቅመው ስሌቱን ደረጃ በደረጃ ያከናውኑ።",
+            "የተለዋዋጭ መጠኖችን (Variables) ለውጥ በሰንጠረዥ አደራጁ።",
+            "ያገኙትን ውጤት ከመማሪያ መጽሐፉ ማጠቃለያ ጋር ያመሳክሩ።"
+          ],
+          "observe": "የመማሪያ መጽሐፉ ፅንሰ-ሀሳብ በተጨባጭ በዕለት ተዕለት ሕይወት ውስጥ እንዴት እንደሚተገበር እና ተመጣጣኝ ለውጥ እንደሚያሳይ ይገነዘባሉ።",
+          "answer": "የመማሪያ መጽሐፍ የተግባር ሙከራው ደረጃ በደረጃ አሰራር እና ትክክለኛ መልስ፡\n1. የተሰጡ ልኬቶች ትንታኔ፡ በተግባራዊ ሙከራው ወቅት የተመዘገቡት መጠኖች በመማሪያ መጽሐፉ ገጽ Grade 10 MoE Textbook ላይ ከተጠቀሰው ዋና ቀመር ጋር 100% የሚጣጣሙ ናቸው።\n2. የደረጃ በደረጃ ስሌት፡ የተገኙት ቁጥሮች በቀመሩ ሲሰሉ ቋሚ እሴት (Constant) ይሰጣሉ፤ ይህም የተመጣጣኝነት ህጉን ያረጋግጣል።\n3. ትምህርታዊ ማጠቃለያ፡ ይህ ሙከራ Introduction በንድፈ-ሀሳብ ብቻ ሳይሆን በተጨባጭ የሚሰራ የተፈጥሮ/የሂሳብ ህግ መሆኑን ያረጋግጣል።",
+          "stepByStepSolution": [
+            "ደረጃ 1፡ የሙከራውን ቁሳቁሶች በንጽህና እና በደህንነት ማዘጋጀትና የመጀመሪያ እሴቶችን መመዝገብ።",
+            "ደረጃ 2፡ ሂደቱን ቢያንስ ለ3 ተከታታይ ጊዜያት በመድገም አማካይ ቁጥር (Mean Value) መውሰድ።",
+            "ደረጃ 3፡ ከመማሪያ መጽሐፉ የተገኘውን ቀመር በመጠቀም ውጤቱን ደረጃ በደረጃ ማስላት።",
+            "ደረጃ 4፡ የተገኘውን መልስ በማጠቃለል የብቃት ደረጃው መሟላቱን ማረጋገጥ።"
+          ]
+        },
+        "illustrations": [
+          {
+            "title": "የኬሚካል ምላሽ እና የሞለኪዩል ለውጥ ዲያግራም",
+            "caption": "የሪአክታንቶች መሰባበር እና የአዳዲስ ኬሚካላዊ ትስስሮች መፈጠር",
+            "type": "diagram",
+            "svg": "<svg viewBox=\"0 0 500 220\" xmlns=\"http://www.w3.org/2000/svg\" class=\"w-full h-auto max-h-60 rounded-2xl bg-slate-900 border border-slate-700/60 p-2\">\n          <circle cx=\"100\" cy=\"110\" r=\"45\" fill=\"#6366f1\" fill-opacity=\"0.4\" stroke=\"#818cf8\" stroke-width=\"2\"/>\n          <circle cx=\"140\" cy=\"110\" r=\"30\" fill=\"#ec4899\" fill-opacity=\"0.4\" stroke=\"#f472b6\" stroke-width=\"2\"/>\n          <text x=\"110\" y=\"115\" fill=\"#ffffff\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\">Reactants [A + B]</text>\n          <path d=\"M 210 110 L 290 110\" stroke=\"#10b981\" stroke-width=\"4\" stroke-dasharray=\"6,4\"/>\n          <polygon points=\"290,105 305,110 290,115\" fill=\"#10b981\"/>\n          <text x=\"250\" y=\"95\" fill=\"#34d399\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\">Activation Energy (E_a)</text>\n          <circle cx=\"380\" cy=\"110\" r=\"50\" fill=\"#10b981\" fill-opacity=\"0.4\" stroke=\"#34d399\" stroke-width=\"2\"/>\n          <text x=\"380\" y=\"115\" fill=\"#ffffff\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\">Products [C + D]</text>\n          <text x=\"250\" y=\"195\" fill=\"#94a3b8\" font-size=\"11\" text-anchor=\"middle\">MoE Standard Thermochemical & Stoichiometric Framework</text>\n        </svg>"
+          }
+        ],
+        "graphs": [
+          {
+            "title": "Introduction - Linear Relationship Curve",
+            "type": "line",
+            "xLabel": "ተለዋዋጭ መጠን (X)",
+            "yLabel": "ጥገኛ መጠን (Y)",
+            "series": [
+              {
+                "name": "የንድፈ-ሀሳብ ኩርባ",
+                "points": [
+                  {
+                    "x": 0,
+                    "y": 0
+                  },
+                  {
+                    "x": 1,
+                    "y": 2
+                  },
+                  {
+                    "x": 2,
+                    "y": 4
+                  },
+                  {
+                    "x": 3,
+                    "y": 6
+                  },
+                  {
+                    "x": 4,
+                    "y": 8
+                  }
+                ]
+              }
+            ],
+            "caption": "በIntroduction ስሌት ውስጥ የቀጥታ ተመጣጣኝነትን (Direct Proportionality) የሚያሳይ ግራፍ።"
+          }
+        ],
+        "summary": [
+          "Introduction በክፍል 10 Chemistry ሥርዓተ-ትምህርት ውስጥ ቁልፍ የሆነ የመማሪያ ብቃት ነው።",
+          "ችግሮችን ለመፍታት በመጀመሪያ የተሰጡትን መጠኖች ለይቶ ማወቅ እና ትክክለኛውን ቀመር መምረጥ ያስፈልጋል።",
+          "በስሌት ወቅት ሁልጊዜም የመለኪያ አሃዶችን (SI Units) እና ደረጃ በደረጃ ቅደም ተከተልን መከተል ወሳኝ ነው።",
+          "የመማሪያ መጽሐፉ የተግባር ሙከራዎች (Activities) ንድፈ-ሀሳቡን ወደ ተጨባጭ ልምድ ይቀይሩታል።",
+          "የርዕሱን ሀገራዊና ተግባራዊ ፋይዳ መረዳት ለብሔራዊ ፈተናዎች እና ለቀጣይ ክፍሎች ከፍተኛ ዝግጁነት ይፈጥራል።"
+        ],
+        "reviewQuestions": [
+          {
+            "id": 1,
+            "question": "በክፍል 10 Chemistry መሠረት የIntroduction ዋና ዓላማ ምንድን ነው?",
+            "options": [
+              "ሀ. ፅንሰ-ሀሳቡን በሳይንሳዊ እና በተዋቀረ መንገድ ተረድቶ በተግባር መተግበር",
+              "ለ. ያለምንም ማረጋገጫ ቁጥሮችን በዘፈቀደ መገመት",
+              "ሐ. የመለኪያ አሃዶችን ችላ ማለት",
+              "መ. መልሶችን ብቻ በቃል መሸምደድ"
+            ],
+            "correctIndex": 0,
+            "explanation": "የኢትዮጵያ ስርዓተ-ትምህርት ዋና ግብ ተማሪዎች የትምህርቱን ፅንሰ-ሀሳብ በሚገባ ተረድተው በተግባር እንዲተገብሩ ማስቻል ነው።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የጥያቄውን ዋና ፍላጎት መረዳት እና የርዕሱን ዓላማ ከመማሪያ መጽሐፉ ማመሳከር።",
+              "ደረጃ 2፡ የትምህርት ሚኒስቴር (MoE) የብቃት መለኪያ ተግባራዊ እውቀትን እንጂ በግምት መመለስን እንደማያበረታታ ማረጋገጥ።",
+              "ደረጃ 3፡ ስለዚህ ትክክለኛው መልስ 'ሀ' መሆኑ ደረጃ በደረጃ ይረጋገጣል።"
+            ]
+          },
+          {
+            "id": 2,
+            "question": "ለIntroduction ስሌት ከመስራታችን በፊት ቅድሚያ ልናከናውነው የሚገባው ወሳኝ ተግባር የቱ ነው?",
+            "options": [
+              "ሀ. የተሰጡትን መረጃዎች ወደ መደበኛ መለኪያ አሃድ (SI Unit) መቀየር",
+              "ለ. ጥያቄውን ሳያነቡ ቀጥታ ማስላት",
+              "ሐ. የመደመር እና የመቀነስ ምልክቶችን ማጥፋት",
+              "መ. የመጀመሪያውን ቁጥር ብቻ እንደ መልስ መውሰድ"
+            ],
+            "correctIndex": 0,
+            "explanation": "የመለኪያ አሃዶችን ወደ አንድ ወጥ የሆነ SI Unit መቀየር የስሌት ስህተቶችን ያስቀራል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ በችግሩ ውስጥ የተሰጡትን የመለኪያ አሃዶች መፈተሽ (ለምሳሌ ሴንቲሜትር ከሆነ ወደ ሜትር)።",
+              "ደረጃ 2፡ ቀመሩ ላይ ከመተካታቸው በፊት ሁሉም አሃዶች ወደ አለምአቀፍ SI Unit እንዲቀየሩ ማድረግ።",
+              "ደረጃ 3፡ ትክክለኛው መልስ አማራጭ 'ሀ' መሆኑን ማረጋገጥ።"
+            ]
+          },
+          {
+            "id": 3,
+            "question": "የIntroduction መርሆች በኢትዮጵያ ነባራዊ ሁኔታ የት ላይ በስፋት ጥቅም ላይ ይውላሉ?",
+            "options": [
+              "ሀ. በሀገራዊ የልማት ፕሮጀክቶች (እንደ ህዳሴ ግድብ)፣ በፋይናንስ እና በግብርና እቅድ",
+              "ለ. ከክፍል ውጭ ምንም አይነት ተግባራዊ ፋይዳ የላቸውም",
+              "ሐ. በታሪክ መዝገቦች ላይ ብቻ",
+              "መ. በጥንታዊ አፈ-ታሪኮች ውስጥ ብቻ"
+            ],
+            "correctIndex": 0,
+            "explanation": "ይህ ርዕስ በሀገራችን የኢነርጂ፣ የኢኮኖሚ፣ የግብርና እና የቴክኖሎጂ ስራዎች ውስጥ ቀጥተኛ ጠቀሜታ አለው።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የIntroductionን ተዛማጅነት ከሀገራዊ ኢንዱስትሪና ልማት ጋር ማገናዘብ።",
+              "ደረጃ 2፡ በኢትዮጵያ ውስጥ ያሉ ትልልቅ ፕሮጀክቶች ይህን ሳይንሳዊ መርህ እንደሚጠቀሙ መገንዘብ።",
+              "ደረጃ 3፡ ትክክለኛው መልስ 'ሀ' መሆኑን ማጠቃለል።"
+            ]
+          },
+          {
+            "id": 4,
+            "question": "በዚህ ርዕስ ስር የሂሳብ ወይም ሳይንሳዊ ጥያቄዎችን በደረጃ ለመስራት የመጀመሪያው እርምጃ ምንድን ነው?",
+            "options": [
+              "ሀ. የተሰጡ (Given) እና የሚፈለጉ (Required) መጠኖችን ለይቶ መመዝገብ",
+              "ለ. ቀመሩን ሳያውቁ በግምት መመለስ",
+              "ሐ. ደረጃዎችን ሳያሳዩ መጨረሻውን ብቻ መጻፍ",
+              "መ. የሌላ ተማሪን ደብተር መመልከት"
+            ],
+            "correctIndex": 0,
+            "explanation": "የተሰጡ እና የሚፈለጉ መጠኖችን መለየት የስሌቱን አቅጣጫ ግልጽ ያደርገዋል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የችግሩን ፅሁፍ በጥንቃቄ በማንበብ ቁጥራዊ እሴቶችን መለየት።",
+              "ደረጃ 2፡ Given (የተሰጡ) እና Required (የሚፈለጉ) ተብለው በግልጽ እንዲቀመጡ ማድረግ።",
+              "ደረጃ 3፡ ይህ ስልት የስሌት ስህተትን ስለሚያስቀር 'ሀ' ትክክለኛ ምርጫ ነው።"
+            ]
+          },
+          {
+            "id": 5,
+            "question": "የተገኘው የመጨረሻ ውጤት ትክክል መሆኑን እንዴት ማረጋገጥ ይቻላል?",
+            "options": [
+              "ሀ. የመለኪያ አሃዱን እና የቁጥሩን ምክንያታዊነት በማረጋገጥ (Sanity Check)",
+              "ለ. ቀመሩን በዘፈቀደ በመቀየር",
+              "ሐ. መካከለኛውን ስሌት በሙሉ በማጥፋት",
+              "መ. የመጣውን ቁጥር ሳያረጋግጡ በመቀበል"
+            ],
+            "correctIndex": 0,
+            "explanation": "የውጤቱን ምክንያታዊነት እና የመለኪያ አሃድ ማረጋገጥ ትክክለኛውን መልስ ያረጋግጣል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የመጨረሻውን የቁጥር መጠን ከርዕሱ ተጨባጭ እውነታ ጋር ማመሳከር።",
+              "ደረጃ 2፡ የግራና የቀኝ የመለኪያ አሃዶች እኩል መሆናቸውን (Unit Balance) ማረጋገጥ።",
+              "ደረጃ 3፡ አማራጭ 'ሀ' ትክክለኛ የሳይንሳዊ ማረጋገጫ ዘዴ መሆኑን ማጠቃለል።"
+            ]
+          }
+        ],
+        "realLifeConnection": {
+          "title": "ከዕለታዊ ህይወት ጋር ያለው ቁርኝት፡ Introduction",
+          "summary": "የኬሚስትሪ መርሆች ከኩሽናችን የዳቦ እና የእንጀራ እርሾ ዝግጅት አንስቶ እስከ ንጹህ የመጠጥ ውሃ ማጣሪያ እና የጨጓራ መድሃኒቶች ድረስ በየእለቱ ይተገበራሉ።",
+          "dailyScenarios": [
+            {
+              "title": "የጨጓራ አሲድ እና የአንታሲድ መድሃኒቶች ተግባር",
+              "scenario": "በጨጓራችን ውስጥ የሃይድሮክሎሪክ አሲድ (HCl) መጠን ሲጨምር፣ የምንወስዳቸው እንደ ማግኒዥየም ሃይድሮክሳይድ ያሉ መድሃኒቶች አሲዱን አክስመው (Neutralize አድርገው) ወደ ጨው እና ውሃ በመቀየር ፈጣን እፎይታ ይሰጣሉ።",
+              "practicalTakeaway": "ትንሽ ቤኪንግ ሶዳ በውሃ በጥብጦ መጠጣት የአሲድ እና የቤዝ ኬሚካላዊ ምላሽ በመፍጠር አሲድን ወዲያውኑ ያረጋጋል።"
+            },
+            {
+              "title": "የእንጀራ እርሾ እና የባህላዊ መጠጦች ዝግጅት",
+              "scenario": "የኢትዮጵያ እንጀራ ሲጋገጥ የጤፍ ሊጥ ለ 3-4 ቀናት በእርሾ ባክቴሪያዎች አማካኝነት ይቦካል (Fermentation)። ይህም የካርቦን ዳይኦክሳይድ ጋዝ በማመንጨት እንጀራው የሚያምሩ አይኖች እንዲያወጣ ያደርገዋል።",
+              "practicalTakeaway": "የክፍሉን ሙቀት መቆጣጠር የኬሚካላዊ ምላሹን ፍጥነት ይጨምራል፤ ይህም ሊጡ በፍጥነት እንዲቦካ ያደርጋል።"
+            }
+          ],
+          "ethiopianContext": "በሙገር እና በዳንጎቴ ሲሚንቶ ፋብሪካዎች የኖራ ድንጋይ በከፍተኛ ሙቀት ተቃጥሎ ወደ ካልሲየም ኦክሳይድ በመቀየር ለግንባታ የሚሆን ጠንካራ ሲሚንቶ ይዘጋጃል።"
+        },
+        "programmingAndAiConnection": {
+          "title": "ከProgramming እና Artificial Intelligence ጋር ያለው ቁርኝት፡ Introduction",
+          "algorithmicThinking": "ኬሚካላዊ ሞለኪዩሎች በኮምፒውተር ሳይንስ ውስጥ እንደ ግራፍ (Graph Data Structure) ይወከላሉ—አቶሞች እንደ ኖዶች፣ ትስስሮቻቸው ደግሞ እንደ መስመሮች ይቀመጣሉ። የኬሚካል ቀመሮችን ማመጣጠን በሊኒየር አልጀብራ ማትሪክስ ይሰራል።",
+          "codeSnippet": {
+            "language": "python",
+            "code": "# Chemical Molar Mass & Reaction Balancer in Python\nELEMENTS = {\"H\": 1.008, \"C\": 12.011, \"O\": 15.999, \"Na\": 22.990, \"Cl\": 35.45}\n\ndef calculate_molar_mass(formula_dict):\n    \"\"\"Computes total molar mass in g/mol from element stoichiometry\"\"\"\n    total_mass = sum(ELEMENTS.get(elem, 0) * count for elem, count in formula_dict.items())\n    return round(total_mass, 2)\n\n# Water (H2O) and Salt (NaCl)\nprint(\"H2O Molar Mass:\", calculate_molar_mass({\"H\": 2, \"O\": 1}), \"g/mol\")\nprint(\"NaCl Molar Mass:\", calculate_molar_mass({\"Na\": 1, \"Cl\": 1}), \"g/mol\")",
+            "explanation": "ይህ የፓይዘን ስክሪፕት የኬሚስትሪ ሶፍትዌሮች የአቶሚክ ክብደቶችን እና የሞለኪዩል መጠኖችን በኮድ እንዴት እንደሚያሰሉ ያሳያል።"
+          },
+          "aiApplications": [
+            {
+              "area": "የአዳዲስ መድሃኒቶች እና ሞለኪዩሎች AI ምርምር (AlphaFold)",
+              "description": "አርቴፊሻል ኢንተለጀንስ የሞለኪዩሎችን 3D ቅርጽ በሰከንዶች ውስጥ በመተንበይ ለአዳዲስ በሽታዎች ፈዋሽ መድሃኒቶችን በኮምፒውተር ይቀይሳል።"
+            },
+            {
+              "area": "የአካባቢ ብክለት እና የውሃ ጥራት መቆጣጠሪያ AI",
+              "description": "ዘመናዊ የውሃ መመርመሪያ ዳሳሾች የኬሚካል መርዞችን እና ብክለትን በ AI አልጎሪዝም ወዲያውኑ በመለየት ንጹህ ውሃ መኖሩን ያረጋግጣሉ።"
+            }
+          ],
+          "futureSkillsTip": "ኬሚስትሪን ከኮዲንግ ጋር ማጣመር በዘመናዊ የባዮቴክኖሎጂ፣ የመድሃኒት ምርምር እና የኤሌክትሪክ ባትሪ ቴክኖሎጂ ውስጥ ተፈላጊ ባለሙያ ያደርጋል።"
+        }
+      },
+      "grounded": true,
+      "sources": []
+    },
+    "modelUsed": "test-cache-generator",
+    "hitCount": 2,
+    "firstGeneratedAt": "2026-11-09T15:51:37.567Z",
+    "lastRetrievedAt": "2026-11-09T15:51:37.568Z",
+    "meta": {
+      "grade": "10",
+      "subject": "CHEM-10",
+      "topic": "1.1 Introduction"
+    }
+  },
+  {
+    "key": "lesson:chem 10:10:g10 chem u1 t1:am",
+    "category": "lesson",
+    "payload": {
+      "lesson": {
+        "explanation": [
+          {
+            "heading": "1. የIntroduction መሰረታዊ ምንነት እና የፅንሰ-ሀሳብ ፍቺ",
+            "body": "በክፍል 10 Chemistry ሥርዓተ-ትምህርት ውስጥ \"Introduction\" በምዕራፍ (Chemical Reactions) ሥር የሚገኝ ዋነኛ የትምህርት ክፍል ነው። ይህ ፅንሰ-ሀሳብ ተማሪዎች አካላዊ፣ ሂሳባዊ፣ ወይም ኢኮኖሚያዊ ክስተቶችን በሳይንሳዊ እና በተዋቀረ መንገድ እንዲረዱ እና እንዲተነትኑ የሚያስችል የትምህርት ሚኒስቴር (MoE) መደበኛ ብቃት ነው።"
+          },
+          {
+            "heading": "2. ዋና ዋና መርሆች፣ ቀመሮች እና የትንታኔ ህጎች",
+            "body": "Introductionን በሚገባ ለመረዳት የተሰጡ መረጃዎችን መለየት፣ ተገቢውን የመማሪያ መጽሐፍ ቀመር መምረጥ፣ እና ደረጃ በደረጃ ስሌቶችን ማከናወን ወሳኝ ነው። በመማሪያ መጽሐፉ ገጽ Grade 10 MoE Textbook ላይ እንደተመለከተው እያንዳንዱን እርምጃ በቅደም ተከተል መተግበር እና የውጤቱን ትክክለኛነት ማረጋገጥ የብቃት ማረጋገጫ ነው።"
+          },
+          {
+            "heading": "3. ከኢትዮጵያ ነባራዊ ሁኔታ ጋር ያለው ትስስር (Ethiopian Case Study)",
+            "body": "ይህ የትምህርት ክፍል በኢትዮጵያ የዕለት ተዕለት ኑሮ እና በሀገራዊ የልማት ፕሮጀክቶች ውስጥ ከፍተኛ ተግባራዊ ፋይዳ አለው። ለምሳሌ በታላቁ የኢትዮጵያ ህዳሴ ግድብ የሃይል ማመንጨት ስሌቶች፣ በኢትዮጵያ ንግድ ባንክ (CBE) እና በባህላዊ እቁብ (Equb) የቁጠባ እንቅስቃሴዎች፣ እንዲሁም በስምጥ ሸለቆ የግብርና ምርታማነት እቅድ ውስጥ እነዚህ መርሆች በቀጥታ ጥቅም ላይ ይውላሉ።"
+          },
+          {
+            "heading": "4. የተማሪዎች የተለመዱ ስህተቶች እና ጥንቃቄዎች",
+            "body": "ተማሪዎች በዚህ ርዕስ ስር በተደጋጋሚ ከሚሰሯቸው ስህተቶች መካከል የቁልፍ ቃላትን ትክክለኛ ፍቺ አለመረዳት፣ የመለኪያ አሃዶችን (SI Units) አለማካተት፣ እና በሂሳባዊ ስሌቶች ወቅት ምልክቶችን (+/-) ማዛባት ይገኙበታል። ጥያቄዎችን ከመመለስ በፊት የተሰጡትን መጠኖች በሚገባ መመርመር ያስፈልጋል።"
+          }
+        ],
+        "keyTerms": [
+          {
+            "term": "Introduction",
+            "meaning": "በምዕራፍ \"Chemical Reactions\" ውስጥ የተካተተ መሰረታዊ የትምህርት ፅንሰ-ሀሳብ።"
+          },
+          {
+            "term": "የኢትዮጵያ ስርዓተ-ትምህርት መመሪያ (MoE)",
+            "meaning": "በትምህርት ሚኒስቴር የታተመውን የመማሪያ መጽሐፍ መስፈርት የጠበቀ የብቃት ደረጃ።"
+          },
+          {
+            "term": "ደረጃ በደረጃ ስሌት (Step-by-Step Method)",
+            "meaning": "የተሰጡትን መረጃዎች ተጠቅሞ ወደ መጨረሻው ትክክለኛ መልስ የሚያደርስ ስርዓት።"
+          },
+          {
+            "term": "ዋናው ቀመር (Governing Formula)",
+            "meaning": "በዚህ ርዕስ ስር ያሉ ተለዋዋጭ መጠኖችን የሚያገናኝ የሂሳብ ወይም የሳይንስ ህግ።"
+          },
+          {
+            "term": "የመለኪያ አሃዶች አንድነት (SI Units)",
+            "meaning": "በስሌት ወቅት መለኪያዎችን ወደ መደበኛ አሃድ የመቀየር እና የማጣጣም ግዴታ።"
+          }
+        ],
+        "workedExamples": [
+          {
+            "title": "ምሳሌ 1፡ የመግቢያ ተግባራዊ ስሌት ለIntroduction",
+            "problem": "በክፍል 10 Chemistry መማሪያ መጽሐፍ (Grade 10 MoE Textbook) መሰረት የተሰጡትን መረጃዎች ተጠቅማችሁ ለIntroduction የሚፈለገውን የመጨረሻ ውጤት በደረጃ አስሉ።",
+            "steps": [
+              "ደረጃ 1፡ የተሰጡ (Given) እና የሚፈለጉ (Required) መጠኖችን ለይቶ መመዝገብ።",
+              "ደረጃ 2፡ ለዚህ ርዕስ ተገቢውን ዋና ቀመር (Governing Formula) ከመጽሐፉ መምረጥ።",
+              "ደረጃ 3፡ ቁጥራዊ እሴቶችን ወደ ቀመሩ በማስገባት ደረጃ በደረጃ ማስላት።",
+              "ደረጃ 4፡ የመጨረሻውን መልስ ከተገቢው መለኪያ አሃድ (SI Unit) ጋር መግለጽ።"
+            ],
+            "answer": "ስሌቱ በትክክል ተሰርቶ የመጨረሻው ውጤት ተገኝቷል።"
+          },
+          {
+            "title": "ምሳሌ 2፡ ከኢትዮጵያ ነባራዊ ሁኔታ የተወሰደ ጥያቄ",
+            "problem": "በአንድ የሀገር ውስጥ የልማት ስራ ላይ የIntroduction መርሆችን በመጠቀም የተገኘውን ውጤት ተንትኑ።",
+            "steps": [
+              "ደረጃ 1፡ ችግሩን በChemistry መርሆች መሰረት ወደ ሂሳባዊ/ሳይንሳዊ ሞዴል መቀየር።",
+              "ደረጃ 2፡ አስፈላጊ የሆኑ ቅድመ-ሁኔታዎችን እና መለኪያዎችን ማስተካከል።",
+              "ደረጃ 3፡ ቀመሩን በመጠቀም ስሌቱን አጠናቆ መልሱን ማረጋገጥ።"
+            ],
+            "answer": "የተገኘው ውጤት የመማሪያ መጽሐፉን የብቃት መለኪያ ያሟላል።"
+          }
+        ],
+        "activity": {
+          "title": "የመማሪያ መጽሐፍ ተግባራዊ ሙከራ እና የላብራቶሪ ስራ፡ Introduction",
+          "type": "lab_experiment",
+          "materials": [
+            "የማስታወሻ ደብተር እና እስክሪብቶ",
+            "መለኪያ ማስመሪያ/መሳሪያ",
+            "የክፍል 10 የመማሪያ መጽሐፍ (Grade 10 MoE Textbook)",
+            "ቀላል የሙከራ እቃዎች ወይም የቤት ውስጥ ቁሳቁሶች"
+          ],
+          "steps": [
+            "በዚህ ክፍል የተገለጹትን ዋና ዋና ህጎችና ቀመሮች ከመማሪያ መጽሐፉ ገጽ ላይ በደብተርዎ ላይ ይመዝግቡ።",
+            "በአካባቢዎ ወይም በቤትዎ ውስጥ ይህን መርህ በተግባር የሚያሳዩ ሁለት ምሳሌዎችን ወይም ቁሳቁሶችን ይለዩ።",
+            "ያዩትን መረጃና ልኬት በትክክል በመመዝገብ ቀመሩን ተጠቅመው ስሌቱን ደረጃ በደረጃ ያከናውኑ።",
+            "የተለዋዋጭ መጠኖችን (Variables) ለውጥ በሰንጠረዥ አደራጁ።",
+            "ያገኙትን ውጤት ከመማሪያ መጽሐፉ ማጠቃለያ ጋር ያመሳክሩ።"
+          ],
+          "observe": "የመማሪያ መጽሐፉ ፅንሰ-ሀሳብ በተጨባጭ በዕለት ተዕለት ሕይወት ውስጥ እንዴት እንደሚተገበር እና ተመጣጣኝ ለውጥ እንደሚያሳይ ይገነዘባሉ።",
+          "answer": "የመማሪያ መጽሐፍ የተግባር ሙከራው ደረጃ በደረጃ አሰራር እና ትክክለኛ መልስ፡\n1. የተሰጡ ልኬቶች ትንታኔ፡ በተግባራዊ ሙከራው ወቅት የተመዘገቡት መጠኖች በመማሪያ መጽሐፉ ገጽ Grade 10 MoE Textbook ላይ ከተጠቀሰው ዋና ቀመር ጋር 100% የሚጣጣሙ ናቸው።\n2. የደረጃ በደረጃ ስሌት፡ የተገኙት ቁጥሮች በቀመሩ ሲሰሉ ቋሚ እሴት (Constant) ይሰጣሉ፤ ይህም የተመጣጣኝነት ህጉን ያረጋግጣል።\n3. ትምህርታዊ ማጠቃለያ፡ ይህ ሙከራ Introduction በንድፈ-ሀሳብ ብቻ ሳይሆን በተጨባጭ የሚሰራ የተፈጥሮ/የሂሳብ ህግ መሆኑን ያረጋግጣል።",
+          "stepByStepSolution": [
+            "ደረጃ 1፡ የሙከራውን ቁሳቁሶች በንጽህና እና በደህንነት ማዘጋጀትና የመጀመሪያ እሴቶችን መመዝገብ።",
+            "ደረጃ 2፡ ሂደቱን ቢያንስ ለ3 ተከታታይ ጊዜያት በመድገም አማካይ ቁጥር (Mean Value) መውሰድ።",
+            "ደረጃ 3፡ ከመማሪያ መጽሐፉ የተገኘውን ቀመር በመጠቀም ውጤቱን ደረጃ በደረጃ ማስላት።",
+            "ደረጃ 4፡ የተገኘውን መልስ በማጠቃለል የብቃት ደረጃው መሟላቱን ማረጋገጥ።"
+          ]
+        },
+        "illustrations": [
+          {
+            "title": "የኬሚካል ምላሽ እና የሞለኪዩል ለውጥ ዲያግራም",
+            "caption": "የሪአክታንቶች መሰባበር እና የአዳዲስ ኬሚካላዊ ትስስሮች መፈጠር",
+            "type": "diagram",
+            "svg": "<svg viewBox=\"0 0 500 220\" xmlns=\"http://www.w3.org/2000/svg\" class=\"w-full h-auto max-h-60 rounded-2xl bg-slate-900 border border-slate-700/60 p-2\">\n          <circle cx=\"100\" cy=\"110\" r=\"45\" fill=\"#6366f1\" fill-opacity=\"0.4\" stroke=\"#818cf8\" stroke-width=\"2\"/>\n          <circle cx=\"140\" cy=\"110\" r=\"30\" fill=\"#ec4899\" fill-opacity=\"0.4\" stroke=\"#f472b6\" stroke-width=\"2\"/>\n          <text x=\"110\" y=\"115\" fill=\"#ffffff\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\">Reactants [A + B]</text>\n          <path d=\"M 210 110 L 290 110\" stroke=\"#10b981\" stroke-width=\"4\" stroke-dasharray=\"6,4\"/>\n          <polygon points=\"290,105 305,110 290,115\" fill=\"#10b981\"/>\n          <text x=\"250\" y=\"95\" fill=\"#34d399\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\">Activation Energy (E_a)</text>\n          <circle cx=\"380\" cy=\"110\" r=\"50\" fill=\"#10b981\" fill-opacity=\"0.4\" stroke=\"#34d399\" stroke-width=\"2\"/>\n          <text x=\"380\" y=\"115\" fill=\"#ffffff\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\">Products [C + D]</text>\n          <text x=\"250\" y=\"195\" fill=\"#94a3b8\" font-size=\"11\" text-anchor=\"middle\">MoE Standard Thermochemical & Stoichiometric Framework</text>\n        </svg>"
+          }
+        ],
+        "graphs": [
+          {
+            "title": "Introduction - Linear Relationship Curve",
+            "type": "line",
+            "xLabel": "ተለዋዋጭ መጠን (X)",
+            "yLabel": "ጥገኛ መጠን (Y)",
+            "series": [
+              {
+                "name": "የንድፈ-ሀሳብ ኩርባ",
+                "points": [
+                  {
+                    "x": 0,
+                    "y": 0
+                  },
+                  {
+                    "x": 1,
+                    "y": 2
+                  },
+                  {
+                    "x": 2,
+                    "y": 4
+                  },
+                  {
+                    "x": 3,
+                    "y": 6
+                  },
+                  {
+                    "x": 4,
+                    "y": 8
+                  }
+                ]
+              }
+            ],
+            "caption": "በIntroduction ስሌት ውስጥ የቀጥታ ተመጣጣኝነትን (Direct Proportionality) የሚያሳይ ግራፍ።"
+          }
+        ],
+        "summary": [
+          "Introduction በክፍል 10 Chemistry ሥርዓተ-ትምህርት ውስጥ ቁልፍ የሆነ የመማሪያ ብቃት ነው።",
+          "ችግሮችን ለመፍታት በመጀመሪያ የተሰጡትን መጠኖች ለይቶ ማወቅ እና ትክክለኛውን ቀመር መምረጥ ያስፈልጋል።",
+          "በስሌት ወቅት ሁልጊዜም የመለኪያ አሃዶችን (SI Units) እና ደረጃ በደረጃ ቅደም ተከተልን መከተል ወሳኝ ነው።",
+          "የመማሪያ መጽሐፉ የተግባር ሙከራዎች (Activities) ንድፈ-ሀሳቡን ወደ ተጨባጭ ልምድ ይቀይሩታል።",
+          "የርዕሱን ሀገራዊና ተግባራዊ ፋይዳ መረዳት ለብሔራዊ ፈተናዎች እና ለቀጣይ ክፍሎች ከፍተኛ ዝግጁነት ይፈጥራል።"
+        ],
+        "reviewQuestions": [
+          {
+            "id": 1,
+            "question": "በክፍል 10 Chemistry መሠረት የIntroduction ዋና ዓላማ ምንድን ነው?",
+            "options": [
+              "ሀ. ፅንሰ-ሀሳቡን በሳይንሳዊ እና በተዋቀረ መንገድ ተረድቶ በተግባር መተግበር",
+              "ለ. ያለምንም ማረጋገጫ ቁጥሮችን በዘፈቀደ መገመት",
+              "ሐ. የመለኪያ አሃዶችን ችላ ማለት",
+              "መ. መልሶችን ብቻ በቃል መሸምደድ"
+            ],
+            "correctIndex": 0,
+            "explanation": "የኢትዮጵያ ስርዓተ-ትምህርት ዋና ግብ ተማሪዎች የትምህርቱን ፅንሰ-ሀሳብ በሚገባ ተረድተው በተግባር እንዲተገብሩ ማስቻል ነው።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የጥያቄውን ዋና ፍላጎት መረዳት እና የርዕሱን ዓላማ ከመማሪያ መጽሐፉ ማመሳከር።",
+              "ደረጃ 2፡ የትምህርት ሚኒስቴር (MoE) የብቃት መለኪያ ተግባራዊ እውቀትን እንጂ በግምት መመለስን እንደማያበረታታ ማረጋገጥ።",
+              "ደረጃ 3፡ ስለዚህ ትክክለኛው መልስ 'ሀ' መሆኑ ደረጃ በደረጃ ይረጋገጣል።"
+            ]
+          },
+          {
+            "id": 2,
+            "question": "ለIntroduction ስሌት ከመስራታችን በፊት ቅድሚያ ልናከናውነው የሚገባው ወሳኝ ተግባር የቱ ነው?",
+            "options": [
+              "ሀ. የተሰጡትን መረጃዎች ወደ መደበኛ መለኪያ አሃድ (SI Unit) መቀየር",
+              "ለ. ጥያቄውን ሳያነቡ ቀጥታ ማስላት",
+              "ሐ. የመደመር እና የመቀነስ ምልክቶችን ማጥፋት",
+              "መ. የመጀመሪያውን ቁጥር ብቻ እንደ መልስ መውሰድ"
+            ],
+            "correctIndex": 0,
+            "explanation": "የመለኪያ አሃዶችን ወደ አንድ ወጥ የሆነ SI Unit መቀየር የስሌት ስህተቶችን ያስቀራል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ በችግሩ ውስጥ የተሰጡትን የመለኪያ አሃዶች መፈተሽ (ለምሳሌ ሴንቲሜትር ከሆነ ወደ ሜትር)።",
+              "ደረጃ 2፡ ቀመሩ ላይ ከመተካታቸው በፊት ሁሉም አሃዶች ወደ አለምአቀፍ SI Unit እንዲቀየሩ ማድረግ።",
+              "ደረጃ 3፡ ትክክለኛው መልስ አማራጭ 'ሀ' መሆኑን ማረጋገጥ።"
+            ]
+          },
+          {
+            "id": 3,
+            "question": "የIntroduction መርሆች በኢትዮጵያ ነባራዊ ሁኔታ የት ላይ በስፋት ጥቅም ላይ ይውላሉ?",
+            "options": [
+              "ሀ. በሀገራዊ የልማት ፕሮጀክቶች (እንደ ህዳሴ ግድብ)፣ በፋይናንስ እና በግብርና እቅድ",
+              "ለ. ከክፍል ውጭ ምንም አይነት ተግባራዊ ፋይዳ የላቸውም",
+              "ሐ. በታሪክ መዝገቦች ላይ ብቻ",
+              "መ. በጥንታዊ አፈ-ታሪኮች ውስጥ ብቻ"
+            ],
+            "correctIndex": 0,
+            "explanation": "ይህ ርዕስ በሀገራችን የኢነርጂ፣ የኢኮኖሚ፣ የግብርና እና የቴክኖሎጂ ስራዎች ውስጥ ቀጥተኛ ጠቀሜታ አለው።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የIntroductionን ተዛማጅነት ከሀገራዊ ኢንዱስትሪና ልማት ጋር ማገናዘብ።",
+              "ደረጃ 2፡ በኢትዮጵያ ውስጥ ያሉ ትልልቅ ፕሮጀክቶች ይህን ሳይንሳዊ መርህ እንደሚጠቀሙ መገንዘብ።",
+              "ደረጃ 3፡ ትክክለኛው መልስ 'ሀ' መሆኑን ማጠቃለል።"
+            ]
+          },
+          {
+            "id": 4,
+            "question": "በዚህ ርዕስ ስር የሂሳብ ወይም ሳይንሳዊ ጥያቄዎችን በደረጃ ለመስራት የመጀመሪያው እርምጃ ምንድን ነው?",
+            "options": [
+              "ሀ. የተሰጡ (Given) እና የሚፈለጉ (Required) መጠኖችን ለይቶ መመዝገብ",
+              "ለ. ቀመሩን ሳያውቁ በግምት መመለስ",
+              "ሐ. ደረጃዎችን ሳያሳዩ መጨረሻውን ብቻ መጻፍ",
+              "መ. የሌላ ተማሪን ደብተር መመልከት"
+            ],
+            "correctIndex": 0,
+            "explanation": "የተሰጡ እና የሚፈለጉ መጠኖችን መለየት የስሌቱን አቅጣጫ ግልጽ ያደርገዋል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የችግሩን ፅሁፍ በጥንቃቄ በማንበብ ቁጥራዊ እሴቶችን መለየት።",
+              "ደረጃ 2፡ Given (የተሰጡ) እና Required (የሚፈለጉ) ተብለው በግልጽ እንዲቀመጡ ማድረግ።",
+              "ደረጃ 3፡ ይህ ስልት የስሌት ስህተትን ስለሚያስቀር 'ሀ' ትክክለኛ ምርጫ ነው።"
+            ]
+          },
+          {
+            "id": 5,
+            "question": "የተገኘው የመጨረሻ ውጤት ትክክል መሆኑን እንዴት ማረጋገጥ ይቻላል?",
+            "options": [
+              "ሀ. የመለኪያ አሃዱን እና የቁጥሩን ምክንያታዊነት በማረጋገጥ (Sanity Check)",
+              "ለ. ቀመሩን በዘፈቀደ በመቀየር",
+              "ሐ. መካከለኛውን ስሌት በሙሉ በማጥፋት",
+              "መ. የመጣውን ቁጥር ሳያረጋግጡ በመቀበል"
+            ],
+            "correctIndex": 0,
+            "explanation": "የውጤቱን ምክንያታዊነት እና የመለኪያ አሃድ ማረጋገጥ ትክክለኛውን መልስ ያረጋግጣል።",
+            "stepByStepSolution": [
+              "ደረጃ 1፡ የመጨረሻውን የቁጥር መጠን ከርዕሱ ተጨባጭ እውነታ ጋር ማመሳከር።",
+              "ደረጃ 2፡ የግራና የቀኝ የመለኪያ አሃዶች እኩል መሆናቸውን (Unit Balance) ማረጋገጥ።",
+              "ደረጃ 3፡ አማራጭ 'ሀ' ትክክለኛ የሳይንሳዊ ማረጋገጫ ዘዴ መሆኑን ማጠቃለል።"
+            ]
+          }
+        ],
+        "realLifeConnection": {
+          "title": "ከዕለታዊ ህይወት ጋር ያለው ቁርኝት፡ Introduction",
+          "summary": "የኬሚስትሪ መርሆች ከኩሽናችን የዳቦ እና የእንጀራ እርሾ ዝግጅት አንስቶ እስከ ንጹህ የመጠጥ ውሃ ማጣሪያ እና የጨጓራ መድሃኒቶች ድረስ በየእለቱ ይተገበራሉ።",
+          "dailyScenarios": [
+            {
+              "title": "የጨጓራ አሲድ እና የአንታሲድ መድሃኒቶች ተግባር",
+              "scenario": "በጨጓራችን ውስጥ የሃይድሮክሎሪክ አሲድ (HCl) መጠን ሲጨምር፣ የምንወስዳቸው እንደ ማግኒዥየም ሃይድሮክሳይድ ያሉ መድሃኒቶች አሲዱን አክስመው (Neutralize አድርገው) ወደ ጨው እና ውሃ በመቀየር ፈጣን እፎይታ ይሰጣሉ።",
+              "practicalTakeaway": "ትንሽ ቤኪንግ ሶዳ በውሃ በጥብጦ መጠጣት የአሲድ እና የቤዝ ኬሚካላዊ ምላሽ በመፍጠር አሲድን ወዲያውኑ ያረጋጋል።"
+            },
+            {
+              "title": "የእንጀራ እርሾ እና የባህላዊ መጠጦች ዝግጅት",
+              "scenario": "የኢትዮጵያ እንጀራ ሲጋገጥ የጤፍ ሊጥ ለ 3-4 ቀናት በእርሾ ባክቴሪያዎች አማካኝነት ይቦካል (Fermentation)። ይህም የካርቦን ዳይኦክሳይድ ጋዝ በማመንጨት እንጀራው የሚያምሩ አይኖች እንዲያወጣ ያደርገዋል።",
+              "practicalTakeaway": "የክፍሉን ሙቀት መቆጣጠር የኬሚካላዊ ምላሹን ፍጥነት ይጨምራል፤ ይህም ሊጡ በፍጥነት እንዲቦካ ያደርጋል።"
+            }
+          ],
+          "ethiopianContext": "በሙገር እና በዳንጎቴ ሲሚንቶ ፋብሪካዎች የኖራ ድንጋይ በከፍተኛ ሙቀት ተቃጥሎ ወደ ካልሲየም ኦክሳይድ በመቀየር ለግንባታ የሚሆን ጠንካራ ሲሚንቶ ይዘጋጃል።"
+        },
+        "programmingAndAiConnection": {
+          "title": "ከProgramming እና Artificial Intelligence ጋር ያለው ቁርኝት፡ Introduction",
+          "algorithmicThinking": "ኬሚካላዊ ሞለኪዩሎች በኮምፒውተር ሳይንስ ውስጥ እንደ ግራፍ (Graph Data Structure) ይወከላሉ—አቶሞች እንደ ኖዶች፣ ትስስሮቻቸው ደግሞ እንደ መስመሮች ይቀመጣሉ። የኬሚካል ቀመሮችን ማመጣጠን በሊኒየር አልጀብራ ማትሪክስ ይሰራል።",
+          "codeSnippet": {
+            "language": "python",
+            "code": "# Chemical Molar Mass & Reaction Balancer in Python\nELEMENTS = {\"H\": 1.008, \"C\": 12.011, \"O\": 15.999, \"Na\": 22.990, \"Cl\": 35.45}\n\ndef calculate_molar_mass(formula_dict):\n    \"\"\"Computes total molar mass in g/mol from element stoichiometry\"\"\"\n    total_mass = sum(ELEMENTS.get(elem, 0) * count for elem, count in formula_dict.items())\n    return round(total_mass, 2)\n\n# Water (H2O) and Salt (NaCl)\nprint(\"H2O Molar Mass:\", calculate_molar_mass({\"H\": 2, \"O\": 1}), \"g/mol\")\nprint(\"NaCl Molar Mass:\", calculate_molar_mass({\"Na\": 1, \"Cl\": 1}), \"g/mol\")",
+            "explanation": "ይህ የፓይዘን ስክሪፕት የኬሚስትሪ ሶፍትዌሮች የአቶሚክ ክብደቶችን እና የሞለኪዩል መጠኖችን በኮድ እንዴት እንደሚያሰሉ ያሳያል።"
+          },
+          "aiApplications": [
+            {
+              "area": "የአዳዲስ መድሃኒቶች እና ሞለኪዩሎች AI ምርምር (AlphaFold)",
+              "description": "አርቴፊሻል ኢንተለጀንስ የሞለኪዩሎችን 3D ቅርጽ በሰከንዶች ውስጥ በመተንበይ ለአዳዲስ በሽታዎች ፈዋሽ መድሃኒቶችን በኮምፒውተር ይቀይሳል።"
+            },
+            {
+              "area": "የአካባቢ ብክለት እና የውሃ ጥራት መቆጣጠሪያ AI",
+              "description": "ዘመናዊ የውሃ መመርመሪያ ዳሳሾች የኬሚካል መርዞችን እና ብክለትን በ AI አልጎሪዝም ወዲያውኑ በመለየት ንጹህ ውሃ መኖሩን ያረጋግጣሉ።"
+            }
+          ],
+          "futureSkillsTip": "ኬሚስትሪን ከኮዲንግ ጋር ማጣመር በዘመናዊ የባዮቴክኖሎጂ፣ የመድሃኒት ምርምር እና የኤሌክትሪክ ባትሪ ቴክኖሎጂ ውስጥ ተፈላጊ ባለሙያ ያደርጋል።"
+        }
+      },
+      "grounded": true,
+      "sources": []
+    },
+    "modelUsed": "test-cache-generator",
+    "hitCount": 2,
+    "firstGeneratedAt": "2026-11-09T15:51:37.567Z",
+    "lastRetrievedAt": "2026-11-09T15:51:37.568Z",
+    "meta": {
+      "grade": "10",
+      "subject": "CHEM-10",
+      "topic": "1.1 Introduction"
+    }
+  }
+]

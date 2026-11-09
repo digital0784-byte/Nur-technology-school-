@@ -3,6 +3,10 @@ import { GRADE_9_MATH_SUBJECT } from './grade9Math';
 import { GRADE_9_PHYSICS_SUBJECT } from './grade9Physics';
 import { GRADE_9_ECONOMICS_SUBJECT } from './grade9Economics';
 import { GRADE_10_MATH_SUBJECT, GRADE_10_PHYSICS_SUBJECT } from './grade10Curriculum';
+import { MOE_BOOKS_PART_1 } from './moeBooksPart1';
+import { MOE_BOOKS_PART_2 } from './moeBooksPart2';
+import { MOE_BOOKS_PART_3 } from './moeBooksPart3';
+import { MOE_BOOKS_PART_4 } from './moeBooksPart4';
 
 export const CURRICULUM_DATA: CurriculumSubject[] = [
   // ================= GRADE 9 =================
@@ -278,67 +282,10 @@ export const CURRICULUM_DATA: CurriculumSubject[] = [
       },
     ],
   },
-  {
-    id: 'g12-phys',
-    code: 'PHYS-12',
-    grade: 12,
-    icon: 'Radioactive',
-    color: 'amber',
-    name: {
-      am: 'የ12ኛ ክፍል ፊዚክስ',
-      om: 'Fiiziksii Kutaa 12',
-      ti: 'ፊዚክስ 12 ክፍሊ',
-      ar: 'فيزياء الصف 12 (المتقدمة)',
-      so: 'Fisikiska Fasalka 12',
-      en: 'Grade 12 Advanced Physics',
-    },
-    units: [
-      {
-        id: 'g12-phys-u1',
-        unitNumber: 1,
-        title: 'Thermodynamics & Heat Engines',
-        description: 'First and second laws of thermodynamics, Carnot cycle, heat pumps, and entropy.',
-        topics: [
-          {
-            id: 'g12-p-t1',
-            title: 'The Carnot Cycle and Efficiency',
-            competencyObjectives: [
-              'Calculate maximum theoretical Carnot efficiency η = 1 - (T_C / T_H)',
-              'Explain PV diagrams for isothermal and adiabatic expansions',
-              'Analyze geothermal energy plants in the Ethiopian Great Rift Valley',
-            ],
-            summary: 'Thermal cycle analysis and irreversible thermodynamic processes.',
-            content: 'Thermodynamic principles underpin modern energy generation across Ethiopia.',
-            ethiopianExample: 'Aluto-Langano and Corbetti Geothermal power production in the Ethiopian Rift.',
-            estimatedStudyMinutes: 50,
-            pageReference: 'MoE Grade 12 Physics, pp. 1-54',
-          },
-        ],
-      },
-      {
-        id: 'g12-phys-u2',
-        unitNumber: 2,
-        title: 'Wave Motion and Physical Optics',
-        description: 'Superposition, interference, diffraction grating, polarization, and Doppler effect.',
-        topics: [
-          {
-            id: 'g12-p-t2',
-            title: 'Young’s Double-Slit & Wave Interference',
-            competencyObjectives: [
-              'Derive constructive and destructive interference conditions: d sin θ = m λ',
-              'Calculate fringe widths and wavelength of laser sources',
-              'Solve EUEE optical physics questions with speed and precision',
-            ],
-            summary: 'Wave nature of light, diffraction patterns, and laser technologies.',
-            content: 'Wave mechanics is central to telecommunications and optical fiber networks.',
-            ethiopianExample: 'Ethio Telecom national fiber optic backbone and optical dispersion.',
-            estimatedStudyMinutes: 45,
-            pageReference: 'MoE Grade 12 Physics, pp. 55-102',
-          },
-        ],
-      },
-    ],
-  },
+  ...MOE_BOOKS_PART_1,
+  ...MOE_BOOKS_PART_2,
+  ...MOE_BOOKS_PART_3,
+  ...MOE_BOOKS_PART_4,
 ];
 
 // Helper to filter subjects by grade

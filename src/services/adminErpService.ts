@@ -2,6 +2,8 @@ import { AdminKpiStats, StudentRegistryRecord, DrmCurriculumConfig, DrmTextbookR
 import { GradeLevel } from '../types';
 import { PaymentSubmission, GradePricingConfig } from '../types/payment';
 import { PaymentService, SUPER_ADMIN_EMAIL, SUPER_ADMIN_NAME } from './paymentService';
+import { doc, setDoc } from 'firebase/firestore';
+import { db, isFirebaseConfigured } from './firebase';
 
 const STORAGE_KEY_STUDENTS = 'nur_admin_student_registry_v1';
 const STORAGE_KEY_DRM_CONFIG = 'nur_admin_drm_config_v1';
@@ -221,6 +223,10 @@ export class AdminErpService {
     students[idx].isGradeLocked = !students[idx].isGradeLocked;
     this.saveStudents(students);
 
+    if (isFirebaseConfigured) {
+      setDoc(doc(db, 'users', studentId), { isGradeLocked: students[idx].isGradeLocked }, { merge: true }).catch(() => {});
+    }
+
     this.logAudit({
       actor: adminEmail,
       action: students[idx].isGradeLocked ? 'GRADE_LOCK_ENFORCED' : 'GRADE_LOCK_OVERRIDDEN',
@@ -258,6 +264,20 @@ export class AdminErpService {
     };
     localStorage.setItem('app_student_subscriptions_v2', JSON.stringify(allSubs));
 
+    if (isFirebaseConfigured) {
+      setDoc(
+        doc(db, 'users', studentId),
+        {
+          isPremium: true,
+          premiumExpiresAt: expiresAt,
+          subscriptionStatus: 'ACTIVE',
+        },
+        { merge: true }
+      ).catch(() => {});
+
+      setDoc(doc(db, 'subscriptions', studentId), allSubs[studentId], { merge: true }).catch(() => {});
+    }
+
     this.logAudit({
       actor: adminEmail,
       action: 'MANUAL_PASS_GRANTED',
@@ -277,6 +297,10 @@ export class AdminErpService {
 
     students[idx].registeredDevicesCount = 0;
     this.saveStudents(students);
+
+    if (isFirebaseConfigured) {
+      setDoc(doc(db, 'users', studentId), { registeredDevicesCount: 0 }, { merge: true }).catch(() => {});
+    }
 
     this.logAudit({
       actor: adminEmail,

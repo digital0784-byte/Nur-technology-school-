@@ -144,12 +144,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const normalizeProfile = (id: string, d: any): UserProfile => {
   const isSuperAdminEmail = checkIsSuperAdmin(d.email, d.phone, d.role);
+  let resolvedRole: UserProfile['role'] = 'student';
+  if (isSuperAdminEmail || d.role === 'super_admin' || d.role === 'admin') {
+    resolvedRole = 'super_admin';
+  } else if (d.role === 'teacher') {
+    resolvedRole = 'teacher';
+  } else if (d.role === 'parent') {
+    resolvedRole = 'parent';
+  }
+
   return {
     ...d,
     id,
     name: String(d.name || (isSuperAdminEmail ? 'Nuriye Ahmed Adem' : '')),
     email: String(d.email || (isSuperAdminEmail ? 'mejennur669@gmail.com' : '')),
-    role: isSuperAdminEmail ? 'super_admin' : 'student',
+    role: resolvedRole,
     grade: ([9, 10, 11, 12].includes(Number(d.grade)) ? Number(d.grade) : 9) as GradeLevel,
     isGradeLocked: isSuperAdminEmail ? false : d.isGradeLocked === true,
     xp: Number(d.xp) || 0,
@@ -167,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeGrade, setActiveGradeState] = useState<GradeLevel>(9);
+  const registrationInFlightRef = React.useRef<string | null>(null);
 
   const [guestProfile, setGuestProfile] = useState<UserProfile>(INITIAL_GUEST_PROFILE);
 
@@ -181,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  // 2) Follow the signed-in user's Firestore profile (single source of truth).
+  // 2) Follow the signed-in user's Firestore profile (single canonical source of truth at users/{auth.uid}).
   useEffect(() => {
     if (!firebaseUser) return;
     setAuthLoading(true);
@@ -197,10 +207,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setDoc(doc(db, 'users', firebaseUser.uid), { role: 'super_admin', isPremium: true }, { merge: true }).catch(() => {});
           }
         } else {
+          // If a registration is currently in-flight, avoid writing an empty default profile with grade 9
+          if (registrationInFlightRef.current === firebaseUser.email) {
+            setAuthLoading(false);
+            return;
+          }
           const def = createDefaultStudentProfile(firebaseUser, activeGrade);
           setProfile((prev) => prev ?? def);
-          // Create the Firestore doc if missing
-          setDoc(doc(db, 'users', firebaseUser.uid), def, { merge: true }).catch(() => {});
+          // Create the Firestore doc if missing using merge: true to avoid overwriting existing fields
+          setDoc(doc(db, 'users', firebaseUser.uid), def, { merge: true }).catch((err) => {
+            console.warn('Profile creation notice:', err);
+          });
         }
         setAuthLoading(false);
       },
@@ -235,48 +252,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = useCallback(async ({ name, email, password, grade }: RegisterParams) => {
-    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-    const isSuper = checkIsSuperAdmin(cred.user.email || email, null);
-    const assignedRole = isSuper ? 'super_admin' : 'student';
-
-    const newProfile: UserProfile = {
-      id: cred.user.uid,
-      name: name.trim(),
-      email: cred.user.email || email.trim(),
-      role: assignedRole,
-      grade,
-      isGradeLocked: !isSuper,
-      enrolledAt: new Date().toISOString().split('T')[0],
-      xp: 0,
-      streakDays: 1,
-      completedLessonsCount: 0,
-      quizzesTakenCount: 0,
-      averageScore: 0,
-      isPremium: isSuper,
-      streakFreezeAvailable: true,
-      streakFreezeActive: false,
-      gracePeriodActive: false,
-      unlockedBadges: [],
-      dailyQuizzesPassed: 0,
-      stemExperimentsCompleted: 0,
-      eueeHighScore: 0,
-      completedLessonIds: [],
-    };
-    setProfile(newProfile);
-    setActiveGradeState(grade);
-
+    const cleanEmail = email.trim();
+    registrationInFlightRef.current = cleanEmail;
     try {
-      await updateProfile(cred.user, { displayName: name.trim() });
-    } catch (e) {
-      console.warn('Could not update Auth displayName:', e);
-    }
+      const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      const isSuper = checkIsSuperAdmin(cred.user.email || cleanEmail, null);
+      const assignedRole = isSuper ? 'super_admin' : 'student';
 
-    try {
-      await setDoc(doc(db, 'users', cred.user.uid), {
+      const newProfile: UserProfile = {
         id: cred.user.uid,
-        uid: cred.user.uid,
         name: name.trim(),
-        email: cred.user.email || email.trim(),
+        email: cred.user.email || cleanEmail,
         role: assignedRole,
         grade,
         isGradeLocked: !isSuper,
@@ -295,10 +281,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         stemExperimentsCompleted: 0,
         eueeHighScore: 0,
         completedLessonIds: [],
-        createdAt: serverTimestamp(),
-      });
+      };
+      setProfile(newProfile);
+      setActiveGradeState(grade);
+
+      try {
+        await updateProfile(cred.user, { displayName: name.trim() });
+      } catch (e) {
+        console.warn('Could not update Auth displayName:', e);
+      }
+
+      await setDoc(
+        doc(db, 'users', cred.user.uid),
+        {
+          id: cred.user.uid,
+          uid: cred.user.uid,
+          name: name.trim(),
+          email: cred.user.email || cleanEmail,
+          role: assignedRole,
+          grade,
+          isGradeLocked: !isSuper,
+          enrolledAt: new Date().toISOString().split('T')[0],
+          xp: 0,
+          streakDays: 1,
+          completedLessonsCount: 0,
+          quizzesTakenCount: 0,
+          averageScore: 0,
+          isPremium: isSuper,
+          streakFreezeAvailable: true,
+          streakFreezeActive: false,
+          gracePeriodActive: false,
+          unlockedBadges: [],
+          dailyQuizzesPassed: 0,
+          stemExperimentsCompleted: 0,
+          eueeHighScore: 0,
+          completedLessonIds: [],
+          createdAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
     } catch (err) {
       console.error('Firestore user profile write notice:', err);
+      throw err;
+    } finally {
+      registrationInFlightRef.current = null;
     }
   }, []);
 

@@ -21,16 +21,23 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // User profile: students can read/update their own profile, Super Admin has full write access
+    // User profile: students can only read and update their own canonical profile, Super Admin has full write access
     match /users/{userId} {
-      // User profile: students can read/update their own profile, Super Admin has full write access
-      // CRITICAL: A registered user CANNOT change their grade or role on their own accord!
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      // Users must only access their own protected data unless verified Super Admin
+      allow read: if isOwner(userId) || isSuperAdmin();
+      // Only the authenticated user can create their own profile under their auth.uid
+      // Regular users are blocked from self-elevating to admin or super_admin
+      allow create: if isOwner(userId) && (
+        !('role' in request.resource.data) ||
+        request.resource.data.role == 'student' ||
+        isSuperAdmin()
+      );
+      // Students CANNOT change their grade, role, or premium status on their own
       allow update: if isSuperAdmin() ||
         (isOwner(userId) &&
          request.resource.data.grade == resource.data.grade &&
-         request.resource.data.role == resource.data.role);
+         request.resource.data.role == resource.data.role &&
+         (!('isPremium' in request.resource.data) || request.resource.data.isPremium == resource.data.isPremium));
       allow delete: if isSuperAdmin();
 
       // Student subcollections for progress and quiz records
@@ -40,6 +47,11 @@ service cloud.firestore {
       match /quizRecords/{quizId} {
         allow read, write: if isOwner(userId) || isSuperAdmin();
       }
+    }
+
+    // User Identity Migration Backups: Readable and writable only by Super Admin
+    match /users_migration_backup/{backupId} {
+      allow read, write: if isSuperAdmin();
     }
 
     // Curriculum subjects, units, topics, textbooks: Publicly readable by all students, writable only by Super Admin
@@ -86,7 +98,22 @@ service cloud.firestore {
         resource.data.studentId == request.auth.uid || 
         isSuperAdmin()
       );
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid ||
+        request.resource.data.studentId == request.auth.uid
+      );
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Assignment & STEM submissions: Students submit and read their own, Super Admin can grade
+    match /assignment_submissions/{subId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if isSuperAdmin();
+    }
+    match /stem_project_submissions/{subId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
       allow update, delete: if isSuperAdmin();
     }
 

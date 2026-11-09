@@ -1,0 +1,145 @@
+import { CurriculumSubject } from '../types';
+import { buildSubject } from './moeBooksHelper';
+
+export const MOE_BOOKS_PART_2: CurriculumSubject[] = [
+  buildSubject('g10-chem', 'CHEM-10', 10, 'FlaskConical', 'emerald', 'MoE Grade 10 Chemistry',
+    { am: 'ኬሚስትሪ', om: 'Keemistirii', ti: 'ኬሚስትሪ', ar: 'الكيمياء', so: 'Kimistari', en: 'Chemistry' },
+    [
+    [1, 'Chemical Reactions and Stoichiometry', 1, 50, [
+      ['1.1', 'Introduction', 2, 2],
+      ['1.2', 'Chemical Equations', 3, 10],
+      ['1.3', 'Types of Chemical Reactions', 11, 19],
+      ['1.4', 'Oxidation and Reduction Reactions', 20, 27],
+      ['1.5', 'Molecular and Formula Masses, the Mole Concept and Chemical Formulas', 28, 33],
+      ['1.6', 'Stoichiometry', 34, 50],
+    ]],
+    [2, 'Solutions', 51, 108, [
+      ['2.1', 'Heterogeneous and Homogeneous Mixtures', 53, 58],
+      ['2.2', 'The Solution Process', 59, 72],
+      ['2.3', 'Solubility as an Equilibrium Process', 73, 80],
+      ['2.4', 'Ways of Expressing Concentration of Solution', 81, 93],
+      ['2.5', 'Preparation of Solutions', 94, 97],
+      ['2.6', 'Solution Stoichiometry', 98, 100],
+      ['2.7', 'Describing Reactions in Solution', 101, 108],
+    ]],
+    [3, 'Important Inorganic Compounds', 109, 165, [
+      ['3.1', 'Introduction', 110, 110],
+      ['3.2', 'Oxides', 111, 121],
+      ['3.3', 'Acids', 122, 139],
+      ['3.4', 'Bases', 140, 147],
+      ['3.5', 'Salts', 148, 165],
+    ]],
+    [4, 'Energy Changes and Electrochemistry', 166, 197, [
+      ['4.1', 'Introduction', 167, 173],
+      ['4.2', 'Energy Changes in Electrochemistry', 174, 181],
+      ['4.3', 'Electrochemical Cells', 182, 186],
+      ['4.4', 'Electrolysis', 187, 197],
+    ]],
+    [5, 'Metals and Nonmetals', 198, 233, [
+      ['5.1', 'Introduction', 199, 199],
+      ['5.2', 'General Properties of Metals and Production of Some Metals', 200, 217],
+      ['5.3', 'Production of Some Important Nonmetals', 218, 233],
+    ]],
+    [6, 'Hydrocarbons and Their Natural Sources', 234, null, [
+      ['6.1', 'Introduction', 235, 239],
+      ['6.2', 'Saturated Hydrocarbons: Alkanes (Cn H2n+2)', 240, 261],
+      ['6.3', 'Unsaturated Hydrocarbons: Alkenes, Alkynes and Aromatic Hydrocarbons', 262, 284],
+      ['6.4', 'Aromatic Hydrocarbons: Benzene', 285, 289],
+      ['6.5', 'Natural Sources of Hydrocarbons', 290, null],
+    ]],
+    ]),
+  buildSubject('g11-it', 'ICT-11', 11, 'Binary', 'indigo', 'MoE Grade 11 Information Technology',
+    { am: 'ኢንፎርሜሽን ቴክኖሎጂ', om: 'Teekinooloojii Odeeffannoo', ti: 'ኢንፎርሜሽን ቴክኖሎጂ', ar: 'تكنولوجيا المعلومات', so: 'Teknoolajiyada Macluumaadka', en: 'Information Technology' },
+    [
+    [1, 'Information Systems and Its Applications', 1, 27, [
+      ['1.1', 'Data, Information, Knowledge, and Wisdom', 1, 5],
+      ['1.2', 'Introduction to Information Systems', 6, 10],
+      ['1.3', 'Applications of Information Systems', 11, 21],
+      ['1.4', 'IT for Entrepreneurship', 22, 27],
+    ]],
+    [2, 'Emerging Technologies', 28, 50, [
+      ['2.1', 'Artificial Intelligence', 28, 37],
+      ['2.2', 'Augmented Reality and Virtual Reality', 38, 43],
+      ['2.3', 'Data Science', 44, 50],
+    ]],
+    [3, 'Database Management', 51, 75, [
+      ['3.1', 'Data Management Approaches', 51, 54],
+      ['3.2', 'Data Model', 55, 62],
+      ['3.3', 'Creating Relational Database in Microsoft Access', 63, 75],
+    ]],
+    [4, 'Web Development', 76, 108, [
+      ['4.1', 'World Wide Web', 76, 77],
+      ['4.2', 'Website Design', 78, 79],
+      ['4.3', 'HTML Basics', 80, 86],
+      ['4.4', 'HTML Links', 87, 90],
+      ['4.5', 'HTML Tables', 91, 97],
+      ['4.6', 'HTML Lists', 98, 108],
+    ]],
+    [5, 'Hardware Troubleshooting and Preventive Maintenance', 109, 131, [
+      ['5.1', 'Hardware Troubleshooting', 109, 119],
+      ['5.2', 'Basics of Preventive Maintenance', 120, 131],
+    ]],
+    [6, 'Fundamentals of Programming', 132, null, [
+      ['6.1', 'Types of Programming Languages', 132, 133],
+      ['6.2', 'Basics of Python', 134, 138],
+      ['6.3', 'Variables and Data Types', 139, 147],
+      ['6.4', 'Statements and Expressions', 148, 150],
+      ['6.5', 'Writing a Simple Program', 151, null],
+    ]],
+    ]),
+  buildSubject('g11-geo', 'GEO-11', 11, 'Atom', 'emerald', 'MoE Grade 11 Geography',
+    { am: 'ጂኦግራፊ', om: 'Joograafii', ti: 'ጂኦግራፊ', ar: 'الجغرافيا', so: 'Joografi', en: 'Geography' },
+    [
+    [1, 'Formation of the Continents', 1, 26, [
+      ['1.1', 'Formation of the continents and oceans', 2, 6],
+      ['1.2', 'Geological timescale', 7, 15],
+      ['1.3', 'Distribution of the continents and oceans', 16, 20],
+      ['1.4', 'Changing position of the continents and oceans', 21, 26],
+    ]],
+    [2, 'Climate classification and Climate regions of our world', 27, 57, [
+      ['2.1', 'Criteria for climate classification', 28, 29],
+      ['2.2', 'Köppen’s climate classification', 30, 38],
+      ['2.3', 'World climatic regions', 39, 44],
+      ['2.4', 'Factors influencing the world climatic regions', 45, 51],
+      ['2.5', 'Local/indigenous climate classification of Ethiopia', 52, 57],
+    ]],
+    [3, 'Natural Resources and Conflicts Over Resources', 58, 95, [
+      ['3.1', 'The functions and management of land', 59, 62],
+      ['3.2', 'Resources under pressure', 63, 68],
+      ['3.3', 'Land resource depletion and degradation', 69, 73],
+      ['3.4', 'Transboundary rivers', 74, 78],
+      ['3.5', 'Regional cooperation for sustainable use of transboundary rivers', 79, 81],
+      ['3.6', 'Potential and actual use of water in Ethiopia, Sudan and Egypt', 82, 85],
+      ['3.7', 'Conflicts over resources', 86, 95],
+    ]],
+    [4, 'Global Population Dynamics and Challenges', 96, 122, [
+      ['4.1', 'The growth of world population', 97, 105],
+      ['4.2', 'Factors responsible for accelerated population growth', 106, 111],
+      ['4.3', 'International migrations', 112, 116],
+      ['4.4', 'Population policies', 117, 122],
+    ]],
+    [5, 'Geography and Economic Development', 123, 158, [
+      ['5.1', 'Effects of geographic location on development', 124, 134],
+      ['5.2', 'Climate extremes and poverty', 135, 144],
+      ['5.3', 'Disadvantages of landlocked countries', 145, 149],
+      ['5.4', 'Intraregional trade in Africa', 150, 158],
+    ]],
+    [6, 'Major Global Environmental Changes', 159, 183, [
+      ['6.1', 'Persistent environmental problems', 160, 171],
+      ['6.2', 'Poverty–environment nexus', 172, 176],
+      ['6.3', 'Environmental degradation and sustainable development', 177, 183],
+    ]],
+    [7, 'Geographic Issues and Public Concerns', 184, 215, [
+      ['7.1', 'Population related concerns of our contemporary world', 185, 197],
+      ['7.2', 'Land degradation and desertification', 198, 201],
+      ['7.3', 'Recurrent drought and famine', 202, 205],
+      ['7.4', 'Deforestation', 206, 207],
+      ['7.5', 'Worldwide Digital Divide', 208, 215],
+    ]],
+    [8, 'Geo-Spatial Information and Data Processing', 216, null, [
+      ['8.1', 'Representations of relief features on topographic maps', 217, 229],
+      ['8.2', 'Basic concepts of Geographical Information System (GIS)', 230, 234],
+      ['8.3', 'Arcmap and main tools', 235, null],
+    ]],
+    ]),
+];

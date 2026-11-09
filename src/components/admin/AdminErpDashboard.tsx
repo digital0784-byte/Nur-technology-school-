@@ -31,6 +31,7 @@ import {
   Plus,
   Save,
   Check,
+  Database,
 } from 'lucide-react';
 import {
   AdminKpiStats,
@@ -42,8 +43,23 @@ import {
 import { AdminErpService } from '../../services/adminErpService';
 import { GradePricingConfig, PaymentAccountConfig, PaymentSubmission } from '../../types/payment';
 import { GradeLevel } from '../../types';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db, isFirebaseConfigured } from '../../services/firebase';
+import {
+  UserMigrationService,
+  MigrationAuditReport,
+  UserAuditRecord,
+  isFirebaseUid,
+} from '../../services/userMigrationService';
 
-type AdminTab = 'kpi' | 'students' | 'payments' | 'drm_cms' | 'pricing' | 'audit_session';
+type AdminTab =
+  | 'kpi'
+  | 'students'
+  | 'payments'
+  | 'identity_migration'
+  | 'drm_cms'
+  | 'pricing'
+  | 'audit_session';
 
 export const AdminErpDashboard: React.FC = () => {
   const { isSuperAdmin: authIsSuperAdmin, currentUser } = useAuth();
@@ -66,7 +82,7 @@ export const AdminErpDashboard: React.FC = () => {
   // 1. KPI State
   const [kpis, setKpis] = useState<AdminKpiStats>(() => AdminErpService.computeKpis(allSubmissions));
 
-  // 2. Students Registry State
+  // 2. Students Registry State (Canonical UID Single Source of Truth)
   const [students, setStudents] = useState<StudentRegistryRecord[]>(() => AdminErpService.getStudents());
   const [studentSearch, setStudentSearch] = useState('');
   const [studentGradeFilter, setStudentGradeFilter] = useState<'ALL' | '9' | '10' | '11' | '12'>('ALL');
@@ -80,7 +96,17 @@ export const AdminErpDashboard: React.FC = () => {
   const [rejectionReason, setRejectionReason] = useState('የትራንዛክሽን ቁጥሩ በቴሌብር/ባንኩ አልተገኘም (Invalid FT Number)');
   const [approvalFeedback, setApprovalFeedback] = useState<string | null>(null);
 
-  // 4. DRM CMS State
+  // 4. Identity & Migration State
+  const [auditReport, setAuditReport] = useState<MigrationAuditReport | null>(null);
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<any>(null);
+  const [showConfirmMigrationModal, setShowConfirmMigrationModal] = useState(false);
+  const [backupDownloadUrl, setBackupDownloadUrl] = useState<string | null>(null);
+  const [identityFilter, setIdentityFilter] = useState<'ALL' | 'MISMATCH' | 'CANONICAL' | 'AMBIGUOUS'>('ALL');
+  const [identitySearch, setIdentitySearch] = useState('');
+
+  // 5. DRM CMS State
   const [drmConfig, setDrmConfig] = useState<DrmCurriculumConfig>(() => AdminErpService.getDrmConfig());
   const [isDrmSaved, setIsDrmSaved] = useState(false);
   const [newBookGrade, setNewBookGrade] = useState<GradeLevel>(10);
@@ -89,18 +115,70 @@ export const AdminErpDashboard: React.FC = () => {
   const [newBookUrl, setNewBookUrl] = useState('');
   const [showAddBookModal, setShowAddBookModal] = useState(false);
 
-  // 5. Pricing & Accounts State
+  // 6. Pricing & Accounts State
   const [editPricing, setEditPricing] = useState<GradePricingConfig>(pricing);
   const [editAccounts, setEditAccounts] = useState<PaymentAccountConfig[]>(accounts);
   const [isPricingSaved, setIsPricingSaved] = useState(false);
   const [isAccountsSaved, setIsAccountsSaved] = useState(false);
 
-  // 6. Security Session & 30-Minute Timer
+  // 7. Security Session & 30-Minute Timer
   const [sessionSecondsLeft, setSessionSecondsLeft] = useState<number>(30 * 60); // 30 minutes
   const [isSessionLocked, setIsSessionLocked] = useState(false);
   const [unlockPin, setUnlockPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AdminAuditEntry[]>(() => AdminErpService.getAuditEntries());
+
+  // Live Firestore subscription: Ensures all student profiles are loaded directly from users/{auth.uid}
+  useEffect(() => {
+    if (!isFirebaseConfigured || !isSuperAdmin) return;
+    const unsub = onSnapshot(
+      collection(db, 'users'),
+      (snap) => {
+        const liveList: StudentRegistryRecord[] = [];
+        snap.forEach((d) => {
+          const data = d.data();
+          if (data.isLegacyArchive) return; // skip legacy archived migration docs
+          const role = data.role || 'student';
+          const isAct = Boolean(data.isPremium);
+          let daysRem = 0;
+          if (data.premiumExpiresAt) {
+            const exp = new Date(data.premiumExpiresAt).getTime();
+            daysRem = Math.max(0, Math.ceil((exp - Date.now()) / (1000 * 60 * 60 * 24)));
+          }
+          liveList.push({
+            id: d.id, // Canonical Firebase Auth UID
+            name: data.name || (data.email ? data.email.split('@')[0] : 'Unnamed Student'),
+            email: data.email || '',
+            phone: data.phone || '',
+            grade: (Number(data.grade) || 10) as GradeLevel,
+            stream: data.stream,
+            enrolledAt: data.enrolledAt || new Date().toISOString().split('T')[0],
+            isGradeLocked: data.isGradeLocked !== false,
+            subscriptionStatus: isAct ? 'ACTIVE' : (data.subscriptionStatus || 'PENDING'),
+            daysRemaining: daysRem,
+            registeredDevicesCount: Number(data.registeredDevicesCount) || 1,
+            maxAllowedDevices: Number(data.maxAllowedDevices) || 2,
+            lastActiveAt: data.lastActiveAt || data.lastSyncedAt || new Date().toISOString(),
+            totalSpentETB: Number(data.totalSpentETB) || (isAct ? 200 : 0),
+            notes: data.notes || (role === 'super_admin' ? 'Super Admin' : `Grade ${data.grade || 10} Enrolled`),
+          });
+        });
+        if (liveList.length > 0) {
+          setStudents(liveList);
+          AdminErpService.saveStudents(liveList);
+        }
+      },
+      (err) => console.warn('Firestore live students listener notice:', err)
+    );
+    return () => unsub();
+  }, [isSuperAdmin]);
+
+  // Run audit on load if super admin
+  useEffect(() => {
+    if (isSuperAdmin && isFirebaseConfigured) {
+      UserMigrationService.auditAllUserRecords().then(setAuditReport).catch(() => {});
+    }
+  }, [isSuperAdmin]);
 
   // Keep KPI & pricing in sync with context
   useEffect(() => {
@@ -228,6 +306,56 @@ export const AdminErpDashboard: React.FC = () => {
       await rejectPayment(rejectingPaymentId, rejectionReason);
       setRejectingPaymentId(null);
       setAuditLogs(AdminErpService.getAuditEntries());
+    }
+  };
+
+  // Identity & Migration Actions
+  const handleRunAudit = async () => {
+    setIsAuditing(true);
+    setMigrationResult(null);
+    try {
+      const rep = await UserMigrationService.auditAllUserRecords();
+      setAuditReport(rep);
+    } catch (err: any) {
+      console.error('Audit failed:', err);
+    } finally {
+      setIsAuditing(false);
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    if (!auditReport) return;
+    try {
+      const bkp = await UserMigrationService.createPreMigrationBackup(
+        auditReport,
+        currentUser.email || 'mejennur669@gmail.com'
+      );
+      const blob = new Blob([JSON.stringify(bkp, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      setBackupDownloadUrl(url);
+    } catch (err: any) {
+      console.error('Backup creation failed:', err);
+    }
+  };
+
+  const handleExecuteMigration = async () => {
+    if (!auditReport) return;
+    setIsMigrating(true);
+    try {
+      const res = await UserMigrationService.executeSafeMigration(
+        auditReport,
+        currentUser.email || 'mejennur669@gmail.com'
+      );
+      setMigrationResult(res);
+      setShowConfirmMigrationModal(false);
+      // Re-run audit to reflect canonical state
+      const updated = await UserMigrationService.auditAllUserRecords();
+      setAuditReport(updated);
+    } catch (err: any) {
+      console.error('Migration failed:', err);
+      setMigrationResult({ success: false, errors: [err?.message || 'Migration failed'] });
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -502,6 +630,28 @@ export const AdminErpDashboard: React.FC = () => {
         </button>
 
         <button
+          onClick={() => {
+            setActiveTab('identity_migration');
+            if (!auditReport && !isAuditing) {
+              handleRunAudit();
+            }
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+            activeTab === 'identity_migration'
+              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200 dark:border-slate-700'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          4. Identity & UID Migration
+          {auditReport && auditReport.mismatchedCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black animate-pulse">
+              {auditReport.mismatchedCount} FIX
+            </span>
+          )}
+        </button>
+
+        <button
           onClick={() => setActiveTab('drm_cms')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
             activeTab === 'drm_cms'
@@ -510,7 +660,7 @@ export const AdminErpDashboard: React.FC = () => {
           }`}
         >
           <BookOpen className="w-4 h-4" />
-          4. Curriculum & DRM CMS
+          5. Curriculum & DRM CMS
         </button>
 
         <button
@@ -522,7 +672,7 @@ export const AdminErpDashboard: React.FC = () => {
           }`}
         >
           <Sliders className="w-4 h-4" />
-          5. Dynamic Pricing & Accounts
+          6. Dynamic Pricing & Accounts
         </button>
 
         <button
@@ -534,7 +684,7 @@ export const AdminErpDashboard: React.FC = () => {
           }`}
         >
           <KeyRound className="w-4 h-4" />
-          6. Security & Audit Trail
+          7. Security & Audit Trail
         </button>
       </div>
 
@@ -1195,7 +1345,501 @@ export const AdminErpDashboard: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: CURRICULUM & DRM TEXTBOOK CMS */}
+      {/* TAB 4: FIREBASE AUTH UID IDENTITY & MIGRATION FORTRESS */}
+      {/* ========================================================================= */}
+      {activeTab === 'identity_migration' && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* Architectural Banner */}
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 border border-indigo-500/30 text-white shadow-xl relative overflow-hidden">
+            <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+              <div className="space-y-2 max-w-3xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 text-xs font-black uppercase tracking-wider">
+                  <Database className="w-3.5 h-3.5" />
+                  Canonical Identity Architecture · Project: nur-technology-school
+                </div>
+                <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
+                  የተጠቃሚዎች ማረጋገጫ እና የFirebase Auth UID ነጠላ እውነት ማዕከል
+                </h2>
+                <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
+                  Firebase Authentication UID በአጠቃላይ ስርዓቱ ውስጥ ብቸኛው እና የመጨረሻው የተጠቃሚ መለያ (Single Source of Truth) ነው። 
+                  ሁሉም የተጠቃሚ ፕሮፋይሎች፣ የክፍያ ታሪኮች፣ እና የተማሪ ፈቃዶች በቀጥታ <span className="font-mono text-amber-300 font-bold bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30">users/&#123;auth.uid&#125;</span> ዶክመንት መንገድ ይቀመጣሉ። 
+                  የድሮ ወይም ራንደም መለያዎች (Auto-generated / Legacy IDs) ሙሉ መረጃቸው ተጠብቆ በደህንነት ወደ ትክክለኛው Auth UID ይሰደዳሉ።
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleRunAudit}
+                  disabled={isAuditing}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/30"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isAuditing ? 'animate-spin' : ''}`} />
+                  {isAuditing ? 'በመመርመር ላይ...' : 'የመረጃ ኦዲት ጀምር (Run Live Audit)'}
+                </button>
+
+                {auditReport && (
+                  <button
+                    type="button"
+                    onClick={handleCreateBackup}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-black transition-all flex items-center gap-2 border border-slate-700"
+                  >
+                    <Download className="w-4 h-4 text-emerald-400" />
+                    ባክአፕ አዘጋጅ (Backup)
+                  </button>
+                )}
+
+                {auditReport && auditReport.mismatchedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmMigrationModal(true)}
+                    disabled={isMigrating}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-600 hover:from-amber-400 hover:to-emerald-500 text-slate-950 text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-emerald-900/30"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    ስደቱን ፈጽም (Execute Migration)
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {backupDownloadUrl && (
+              <div className="mt-4 pt-4 border-t border-indigo-800/40 flex items-center justify-between text-xs">
+                <span className="text-emerald-300 font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" />
+                  የቅድመ-ስደት ባክአፕ JSON በተሳካ ሁኔታ ተዘጋጅቷል (Pre-migration backup ready)
+                </span>
+                <a
+                  href={backupDownloadUrl}
+                  download={`nur_users_pre_migration_backup_${new Date().toISOString().slice(0, 10)}.json`}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  JSON ፋይል አውርድ
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Migration Success / Error Report Banner */}
+          {migrationResult && (
+            <div
+              className={`p-4 rounded-2xl border text-sm font-bold flex items-start gap-3 animate-in slide-in-from-top-2 ${
+                migrationResult.success
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-400 text-emerald-900 dark:text-emerald-100'
+                  : 'bg-red-50 dark:bg-red-950/60 border-red-400 text-red-900 dark:text-red-100'
+              }`}
+            >
+              {migrationResult.success ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              )}
+              <div className="space-y-1">
+                <p>
+                  {migrationResult.success
+                    ? `ስደቱ በተሳካ ሁኔታ ተጠናቋል! ${migrationResult.recordsMigrated ?? 0} የተጠቃሚዎች መዝገብ ወደ Canonical Auth UID ተሰድደዋል። 0 መረጃ አልጠፋም።`
+                    : 'ስደቱ ሙሉ በሙሉ አልተጠናቀቀም። እባክዎ ከታች ያሉትን ስህተቶች ይመልከቱ።'}
+                </p>
+                {migrationResult.errors && migrationResult.errors.length > 0 && (
+                  <ul className="text-xs list-disc list-inside font-normal space-y-0.5 text-red-700 dark:text-red-300">
+                    {migrationResult.errors.map((err: string, idx: number) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 4 Metric KPI Cards */}
+          {auditReport ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex items-center justify-between text-slate-500 mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider">የተፈተሹ ዶክመንቶች</span>
+                  <Database className="w-4 h-4 text-indigo-500" />
+                </div>
+                <div className="text-2xl font-black text-slate-900 dark:text-white">
+                  {auditReport.totalUsersScanned}
+                </div>
+                <div className="text-[11px] text-slate-500 mt-1">በFirestore "users" ስብስብ ውስጥ ያሉ ጠቅላላ</div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 shadow-sm">
+                <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider">ትክክለኛ Canonical UIDs</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300">
+                  {auditReport.canonicalUidCount}
+                </div>
+                <div className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+                  users/&#123;auth.uid&#125; በቀጥታ የተገናኙ
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 shadow-sm">
+                <div className="flex items-center justify-between text-amber-700 dark:text-amber-400 mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider">ስደት የሚሹ (Mismatches)</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="text-2xl font-black text-amber-700 dark:text-amber-300">
+                  {auditReport.mismatchedCount}
+                </div>
+                <div className="text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-1">
+                  የድሮ ወይም Non-UID መለያ ያላቸው
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/40 shadow-sm">
+                <div className="flex items-center justify-between text-rose-700 dark:text-rose-400 mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider">አጠራጣሪ / የተባዙ (Ambiguous)</span>
+                  <AlertTriangle className="w-4 h-4 text-rose-500" />
+                </div>
+                <div className="text-2xl font-black text-rose-700 dark:text-rose-300">
+                  {auditReport.ambiguousCount + auditReport.duplicateCount}
+                </div>
+                <div className="text-[11px] text-rose-600/80 dark:text-rose-400/80 mt-1">
+                  በሰው ተመርምረው የሚወሰኑ (Safe Mode)
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 rounded-3xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 text-center space-y-3">
+              <Database className="w-10 h-10 text-indigo-500 mx-auto" />
+              <h3 className="font-black text-slate-900 dark:text-white">የመረጃ ኦዲት እስካሁን አልተካሄደም</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                በFirestore 'users' ስብስብ ውስጥ ያሉትን ሁሉንም የተጠቃሚዎች መለያዎች ከFirebase Auth UID ጋር ለማነጻጸር እና ሪፖርት ለማዘጋጀት ከላይ ያለውን ቁልፍ ይጫኑ።
+              </p>
+              <button
+                type="button"
+                onClick={handleRunAudit}
+                disabled={isAuditing}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black inline-flex items-center gap-2 shadow-md transition-all"
+              >
+                <RefreshCw className={`w-4 h-4 ${isAuditing ? 'animate-spin' : ''}`} />
+                {isAuditing ? 'በመመርመር ላይ...' : 'የመጀመሪያውን ኦዲት አሁን አከናውን'}
+              </button>
+            </div>
+          )}
+
+          {/* Audit Records Table & Search */}
+          {auditReport && (
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-indigo-600" />
+                    የተጠቃሚዎች ዝርዝር የኦዲት መዝገብ (User Audit Ledger)
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    እያንዳንዱ ዶክመንት ከመታወቂያው (UID)፣ ሚናው፣ እና የስደት ሁኔታው ጋር
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <div className="relative flex-1 md:w-64">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={identitySearch}
+                      onChange={(e) => setIdentitySearch(e.target.value)}
+                      placeholder="በUID ወይም በኢሜይል ፈልግ..."
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
+                    <button
+                      onClick={() => setIdentityFilter('ALL')}
+                      className={`px-2.5 py-1 rounded-lg transition-colors ${
+                        identityFilter === 'ALL'
+                          ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      ሁሉንም ({auditReport.records.length})
+                    </button>
+                    <button
+                      onClick={() => setIdentityFilter('MISMATCH')}
+                      className={`px-2.5 py-1 rounded-lg transition-colors ${
+                        identityFilter === 'MISMATCH'
+                          ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      ስደት የሚሹ ({auditReport.mismatchedCount})
+                    </button>
+                    <button
+                      onClick={() => setIdentityFilter('CANONICAL')}
+                      className={`px-2.5 py-1 rounded-lg transition-colors ${
+                        identityFilter === 'CANONICAL'
+                          ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Canonical ({auditReport.canonicalUidCount})
+                    </button>
+                    <button
+                      onClick={() => setIdentityFilter('AMBIGUOUS')}
+                      className={`px-2.5 py-1 rounded-lg transition-colors ${
+                        identityFilter === 'AMBIGUOUS'
+                          ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      አጠራጣሪ ({auditReport.ambiguousCount + auditReport.duplicateCount})
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="p-3.5">የዶክመንት መለያ (Firestore Doc ID)</th>
+                      <th className="p-3.5">ተጠቃሚ / ኢሜይል / ስልክ</th>
+                      <th className="p-3.5">ሚና & ክፍል</th>
+                      <th className="p-3.5">የUID ሁኔታ (Status)</th>
+                      <th className="p-3.5">የስደት እቅድ / Target Path</th>
+                      <th className="p-3.5 text-right">የመረጃ ብዛት (Fields)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                    {auditReport.records
+                      .filter((rec) => {
+                        const isMismatch = rec.status === 'MIGRATABLE_MISMATCH';
+                        const isCanonical = rec.isCanonicalUid && rec.status === 'CANONICAL_UID';
+                        const isAmbiguous = rec.status === 'AMBIGUOUS_RECORD' || rec.status === 'DUPLICATE_EMAIL';
+                        if (identityFilter === 'MISMATCH' && !isMismatch) return false;
+                        if (identityFilter === 'CANONICAL' && !isCanonical) return false;
+                        if (identityFilter === 'AMBIGUOUS' && !isAmbiguous) return false;
+                        if (identitySearch.trim()) {
+                          const q = identitySearch.toLowerCase();
+                          const matchId = rec.docId.toLowerCase().includes(q);
+                          const matchEmail = (rec.email || '').toLowerCase().includes(q);
+                          const matchPhone = (rec.phone || '').toLowerCase().includes(q);
+                          const matchRole = (rec.role || '').toLowerCase().includes(q);
+                          return matchId || matchEmail || matchPhone || matchRole;
+                        }
+                        return true;
+                      })
+                      .map((rec) => {
+                        const isArchive = Boolean(rec.rawDocData?.isLegacyArchive);
+                        const isMismatch = rec.status === 'MIGRATABLE_MISMATCH';
+                        const isAmbiguous = rec.status === 'AMBIGUOUS_RECORD' || rec.status === 'DUPLICATE_EMAIL';
+                        const fieldCount = Object.keys(rec.rawDocData || {}).length;
+
+                        return (
+                          <tr key={rec.docId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                            <td className="p-3.5">
+                              <div className="font-mono text-[11px] font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                {rec.isCanonicalUid ? (
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500" title="Canonical UID" />
+                                ) : (
+                                  <span className="w-2 h-2 rounded-full bg-amber-500" title="Non-Canonical ID" />
+                                )}
+                                {rec.docId}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                users/{rec.docId}
+                              </div>
+                            </td>
+
+                            <td className="p-3.5">
+                              <div className="font-bold text-slate-800 dark:text-slate-200">
+                                {rec.email || 'ኢሜይል አልተመዘገበም'}
+                              </div>
+                              {rec.phone && (
+                                <div className="text-[10px] text-slate-500 font-mono">
+                                  📞 {rec.phone}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="p-3.5">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                  rec.role === 'admin'
+                                    ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300'
+                                    : rec.role === 'teacher'
+                                    ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                }`}
+                              >
+                                {rec.role || 'student'}
+                              </span>
+                              {rec.grade && (
+                                <span className="ml-1 text-[10px] text-slate-500 font-bold">
+                                  G-{rec.grade}
+                                </span>
+                              )}
+                              {rec.isPremium && (
+                                <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-black">
+                                  PREMIUM
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="p-3.5">
+                              {isArchive ? (
+                                <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-[10px]">
+                                  📦 Archived Legacy
+                                </span>
+                              ) : rec.isCanonicalUid && !isMismatch ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 font-bold text-[10px]">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  Canonical Auth UID
+                                </span>
+                              ) : isAmbiguous ? (
+                                <span
+                                  title={rec.status === 'DUPLICATE_EMAIL' ? 'Duplicate Email Detected' : 'Missing Identity Details'}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 font-bold text-[10px]"
+                                >
+                                  <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                  {rec.status === 'DUPLICATE_EMAIL' ? 'Duplicate Email' : 'Ambiguous / Review'}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-bold text-[10px]">
+                                  <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                  Legacy Non-UID
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="p-3.5">
+                              {isMismatch ? (
+                                <div className="space-y-0.5">
+                                  <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                                    <span>ወደ Auth UID ይሰደዳል:</span>
+                                  </div>
+                                  <div className="font-mono text-[10px] text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                    users/{rec.targetUid}
+                                  </div>
+                                </div>
+                              ) : rec.isCanonicalUid ? (
+                                <span className="text-[10px] text-slate-400">ምንም እርምጃ አያስፈልግም (OK)</span>
+                              ) : isArchive ? (
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  ወደ {rec.rawDocData?.migratedToUid || 'Canonical'} ተሰዷል
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-rose-500 font-bold">
+                                  {rec.status === 'DUPLICATE_EMAIL' ? 'Duplicate Email detected' : 'መረጃው አልተሟላም'}
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="p-3.5 text-right font-mono text-slate-500">
+                              {fieldCount} fields
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Safety & Integrity Guarantee Card */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
+                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  የአርክቴክቸር የደህንነት እና የመረጃ ጥበቃ ዋስትና (Zero-Loss Guarantee):
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1 text-[11px]">
+                  <div className="flex items-start gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                    <span><strong>ዜሮ መሰረዝ (No Deletions):</strong> የድሮ ዶክመንቶች አይሰረዙም፤ እንደ ማህደር (Archive) ይቀመጣሉ።</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                    <span><strong>ደህንነቱ የተጠበቀ Batch SetDoc:</strong> ሁሉም ሚናዎች፣ ምዝገባዎች እና የክፍያ ታሪኮች በሙሉ ወደ Canonical UID ይዛወራሉ።</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                    <span><strong>ቅድመ-ስደት ባክአፕ:</strong> ስደቱ ከመፈጸሙ በፊት የተሟላ JSON ባክአፕ በFirestore እና በአካባቢ ዳውንሎድ ይዘጋጃል።</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Confirm Safe Migration Modal */}
+          {showConfirmMigrationModal && auditReport && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="max-w-xl w-full bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 animate-in zoom-in-95">
+                <div className="flex items-center gap-2.5 text-indigo-600 dark:text-indigo-400">
+                  <ShieldCheck className="w-6 h-6 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-black text-slate-900 dark:text-white text-base">
+                      የተጠቃሚዎች ስደት ማረጋገጫ (Confirm Canonical UID Migration)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      የአስተዳዳሪ ማረጋገጫ እና ፍቃድ ይጠይቃል
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 space-y-2">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                    <AlertTriangle className="w-4 h-4" />
+                    የሚፈጸሙ የስደት እርምጃዎች ማጠቃለያ:
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 pl-1">
+                    <li>
+                      <strong>{auditReport.mismatchedCount}</strong> የድሮ ወይም Non-UID መለያ ያላቸው ዶክመንቶች ወደ ተዛማጅ የFirebase Auth UID ይሰደዳሉ።
+                    </li>
+                    <li>
+                      ማንኛውም የነበረ መረጃ (ሚና፣ የክፍያ ሁኔታ፣ ስልክ ቁጥር፣ ክፍል) ሳይቀየር በሙሉ ይተላለፋል።
+                    </li>
+                    <li>
+                      የድሮ ዶክመንቶች አይሰረዙም፤ ወደፊት ለኦዲት እንዲያገለግሉ <code className="bg-amber-200/50 dark:bg-amber-900/60 px-1 py-0.5 rounded">isLegacyArchive: true</code> ተብለው በማህደር ይቀመጣሉ።
+                    </li>
+                    <li>
+                      የቅድመ-ስደት ባክአፕ በFirestore <code className="bg-amber-200/50 dark:bg-amber-900/60 px-1 py-0.5 rounded">users_migration_backup</code> ስብስብ ውስጥ ይቀመጣል።
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmMigrationModal(false)}
+                    disabled={isMigrating}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors"
+                  >
+                    ተመለስ (Cancel)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteMigration}
+                    disabled={isMigrating}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white font-black text-xs transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/30"
+                  >
+                    {isMigrating ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        ስደቱ በመፈጸም ላይ...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        እስማማለሁ፣ ስደቱን ፈጽም (Authorize & Migrate)
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 5: CURRICULUM & DRM TEXTBOOK CMS */}
       {/* ========================================================================= */}
       {activeTab === 'drm_cms' && (
         <div className="space-y-6 animate-in fade-in">

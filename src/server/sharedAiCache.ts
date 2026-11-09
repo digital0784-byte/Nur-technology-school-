@@ -148,22 +148,41 @@ class SharedAiCacheManager {
     topicTitle?: string;
     language: string;
   }): { lesson: any; grounded: boolean; sources: any[]; modelUsed?: string; hitCount: number } | null {
-    const topic = this.normalizeText(params.topicId || params.topicTitle || '');
+    const lang = params.language || 'am';
     const sub = this.normalizeText(params.subjectCode || params.subjectName || '');
-    const key = `lesson:${sub}:${params.grade}:${topic}:${params.language || 'am'}`;
-    const entry = this.cache.get(key);
-    if (entry) {
-      entry.hitCount = (entry.hitCount || 0) + 1;
-      entry.lastRetrievedAt = new Date().toISOString();
-      this.totalHits++;
-      this.scheduleSave();
-      return {
-        lesson: entry.payload.lesson,
-        grounded: entry.payload.grounded,
-        sources: entry.payload.sources || [],
-        modelUsed: entry.modelUsed,
-        hitCount: entry.hitCount,
-      };
+    const cleanTitle = (params.topicTitle || '').replace(/^\d+(\.\d+)*\s*/, '').trim();
+
+    const candidateKeys: string[] = [];
+    if (params.topicId) {
+      const normId = this.normalizeText(params.topicId);
+      candidateKeys.push(`lesson:${sub}:${params.grade}:${normId}:${lang}`);
+      candidateKeys.push(`lesson:any:${params.grade}:${normId}:${lang}`);
+    }
+    if (params.topicTitle) {
+      const normTitle = this.normalizeText(params.topicTitle);
+      candidateKeys.push(`lesson:${sub}:${params.grade}:${normTitle}:${lang}`);
+      candidateKeys.push(`lesson:any:${params.grade}:${normTitle}:${lang}`);
+    }
+    if (cleanTitle) {
+      const normClean = this.normalizeText(cleanTitle);
+      candidateKeys.push(`lesson:${sub}:${params.grade}:${normClean}:${lang}`);
+    }
+
+    for (const key of candidateKeys) {
+      const entry = this.cache.get(key);
+      if (entry && entry.payload?.lesson) {
+        entry.hitCount = (entry.hitCount || 0) + 1;
+        entry.lastRetrievedAt = new Date().toISOString();
+        this.totalHits++;
+        this.scheduleSave();
+        return {
+          lesson: entry.payload.lesson,
+          grounded: !!entry.payload.grounded,
+          sources: entry.payload.sources || [],
+          modelUsed: entry.modelUsed,
+          hitCount: entry.hitCount,
+        };
+      }
     }
     return null;
   }
@@ -183,11 +202,15 @@ class SharedAiCacheManager {
     modelUsed?: string
   ) {
     if (!lesson) return;
-    const topic = this.normalizeText(params.topicId || params.topicTitle || '');
+    const lang = params.language || 'am';
     const sub = this.normalizeText(params.subjectCode || params.subjectName || '');
-    const key = `lesson:${sub}:${params.grade}:${topic}:${params.language || 'am'}`;
+    const cleanTitle = (params.topicTitle || '').replace(/^\d+(\.\d+)*\s*/, '').trim();
+
+    const primaryTopic = this.normalizeText(params.topicId || params.topicTitle || '');
+    const primaryKey = `lesson:${sub}:${params.grade}:${primaryTopic}:${lang}`;
+
     const entry: CacheEntry = {
-      key,
+      key: primaryKey,
       category: 'lesson',
       payload: { lesson, grounded, sources },
       modelUsed,
@@ -196,7 +219,23 @@ class SharedAiCacheManager {
       lastRetrievedAt: new Date().toISOString(),
       meta: { grade: params.grade, subject: params.subjectName || params.subjectCode, topic: params.topicTitle },
     };
-    this.cache.set(key, entry);
+
+    this.cache.set(primaryKey, entry);
+
+    // Also index under secondary aliases so other queries hit the cache 100%
+    if (params.topicTitle) {
+      const titleKey = `lesson:${sub}:${params.grade}:${this.normalizeText(params.topicTitle)}:${lang}`;
+      if (titleKey !== primaryKey) {
+        this.cache.set(titleKey, entry);
+      }
+    }
+    if (cleanTitle) {
+      const cleanKey = `lesson:${sub}:${params.grade}:${this.normalizeText(cleanTitle)}:${lang}`;
+      if (cleanKey !== primaryKey) {
+        this.cache.set(cleanKey, entry);
+      }
+    }
+
     this.scheduleSave();
   }
 
