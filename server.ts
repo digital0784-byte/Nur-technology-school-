@@ -17,6 +17,7 @@ import { requireAuth, requireSuperAdmin, isPremiumActive } from './src/server/au
 import { CURRICULUM_DATA } from './src/data/curriculum';
 import { paymentsRouter, VERIFIED_PAYMENT_ACCOUNTS, getPricing } from './src/server/paymentsApi';
 import { aiContextMiddleware, consumeAiQuota } from './src/server/aiQuota';
+import { adminDb } from './src/server/adminDb';
 
 dotenv.config();
 
@@ -1290,9 +1291,38 @@ app.post('/api/premium/purchase-single-assignment', (req: Request, res: Response
   });
 });
 
-// System Health and Diagnostics endpoint
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', aiConfigured: Boolean(apiKey), timestamp: new Date().toISOString() });
+// Open https://<your-app>/api/health in a browser to see whether the server can reach Firestore.
+// Only a coarse status is exposed (never error details). Cached for 30s so it cannot be used to hammer Firestore.
+let healthCache: { at: number; firestore: string; reason?: string } | null = null;
+app.get('/api/health', async (_req: Request, res: Response) => {
+  if (!healthCache || Date.now() - healthCache.at > 30_000) {
+    let firestore = 'ok';
+    let reason: string | undefined;
+    try {
+      await Promise.race([
+        adminDb.collection('app_config').doc('payment').get(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+      ]);
+    } catch (e: any) {
+      firestore = 'error';
+      const m = String(e?.message || '');
+      reason = /default credentials/i.test(m)
+        ? 'no_credentials'
+        : e?.code === 7 || /PERMISSION_DENIED|insufficient permission/i.test(m)
+        ? 'permission_denied'
+        : /timeout/i.test(m)
+        ? 'timeout'
+        : 'other';
+    }
+    healthCache = { at: Date.now(), firestore, reason };
+  }
+  res.json({
+    status: healthCache.firestore === 'ok' ? 'ok' : 'degraded',
+    firestore: healthCache.firestore,
+    firestoreReason: healthCache.reason,
+    aiConfigured: Boolean(apiKey),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Vite middleware or static serving

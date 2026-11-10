@@ -1,11 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import './adminDb'; // initialises firebase-admin (see adminDb.ts for credential order)
 
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'nur-technology-school';
-
-// verifyIdToken only needs the project id (Google public keys), no secret key.
-if (!getApps().length) initializeApp({ projectId: PROJECT_ID });
 
 export interface AuthedUser {
   uid: string;
