@@ -80,27 +80,6 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
       cleanPhone
     );
 
-    // Notify backend server directly
-    try {
-      await authFetch('/api/payment/notify-admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: currentUser.id,
-          studentName: currentUser.name,
-          studentEmail: currentUser.email,
-          studentPhone: cleanPhone,
-          grade: activeGrade,
-          amount: singlePriceETB || currentGradePrice,
-          paymentGateway: selectedGateway,
-          transactionRef: cleanRef,
-          plan: targetItemTitle || `Grade ${activeGrade} Access`,
-        }),
-      });
-    } catch (err) {
-      console.warn('Backend payment notify error:', err);
-    }
-
     setIsSubmitting(false);
     if (res.success) {
       setSubmitSuccess(true);

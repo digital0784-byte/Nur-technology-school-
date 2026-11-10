@@ -14,7 +14,7 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { db, auth } from '../services/firebase';
 import { useAuth } from './AuthContext';
 import { authFetch } from '../services/apiClient';
 import {
@@ -254,8 +254,10 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     phone: string,
     _receiptImageUrl?: string
   ): Promise<{ success: boolean; submission?: PaymentSubmission; error?: string }> => {
-    if (!isAuthenticated) {
-      return { success: false, error: 'መጀመሪያ ይግቡ / Please sign in first.' };
+    // Canonical Auth UID must be the single source of truth for payment submission
+    const canonicalUid = auth.currentUser?.uid || (currentUser.id && currentUser.id !== 'guest' ? currentUser.id : null);
+    if (!isAuthenticated || !canonicalUid) {
+      return { success: false, error: 'ክፍያ ከማስረከብዎ በፊት እባክዎ መጀመሪያ ይመዝገቡ ወይም ይግቡ / Please register or sign in first.' };
     }
     const ref = transactionRef.trim().replace(/[^A-Za-z0-9_-]/g, '');
     if (ref.length < 4 || ref.length > 64) {
@@ -266,43 +268,19 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       return { success: false, error: 'እባክዎ ትክክለኛ የስልክ ቁጥር ያስገቡ።' };
     }
 
-    const id = `${gateway}_${ref}`;
-    const data = {
-      userId: currentUser.id,
-      studentId: currentUser.id,
-      studentName: currentUser.name,
-      studentEmail: currentUser.email,
-      studentPhone: cleanPhone,
-      grade: activeGrade,
-      amount: currentGradePrice,
-      currency: 'ETB',
-      paymentGateway: gateway,
-      transactionRef: ref,
-      status: 'pending',
-      createdAt: serverTimestamp(),
-    };
-
     try {
-      await setDoc(doc(db, 'payments', id), data);
+      const res = await authFetch('/api/payment/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gateway, transactionRef: ref, phone: cleanPhone }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body?.success) return { success: false, error: body?.error || 'Payment submission failed' };
+      const sub = body.submission;
+      return { success: true, submission: toSubmission(sub.id, { ...sub, createdAt: null }) };
     } catch (err: any) {
-      if (err?.code === 'permission-denied') {
-        return {
-          success: false,
-          error: 'ይህ የግብይት ቁጥር ቀድሞ ገብቷል ወይም ፈቃድ የለም / This transaction ID was already submitted.',
-        };
-      }
       return { success: false, error: err?.message || 'Payment submission failed' };
     }
-
-    logAudit({
-      action: 'SUBMITTED',
-      targetUserId: currentUser.id,
-      targetPaymentId: id,
-      details: `${gateway} ${ref} ${currentGradePrice} ETB (Grade ${activeGrade})`,
-      newStatus: 'PENDING',
-    });
-
-    return { success: true, submission: toSubmission(id, { ...data, createdAt: null }) };
   };
 
   // Super Admin approves: marks the payment approved AND switches Premium on, in one atomic write.
@@ -336,80 +314,15 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     try {
-      // 2. Resolve student UID
-      let studentUid = sub.studentId || sub.userId;
-      if (!studentUid && sub.studentEmail) {
-        try {
-          const uSnap = await getDocs(
-            query(collection(db, 'users'), where('email', '==', sub.studentEmail.trim()), limit(1))
-          );
-          if (!uSnap.empty) {
-            studentUid = uSnap.docs[0].id;
-          }
-        } catch (e) {
-          console.warn('User lookup by email warning:', e);
-        }
-      }
-
-      // Calculate expiration date
-      const base = new Date();
-      base.setDate(base.getDate() + (pricing.billingCycleDays || 30));
-      const expiresAt = toYmd(base);
-      const adminEmail = currentUser.email || 'mejennur669@gmail.com';
-
-      // 3. Update payment in Firestore using setDoc with merge: true (never throws missing doc)
-      await setDoc(
-        doc(db, 'payments', paymentId),
-        {
-          status: 'approved',
-          reviewedAt: serverTimestamp(),
-          reviewedBy: adminEmail,
-          expiresAt,
-        },
-        { merge: true }
-      );
-
-      // 4. Update student profile in Firestore
-      if (studentUid) {
-        await setDoc(
-          doc(db, 'users', studentUid),
-          {
-            isPremium: true,
-            premiumExpiresAt: expiresAt,
-            premiumPlan: `${sub.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
-            premiumGateway: sub.paymentGateway,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        // Also update subscriptions collection for backward compatibility
-        await setDoc(
-          doc(db, 'subscriptions', studentUid),
-          {
-            status: 'ACTIVE',
-            isPremium: true,
-            expiresAt,
-            planTitle: `${sub.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
-            amountPaid: sub.amount,
-            activePaymentId: paymentId,
-            activatedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-
-        // Also update entitlements collection
-        await setDoc(
-          doc(db, 'entitlements', studentUid),
-          {
-            isPremium: true,
-            expiresAt,
-            plan: `${sub.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
+      const approveRes = await authFetch('/api/payment/admin/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId }),
+      });
+      const approveBody = await approveRes.json().catch(() => ({}));
+      if (!approveRes.ok || !approveBody?.success) return false;
+      const expiresAt: string = approveBody.expiresAt;
+      const adminEmail = currentUser.email || '';
 
       // 5. Update local memory/storage service
       PaymentService.approvePayment(paymentId, adminEmail);
@@ -428,32 +341,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
             : s
         )
       );
-
-      // 7. Notify server endpoint (sync with server)
-      try {
-        await authFetch('/api/payment/admin/approve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentId,
-            studentId: studentUid,
-            studentEmail: sub.studentEmail,
-            expiresAt,
-          }),
-        });
-      } catch {
-        // non-critical
-      }
-
-      // 8. Log audit
-      logAudit({
-        action: 'APPROVED',
-        targetUserId: studentUid || sub.studentEmail,
-        targetPaymentId: paymentId,
-        details: `Approved ${sub.amount} ETB until ${expiresAt}`,
-        previousStatus: 'PENDING',
-        newStatus: 'APPROVED',
-      });
 
       return true;
     } catch (e) {

@@ -62,7 +62,7 @@ type AdminTab =
   | 'audit_session';
 
 export const AdminErpDashboard: React.FC = () => {
-  const { isSuperAdmin: authIsSuperAdmin, currentUser } = useAuth();
+  const { isSuperAdmin: authIsSuperAdmin, currentUser, login } = useAuth();
   const { t, language } = useLanguage();
   const {
     pricing,
@@ -235,23 +235,23 @@ export const AdminErpDashboard: React.FC = () => {
     setAuditLogs(AdminErpService.getAuditEntries());
   };
 
-  const handleUnlockSession = (e: React.FormEvent) => {
+  const handleUnlockSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Default PIN: 2019 (MoE Curriculum Year) or 7862 (last 4 digits of Super Admin phone 0910097862)
-    if (unlockPin === '2019' || unlockPin === '7862' || unlockPin === 'admin123') {
+    try {
+      await login(currentUser.email || '', unlockPin);
       setIsSessionLocked(false);
       setSessionSecondsLeft(30 * 60);
       setPinError(false);
       setUnlockPin('');
       AdminErpService.logAudit({
-        actor: 'mejennur669@gmail.com',
+        actor: currentUser.email || 'super_admin',
         action: 'CONSOLE_UNLOCKED',
         target: 'Admin Security Fortress',
         status: 'SUCCESS',
-        details: 'Admin console unlocked via security credentials.',
+        details: 'Admin console unlocked via verified password credentials.',
       });
       setAuditLogs(AdminErpService.getAuditEntries());
-    } else {
+    } catch {
       setPinError(true);
     }
   };
@@ -462,7 +462,7 @@ export const AdminErpDashboard: React.FC = () => {
             የዋና አስተዳዳሪ ቁጥጥር ማዕከል (Super Admin Only)
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
-            ይህ የትምህርት ቤት ERP ዳሽቦርድ ለዋና አስተዳዳሪ (mejennur669@gmail.com / abuzinad7862@gmail.com / Nuriye Ahmed Adem) ብቻ የተፈቀደ ነው።
+            ይህ የትምህርት ቤት ERP ዳሽቦርድ ለዋና አስተዳዳሪ ብቻ የተፈቀደ ነው። / Access restricted to Super Admin only.
           </p>
         </div>
 
@@ -489,7 +489,7 @@ export const AdminErpDashboard: React.FC = () => {
           <div>
             <h2 className="text-xl font-black">የደህንነት ክፍለ-ጊዜ ተቆልፏል (Session Locked)</h2>
             <p className="text-xs text-slate-400 mt-2">
-              የ30 ደቂቃ እንቅስቃሴ-አልባ የደህንነት ሰዓት ቆጣሪ አብቅቷል። ወደ ERP ለመመለስ የሱፐር አድሚን ፒን ኮድ ያስገቡ።
+              የ30 ደቂቃ እንቅስቃሴ-አልባ የደህንነት ሰዓት ቆጣሪ አብቅቷል። ወደ ERP ለመመለስ የዋና አስተዳዳሪውን የይለፍ ቃል ያስገቡ። / Please enter the Super Admin password to unlock.
             </p>
           </div>
 
@@ -497,14 +497,14 @@ export const AdminErpDashboard: React.FC = () => {
             <div>
               <input
                 type="password"
-                placeholder="PIN ኮድ ያስገቡ (ለምሳሌ: 2019 ወይም 7862)"
+                placeholder="የይለፍ ቃል / Password"
                 value={unlockPin}
                 onChange={(e) => setUnlockPin(e.target.value)}
                 className="w-full text-center tracking-widest text-lg font-mono px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-amber-400"
                 autoFocus
               />
               {pinError && (
-                <p className="text-xs text-red-400 mt-1 font-semibold">የተሳሳተ ፒን ኮድ! እባክዎ እንደገና ይሞክሩ።</p>
+                <p className="text-xs text-red-400 mt-1 font-semibold">የተሳሳተ የይለፍ ቃል! እባክዎ እንደገና ይሞክሩ። / Incorrect password. Please try again.</p>
               )}
             </div>
 
@@ -514,7 +514,6 @@ export const AdminErpDashboard: React.FC = () => {
             >
               ክፈት (Unlock Console)
             </button>
-            <p className="text-[11px] text-slate-500">Super Admin Default PINs: 2019 • 7862</p>
           </form>
         </div>
       </div>

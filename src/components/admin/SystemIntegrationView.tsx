@@ -303,7 +303,7 @@ export const SystemIntegrationView: React.FC = () => {
           setProbes(data.probes);
         }
       }
-      showToast('✅ 14ቱም አውቶሜትድ ፈተናዎች በተሟላ ሁኔታ አልፈዋል! 100% Operational');
+      showToast('ምርመራው ተጠናቋል — ውጤቱን ከታች ይመልከቱ / Diagnostics finished — see results below');
     } catch (err) {
       console.error('Error running diagnostics:', err);
       showToast('ምርመራው በስኬት ተጠናቋል');

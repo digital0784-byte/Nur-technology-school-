@@ -25,19 +25,21 @@ service cloud.firestore {
     match /users/{userId} {
       // Users must only access their own protected data unless verified Super Admin
       allow read: if isOwner(userId) || isSuperAdmin();
-      // Only the authenticated user can create their own profile under their auth.uid
-      // Regular users are blocked from self-elevating to admin or super_admin
+      // Students can create ONLY their own plain student profile: no Premium fields, no elevated role.
+      // (Premium is granted by the server after a payment is approved; super admins may write anything.)
       allow create: if isOwner(userId) && (
-        !('role' in request.resource.data) ||
-        request.resource.data.role == 'student' ||
-        isSuperAdmin()
+        isSuperAdmin() ||
+        ((!('role' in request.resource.data) || request.resource.data.role == 'student') &&
+         (!('isPremium' in request.resource.data) || request.resource.data.isPremium == false) &&
+         !request.resource.data.keys().hasAny(['premiumExpiresAt', 'premiumPlan', 'premiumGateway', 'subscriptionStatus']))
       );
-      // Students CANNOT change their grade, role, or premium status on their own
+      // Students may update their own profile but never role, grade, grade lock, or any Premium field.
       allow update: if isSuperAdmin() ||
         (isOwner(userId) &&
-         request.resource.data.grade == resource.data.grade &&
-         request.resource.data.role == resource.data.role &&
-         (!('isPremium' in request.resource.data) || request.resource.data.isPremium == resource.data.isPremium));
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+           'role', 'grade', 'isGradeLocked', 'isPremium', 'premiumExpiresAt',
+           'premiumPlan', 'premiumGateway', 'subscriptionStatus'
+         ]));
       allow delete: if isSuperAdmin();
 
       // Student subcollections for progress and quiz records
@@ -75,33 +77,31 @@ service cloud.firestore {
     // Quizzes & Exam attempts: Students can create their own attempts and read them
     match /quiz_attempts/{attemptId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSuperAdmin();
     }
     match /exam_attempts/{attemptId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSuperAdmin();
     }
 
     // Submissions: Students submit and read their own, Super Admin can grade and view all
     match /submissions/{subId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSuperAdmin();
     }
 
-    // Payments: Users can create and read their own transactions, Super Admin can verify & approve
+    // Payments: created ONLY by the server (POST /api/payment/submit via firebase-admin), which sets the
+    // identity, grade and amount. Students can read their own; only the Super Admin can modify.
     match /payments/{paymentId} {
       allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || 
-        resource.data.studentId == request.auth.uid || 
+        resource.data.userId == request.auth.uid ||
+        resource.data.studentId == request.auth.uid ||
         isSuperAdmin()
       );
-      allow create: if isAuthenticated() && (
-        request.resource.data.userId == request.auth.uid ||
-        request.resource.data.studentId == request.auth.uid
-      );
+      allow create: if isSuperAdmin();
       allow update, delete: if isSuperAdmin();
     }
 
@@ -137,28 +137,38 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
-    // Security & Payment Audit Logs: Append-only for system, readable only by Super Admin
+    // Audit logs: written by the server (admin SDK) or the Super Admin; readable only by the Super Admin.
     match /audit_logs/{logId} {
       allow read: if isSuperAdmin();
-      allow create: if isAuthenticated() || isSuperAdmin();
+      allow create: if isSuperAdmin();
       allow update, delete: if false; // Append-only immutability
     }
     match /payment_audit_logs/{logId} {
       allow read: if isSuperAdmin();
-      allow create: if isAuthenticated() || isSuperAdmin();
-      allow update, delete: if false; // Append-only immutability
+      allow create: if isSuperAdmin();
+      allow update, delete: if false;
     }
 
-    // Feedback: Any user can submit, only Super Admin can view/resolve
+    // Feedback: signed-in users only, bounded size; only Super Admin can view/resolve
     match /feedback/{feedbackId} {
-      allow create: if true;
+      allow create: if isAuthenticated() && request.resource.data.keys().size() <= 15;
       allow read, update, delete: if isSuperAdmin();
     }
 
-    // Fallback rule for all other collections
-    match /{document=**} {
+    // App configuration (pricing/accounts): readable by signed-in users, writable only by Super Admin
+    match /app_config/{configId} {
       allow read: if isAuthenticated();
       allow write: if isSuperAdmin();
+    }
+
+    // Student homework answers: doc id is {uid}_{questionId}; each student only touches their own
+    match /student_homework/{docId} {
+      allow read, write: if isAuthenticated() && (docId.matches(request.auth.uid + '_.*') || isSuperAdmin());
+    }
+
+    // Default deny. (ai_usage and security_audit_logs are written only by the server via the admin SDK.)
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
     }
   }
 }

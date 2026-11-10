@@ -1,203 +1,33 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { AuditLog, DeviceSession, SecurityUser } from '../types';
+import { adminDb } from './adminDb';
 
 export const securityRouter = Router();
 
 // ==========================================
 // 1. IMMUTABLE AUDIT LOGS STORE (APPEND-ONLY)
 // ==========================================
-export const IMMUTABLE_AUDIT_LOGS: AuditLog[] = [
-  {
-    logId: 'AUD-20261028-001',
-    actorId: 'mejennur669@gmail.com',
-    actorRole: 'SUPER_ADMIN',
-    action: 'SYSTEM_BOOTSTRAP',
-    resourceType: 'SECURITY_CORE',
-    resourceId: 'NUR_SEC_FORTRESS_V2',
-    result: 'success',
-    ip: '196.188.64.12',
-    timestamp: '2026-10-28T04:12:00.000Z',
-    details: 'Super Admin initialized multi-tier RBAC and DRM protection fortress',
-  },
-  {
-    logId: 'AUD-20261028-002',
-    actorId: 'admin.kebede@nur-school.edu.et',
-    actorRole: 'ADMIN',
-    action: 'PAYMENT_APPROVAL',
-    resourceType: 'PAYMENT_TRANSACTION',
-    resourceId: 'TXN-994821',
-    result: 'success',
-    ip: '196.189.12.88',
-    timestamp: '2026-10-28T05:30:15.000Z',
-    details: 'Approved 180 ETB payment for Grade 10 student (Almaz Tesfaye)',
-  },
-  {
-    logId: 'AUD-20261028-003',
-    actorId: 'student.yared@nur-school.edu.et',
-    actorRole: 'STUDENT',
-    action: 'GRADE_OVERRIDE_ATTEMPT',
-    resourceType: 'GRADE_BARRIER',
-    resourceId: 'Grade 12 Advanced Physics',
-    result: 'denied',
-    ip: '197.156.104.44',
-    timestamp: '2026-10-28T06:14:22.000Z',
-    details: 'Grade 10 locked student attempted to access Grade 12 unit without admin authorization',
-  },
-  {
-    logId: 'AUD-20261028-004',
-    actorId: 'student.meron@nur-school.edu.et',
-    actorRole: 'STUDENT',
-    action: 'DRM_BREACH_ATTEMPT',
-    resourceType: 'PROTECTED_TEXTBOOK',
-    resourceId: 'Grade 10 MoE Mathematics Unit 2.pdf',
-    result: 'denied',
-    ip: '196.188.77.20',
-    timestamp: '2026-10-28T06:45:00.000Z',
-    details: 'PrintScreen interception caught client-side capture. Dynamic watermark overlaid.',
-  },
-  {
-    logId: 'AUD-20261028-005',
-    actorId: '213.55.76.10',
-    actorRole: 'SYSTEM',
-    action: 'RATE_LIMIT_EXCEEDED',
-    resourceType: 'AI_PROXY_ENDPOINT',
-    resourceId: '/api/ai/tutor',
-    result: 'denied',
-    ip: '213.55.76.10',
-    timestamp: '2026-10-28T07:10:43.000Z',
-    details: 'Client fired 68 requests within 60 seconds (Limit: 60 req/min). Throttled with HTTP 429.',
-  },
-];
+export const IMMUTABLE_AUDIT_LOGS: AuditLog[] = [];
+
+export function pushAudit(log: AuditLog) {
+  IMMUTABLE_AUDIT_LOGS.unshift(log);
+  if (IMMUTABLE_AUDIT_LOGS.length > 500) IMMUTABLE_AUDIT_LOGS.pop();
+  adminDb
+    .collection('security_audit_logs')
+    .doc(log.logId)
+    .set(log)
+    .catch((e) => console.warn('Audit log persist failed:', e?.message || e));
+}
 
 // ==========================================
 // 2. DEVICE SESSIONS STORE & CONCURRENT LOGINS
 // ==========================================
-export const ACTIVE_DEVICE_SESSIONS: DeviceSession[] = [
-  {
-    deviceId: 'DEV-ETH-091001',
-    studentId: 'mejennur669',
-    studentEmail: 'mejennur669@gmail.com',
-    deviceName: 'MacBook Pro M2 (Super Admin Workstation)',
-    browser: 'Chrome 131.0',
-    os: 'macOS Sonoma',
-    ip: '196.188.64.12',
-    registeredAt: '2026-10-25T08:00:00.000Z',
-    lastActive: new Date().toISOString(),
-    status: 'ACTIVE',
-    isTrusted: true,
-  },
-  {
-    deviceId: 'DEV-ETH-098811',
-    studentId: 'usr-student-001',
-    studentEmail: 'almaz.tesfaye@nur-school.edu.et',
-    deviceName: 'Tecno Camon 20 Pro (Student Mobile)',
-    browser: 'Chrome Mobile 129',
-    os: 'Android 13',
-    ip: '196.189.12.88',
-    registeredAt: '2026-10-26T10:15:00.000Z',
-    lastActive: new Date().toISOString(),
-    status: 'ACTIVE',
-    isTrusted: true,
-  },
-  {
-    deviceId: 'DEV-ETH-098812',
-    studentId: 'usr-student-001',
-    studentEmail: 'almaz.tesfaye@nur-school.edu.et',
-    deviceName: 'Windows 11 Desktop (Internet Cafe)',
-    browser: 'Edge 128',
-    os: 'Windows 11',
-    ip: '197.156.104.99',
-    registeredAt: '2026-10-28T06:50:00.000Z',
-    lastActive: new Date().toISOString(),
-    status: 'FLAGGED_CONCURRENT',
-    isTrusted: false,
-  },
-  {
-    deviceId: 'DEV-ETH-097722',
-    studentId: 'usr-student-002',
-    studentEmail: 'bekele.student@nur-school.edu.et',
-    deviceName: 'Samsung Galaxy A54',
-    browser: 'Samsung Internet 24.0',
-    os: 'Android 14',
-    ip: '196.188.90.15',
-    registeredAt: '2026-10-27T12:00:00.000Z',
-    lastActive: new Date().toISOString(),
-    status: 'ACTIVE',
-    isTrusted: true,
-  },
-];
+export const ACTIVE_DEVICE_SESSIONS: DeviceSession[] = [];
 
 // ==========================================
 // 3. RBAC USERS REGISTRY
 // ==========================================
-export const RBAC_USERS: SecurityUser[] = [
-  {
-    id: 'usr-super-admin-01',
-    name: 'Nuriye Ahmed Adem',
-    email: 'mejennur669@gmail.com',
-    role: 'super_admin',
-    grade: 10,
-    isGradeLocked: false,
-    activeDevicesCount: 1,
-    lastLogin: new Date().toISOString(),
-    status: 'ACTIVE',
-  },
-  {
-    id: 'usr-admin-01',
-    name: 'Kebede Hailu (Admin)',
-    email: 'admin.kebede@nur-school.edu.et',
-    role: 'admin',
-    grade: 10,
-    isGradeLocked: false,
-    activeDevicesCount: 1,
-    lastLogin: '2026-10-28T05:30:00.000Z',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'usr-student-001',
-    name: 'Almaz Tesfaye',
-    email: 'almaz.tesfaye@nur-school.edu.et',
-    role: 'student',
-    grade: 10,
-    isGradeLocked: true,
-    activeDevicesCount: 2,
-    lastLogin: '2026-10-28T06:50:00.000Z',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'usr-student-002',
-    name: 'Bekele Tadesse',
-    email: 'bekele.student@nur-school.edu.et',
-    role: 'student',
-    grade: 9,
-    isGradeLocked: true,
-    activeDevicesCount: 1,
-    lastLogin: '2026-10-27T12:00:00.000Z',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'usr-student-003',
-    name: 'Yared Getachew',
-    email: 'student.yared@nur-school.edu.et',
-    role: 'student',
-    grade: 10,
-    isGradeLocked: true,
-    activeDevicesCount: 1,
-    lastLogin: '2026-10-28T06:14:00.000Z',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'usr-student-004',
-    name: 'Meron Solomon',
-    email: 'student.meron@nur-school.edu.et',
-    role: 'student',
-    grade: 11,
-    isGradeLocked: true,
-    activeDevicesCount: 1,
-    lastLogin: '2026-10-28T06:45:00.000Z',
-    status: 'ACTIVE',
-  },
-];
+export const RBAC_USERS: SecurityUser[] = [];
 
 // ==========================================
 // 4. RATE LIMITING SLIDING WINDOW ENGINE
@@ -257,7 +87,7 @@ export function rateLimiterMiddleware(req: Request, res: Response, next: NextFun
     bucket.blockedUntil = now + 60 * 1000;
 
     // Log to Audit Trail
-    IMMUTABLE_AUDIT_LOGS.unshift({
+    pushAudit({
       logId: `AUD-RL-${Date.now()}`,
       actorId: clientId,
       actorRole: 'SYSTEM',
@@ -332,10 +162,21 @@ export function inputSanitizerMiddleware(req: Request, _res: Response, next: Nex
 // ==========================================
 
 // Audit Logs: Read immutable records with optional filtering
-securityRouter.get('/audit-logs', (req: Request, res: Response) => {
+securityRouter.get('/audit-logs', async (req: Request, res: Response) => {
   const { action, actorRole, result, limit = '100' } = req.query;
 
-  let logs = [...IMMUTABLE_AUDIT_LOGS];
+  let logs: AuditLog[] = [];
+  try {
+    const snap = await adminDb
+      .collection('security_audit_logs')
+      .orderBy('timestamp', 'desc')
+      .limit(500)
+      .get();
+    logs = snap.docs.map((d) => d.data() as AuditLog);
+  } catch (e) {
+    console.warn('Failed to fetch security_audit_logs from Firestore, falling back to in-memory:', (e as any)?.message || e);
+    logs = [...IMMUTABLE_AUDIT_LOGS];
+  }
 
   if (action && typeof action === 'string' && action !== 'ALL') {
     logs = logs.filter((l) => l.action.toLowerCase().includes(action.toLowerCase()));
@@ -358,25 +199,31 @@ securityRouter.get('/audit-logs', (req: Request, res: Response) => {
 
 // Audit Logs: Append-only event ingestion
 securityRouter.post('/audit-logs', (req: Request, res: Response) => {
-  const { actorId, actorRole, action, resourceType, resourceId, result = 'success', ip, details } = req.body;
-
+  const actorId = req.user?.email || req.user?.uid || 'anonymous_client';
+  const actorRole = req.user?.role === 'super_admin' ? 'SUPER_ADMIN' : 'STUDENT';
   const forwarded = req.headers['x-forwarded-for'];
-  const clientIp = ip || (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || '196.188.64.12';
+  const clientIp = req.ip || (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || '127.0.0.1';
+
+  const action = String(req.body?.action || 'SECURITY_PROBE').slice(0, 64);
+  const resourceType = String(req.body?.resourceType || 'SYSTEM_MODULE').slice(0, 64);
+  const resourceId = String(req.body?.resourceId || 'GENERAL').slice(0, 128);
+  const details = String(req.body?.details || 'Security event logged to immutable audit trail').slice(0, 500);
+  const result = req.body?.result === 'denied' ? 'denied' : 'success';
 
   const newLog: AuditLog = {
     logId: `AUD-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
-    actorId: actorId || 'anonymous_client',
-    actorRole: actorRole || 'STUDENT',
-    action: action || 'SECURITY_PROBE',
-    resourceType: resourceType || 'SYSTEM_MODULE',
-    resourceId: resourceId || 'GENERAL',
-    result: result === 'denied' ? 'denied' : 'success',
+    actorId,
+    actorRole,
+    action,
+    resourceType,
+    resourceId,
+    result,
     ip: clientIp,
     timestamp: new Date().toISOString(),
-    details: details || 'Security event logged to immutable audit trail',
+    details,
   };
 
-  IMMUTABLE_AUDIT_LOGS.unshift(newLog);
+  pushAudit(newLog);
 
   res.json({
     success: true,
@@ -388,13 +235,15 @@ securityRouter.post('/audit-logs', (req: Request, res: Response) => {
 
 // Device Registration & Concurrent Multi-Device Detection
 securityRouter.post('/devices/register', (req: Request, res: Response) => {
-  const { deviceId, studentId, studentEmail, deviceName, browser, os } = req.body;
+  const { deviceId, deviceName, browser, os } = req.body;
+  const studentEmail = req.user?.email || '';
+  const studentId = req.user?.uid || '';
 
   const forwarded = req.headers['x-forwarded-for'];
-  const clientIp = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || '196.188.64.12';
+  const clientIp = req.ip || (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || '127.0.0.1';
 
   if (!studentEmail) {
-    return res.status(400).json({ success: false, error: 'studentEmail is required' });
+    return res.status(400).json({ success: false, error: 'studentEmail is required (user must be authenticated)' });
   }
 
   const existingIdx = ACTIVE_DEVICE_SESSIONS.findIndex((d) => d.deviceId === deviceId);
@@ -407,7 +256,7 @@ securityRouter.post('/devices/register', (req: Request, res: Response) => {
 
   const sessionObj: DeviceSession = {
     deviceId: deviceId || `DEV-${Math.floor(100000 + Math.random() * 900000)}`,
-    studentId: studentId || studentEmail,
+    studentId,
     studentEmail,
     deviceName: deviceName || 'Generic Client Device',
     browser: browser || 'Standard Web Browser',
@@ -427,7 +276,7 @@ securityRouter.post('/devices/register', (req: Request, res: Response) => {
 
   if (isConcurrent) {
     // Log to Audit Trail
-    IMMUTABLE_AUDIT_LOGS.unshift({
+    pushAudit({
       logId: `AUD-CONC-${Date.now()}`,
       actorId: studentEmail,
       actorRole: 'STUDENT',

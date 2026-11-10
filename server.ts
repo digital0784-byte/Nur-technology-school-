@@ -15,6 +15,8 @@ import { sharedAiCache } from './src/server/sharedAiCache';
 import { generateCurriculumLessonFallback } from './curriculumLessonFallback';
 import { requireAuth, requireSuperAdmin, isPremiumActive } from './src/server/authMiddleware';
 import { CURRICULUM_DATA } from './src/data/curriculum';
+import { paymentsRouter, VERIFIED_PAYMENT_ACCOUNTS, getPricing } from './src/server/paymentsApi';
+import { aiContextMiddleware, consumeAiQuota } from './src/server/aiQuota';
 
 dotenv.config();
 
@@ -27,8 +29,10 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(inputSanitizerMiddleware);
-app.use('/api', (req, res, next) => (req.path === '/health' ? next() : requireAuth(req, res, next)));
+app.use('/api', (req, res, next) => (req.path === '/health' || req.path === '/payment/config' ? next() : requireAuth(req, res, next)));
 app.use('/api', rateLimiterMiddleware);
+app.use('/api', aiContextMiddleware);
+app.use('/api/payment', paymentsRouter);
 app.use('/api/admin', requireSuperAdmin, adminAutomationRouter);
 app.use('/api/security', (req, res, next) => (req.method === 'POST' && req.path === '/audit-logs') ? next() : requireSuperAdmin(req, res, next), securityRouter);
 
@@ -66,6 +70,9 @@ async function callResilientGemini(promptText: string, options: CallGeminiOption
   if (!ai) {
     throw new Error('GEMINI_API_KEY is not configured on the server.');
   }
+
+  // Enforces the per-user daily cap on real (non-cached) Gemini calls.
+  await consumeAiQuota();
 
   let lastError: any = null;
 
@@ -132,7 +139,7 @@ app.post('/api/ai/tutor', async (req: Request, res: Response) => {
       isPremium,
     } = req.body;
 
-    const isVip = Boolean(is_premium || isPremium);
+    const isVip = isPremiumActive(req.user);
 
     const vipTutorPrompt = isVip
       ? `\n[VIP SOCRATIC TUTOR INSTRUCTION]
@@ -244,7 +251,7 @@ TEACHING RULES & PEDAGOGICAL CONSTRAINTS:
     });
   } catch (err: any) {
     console.error('Error in /api/ai/tutor:', err);
-    res.status(500).json({
+    res.status(err?.statusCode === 429 ? 429 : 500).json({
       success: false,
       error: err?.message || 'Failed to process AI tutor request',
       fallbackReply: 'የኔ ተማሪ፣ ጊዜያዊ የኔትዎርክ መቆራረጥ አጋጥሟል። እባክዎ ጥያቄዎን በድጋሚ ይሞክሩ ወይም ከመማሪያ መጽሐፉ ዋና ዋና ነጥቦች ጋር ያገናኙት።',
@@ -257,7 +264,7 @@ app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
   try {
     const { imageBase64, mimeType = 'image/jpeg', questionPrompt, grade = '9-12', subject = 'Science', language = 'am', is_premium, isPremium } = req.body;
 
-    const isVip = Boolean(is_premium || isPremium);
+    const isVip = isPremiumActive(req.user);
 
     if (!imageBase64 && !questionPrompt) {
       return res.status(400).json({ success: false, error: 'Either imageBase64 or questionPrompt must be provided' });
@@ -350,7 +357,7 @@ Step 5: ✅ Sanity Check & Final Answer (የውጤቱ ትክክለኛነት ማ�
     });
   } catch (err: any) {
     console.error('Error in /api/ai/ocr-solve:', err);
-    res.status(500).json({
+    res.status(err?.statusCode === 429 ? 429 : 500).json({
       success: false,
       error: err?.message || 'Failed to process OCR solve request',
     });
@@ -929,7 +936,7 @@ COUNT CONSTRAINTS:
     });
   } catch (err: any) {
     console.error('Unhandled error in /api/ai/lesson:', err);
-    res.status(500).json({
+    res.status(err?.statusCode === 429 ? 429 : 500).json({
       success: false,
       error: err?.message || 'Failed to generate lesson from topic',
     });
@@ -1013,7 +1020,7 @@ Output MUST be a valid JSON array of objects with keys:
     });
   } catch (err: any) {
     console.error('Error in /api/ai/exam-gen:', err);
-    res.status(500).json({
+    res.status(err?.statusCode === 429 ? 429 : 500).json({
       success: false,
       error: err?.message || 'Failed to generate exam questions',
     });
@@ -1118,7 +1125,7 @@ Provide evaluation in JSON format with fields:
     });
   } catch (err: any) {
     console.error('Error in /api/ai/grade-assignment:', err);
-    res.status(500).json({
+    res.status(err?.statusCode === 429 ? 429 : 500).json({
       success: false,
       error: err?.message || 'Failed to grade assignment',
     });
@@ -1191,354 +1198,23 @@ Each item must have:
     });
   } catch (err: any) {
     console.error('Error in /api/ai/search:', err);
-    res.status(500).json({
+    res.status(err?.statusCode === 429 ? 429 : 500).json({
       success: false,
       error: err?.message || 'Failed to execute search',
     });
   }
 });
 
-// Ethiopian High School Platform - Verified Payment & Subscription API
-const VERIFIED_PAYMENT_ACCOUNTS = [
-  {
-    id: 'telebirr',
-    name: 'ቴሌብር (Telebirr)',
-    accountName: 'Nuriye Ahmed Adem',
-    accountNumberOrPhone: '0910097862',
-    ussdCode: '*127#',
-    method: 'In-app transfer or USSD (*127#)',
-  },
-  {
-    id: 'cbe_birr',
-    name: 'ሲቢኢ ብር (CBE Birr)',
-    accountName: 'Nuriye Ahmed Adem',
-    accountNumberOrPhone: '0910097862',
-    ussdCode: '*847#',
-    method: 'In-app transfer or USSD (*847#)',
-  },
-  {
-    id: 'cbe',
-    name: 'የኢትዮጵያ ንግድ ባንክ (Commercial Bank of Ethiopia - CBE)',
-    accountName: 'Nuriye Ahmed Adem',
-    accountNumberOrPhone: '1000382883776',
-    method: 'CBE Mobile Banking, CBE Birr, or branch deposit',
-  },
-  {
-    id: 'dashen',
-    name: 'ዳሸን ባንክ (Dashen Bank / Amole)',
-    accountName: 'Nuriye Ahmed Adem',
-    accountNumberOrPhone: '2976196269611',
-    method: 'Dashen Mobile App or Amole',
-  },
-  {
-    id: 'abyssinia',
-    name: 'አቢሲኒያ ባንክ (Bank of Abyssinia)',
-    accountName: 'Nuriye Ahmed Adem',
-    accountNumberOrPhone: '251120889',
-    method: 'BoA Mobile Banking or branch transfer',
-  },
-];
 
-let SERVER_PRICING = {
-  grade9: 160,
-  grade10: 180,
-  grade11: 200,
-  grade12: 200,
-  singleAssignment: 57,
-  billingCycleDays: 30,
-  currency: 'ETB',
-};
 
-// GET payment accounts and pricing configuration
-app.get('/api/payment/config', (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    accounts: VERIFIED_PAYMENT_ACCOUNTS,
-    pricing: SERVER_PRICING,
-    superAdminContact: {
-      email: 'mejennur669@gmail.com',
-      name: 'Nuriye Ahmed Adem',
-      phone: '0910097862',
-    },
-  });
-});
 
-// Update pricing endpoint (Restricted to Super Admin)
-app.post('/api/payment/admin/pricing', (_req: Request, res: Response) => {
-  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
-});
-
-// Update payment accounts configuration endpoint (Restricted to Super Admin)
-app.post('/api/admin/accounts/update', (_req: Request, res: Response) => {
-  return res.status(403).json({ success: false, error: 'Disabled until server-side authentication is added' });
-});
-
-// Admin ERP Stats Endpoint
-app.get('/api/admin/stats', (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    note: 'Not connected to real data yet',
-    stats: {
-      totalStudents: 0,
-      activeSubscriptions: 0,
-      pendingVerifications: 0,
-      totalRevenueETB: 0,
-      systemHealthScore: 0,
-      moeCurriculumVersion: '2019 E.C. (New Syllabus)',
-      superAdmin: 'mejennur669@gmail.com (Nuriye Ahmed Adem)',
-      timestamp: new Date().toISOString(),
-      note: 'Not connected to real data yet',
-    },
-  });
-});
-
-interface AdminPaymentNotification {
-  id: string;
-  studentId: string;
-  studentName: string;
-  studentEmail: string;
-  studentPhone: string;
-  grade: number;
-  amount: number;
-  currency: string;
-  paymentGateway: string;
-  transactionRef: string;
-  planTitle?: string;
-  submittedAt: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  reviewedAt?: string;
-  reviewedBy?: string;
-}
-
-const ADMIN_PAYMENT_NOTIFICATIONS: AdminPaymentNotification[] = [
-  {
-    id: 'pay-seed-01',
-    studentId: 'usr-student-01',
-    studentName: 'Almaz Tadesse',
-    studentEmail: 'almaz.student@nur-school.edu.et',
-    studentPhone: '0922446688',
-    grade: 10,
-    amount: 180,
-    currency: 'ETB',
-    paymentGateway: 'telebirr',
-    transactionRef: 'FT26049281',
-    planTitle: '10ኛ ክፍል ወርሃዊ መደበኛ',
-    submittedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    status: 'PENDING',
-  },
-  {
-    id: 'pay-seed-02',
-    studentId: 'usr-student-02',
-    studentName: 'Mohammed Bekele',
-    studentEmail: 'mohammed.bekele@nur-school.edu.et',
-    studentPhone: '0911559933',
-    grade: 12,
-    amount: 200,
-    currency: 'ETB',
-    paymentGateway: 'cbe',
-    transactionRef: 'CBE-FT9981240',
-    planTitle: '12ኛ ክፍል ወርሃዊ መደበኛ',
-    submittedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-    status: 'APPROVED',
-  },
-];
-
-// POST /api/payment/notify-admin: Student sends transaction number directly to admin
-app.post('/api/payment/notify-admin', (req: Request, res: Response) => {
-  const {
-    studentId = 'usr-student',
-    studentName = 'ተማሪ',
-    studentEmail = 'student@nur-school.edu.et',
-    studentPhone = '',
-    grade = 10,
-    amount = 180,
-    paymentGateway = 'telebirr',
-    transactionRef = '',
-    plan = 'Monthly Pass',
-  } = req.body;
-
-  const cleanRef = String(transactionRef || '').trim();
-  if (!cleanRef || cleanRef.length < 3) {
-    return res.status(400).json({
-      success: false,
-      error: 'ትክክለኛ የግብይት ማረጋገጫ ቁጥር (Transaction Number / FT Code) ያስገቡ።',
-    });
-  }
-
-  const notificationId = `pay-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
-
-  // Check if this FT reference was already submitted
-  const existingIdx = ADMIN_PAYMENT_NOTIFICATIONS.findIndex(
-    (n) => n.transactionRef.toLowerCase() === cleanRef.toLowerCase()
-  );
-
-  const notificationRecord: AdminPaymentNotification = {
-    id: notificationId,
-    studentId: String(studentId),
-    studentName: String(studentName),
-    studentEmail: String(studentEmail),
-    studentPhone: String(studentPhone || '0910000000'),
-    grade: Number(grade) || 10,
-    amount: Number(amount) || 180,
-    currency: 'ETB',
-    paymentGateway: String(paymentGateway).toLowerCase(),
-    transactionRef: cleanRef,
-    planTitle: String(plan),
-    submittedAt: new Date().toISOString(),
-    status: 'PENDING',
-  };
-
-  if (existingIdx !== -1) {
-    ADMIN_PAYMENT_NOTIFICATIONS[existingIdx] = notificationRecord;
-  } else {
-    ADMIN_PAYMENT_NOTIFICATIONS.unshift(notificationRecord);
-  }
-
-  if (ADMIN_PAYMENT_NOTIFICATIONS.length > 150) {
-    ADMIN_PAYMENT_NOTIFICATIONS.pop();
-  }
-
-  console.log(`\n🔔 [SUPER ADMIN PAYMENT NOTIFICATION RECEIVED]`);
-  console.log(`  • FT Reference Code : ${cleanRef}`);
-  console.log(`  • Student Name      : ${studentName}`);
-  console.log(`  • Student Phone     : ${studentPhone}`);
-  console.log(`  • Grade Level       : Grade ${grade}`);
-  console.log(`  • Amount            : ${amount} ETB`);
-  console.log(`  • Payment Gateway   : ${paymentGateway.toUpperCase()}`);
-  console.log(`  • Time              : ${notificationRecord.submittedAt}`);
-  console.log(`  • Delivered to Admin: Nuriye Ahmed Adem (mejennur669@gmail.com / 0910097862)\n`);
-
-  return res.json({
-    success: true,
-    notificationId,
-    transactionRef: cleanRef,
-    receivedAt: notificationRecord.submittedAt,
-    status: 'PENDING',
-    superAdminContact: {
-      name: 'Nuriye Ahmed Adem',
-      email: 'mejennur669@gmail.com',
-      phone: '0910097862',
-      telegram: 'https://t.me/nur_school_admin',
-    },
-    message: 'የክፍያ ማረጋገጫ ቁጥርህ (FT ቁጥር) ወደ ሲስተሙ ዋና አስተዳዳሪ (Nuriye Ahmed Adem) በተሳካ ሁኔታ ተልኳል!',
-  });
-});
-
-// GET /api/payment/admin/notifications: Super Admin views all received transaction numbers
-app.get('/api/payment/admin/notifications', requireSuperAdmin, (req: Request, res: Response) => {
-  const pendingOnly = req.query.pending === 'true';
-  const list = pendingOnly
-    ? ADMIN_PAYMENT_NOTIFICATIONS.filter((n) => n.status === 'PENDING')
-    : ADMIN_PAYMENT_NOTIFICATIONS;
-
-  const pendingCount = ADMIN_PAYMENT_NOTIFICATIONS.filter((n) => n.status === 'PENDING').length;
-
-  res.json({
-    success: true,
-    count: list.length,
-    pendingCount,
-    superAdmin: 'mejennur669@gmail.com (Nuriye Ahmed Adem)',
-    phone: '0910097862',
-    notifications: list,
-    lastChecked: new Date().toISOString(),
-  });
-});
-
-// POST /api/payment/admin/approve: Super Admin marks payment approved
-app.post('/api/payment/admin/approve', requireSuperAdmin, (req: Request, res: Response) => {
-  const { paymentId, studentId, studentEmail, expiresAt } = req.body;
-  const adminEmail = req.user?.email || 'mejennur669@gmail.com';
-
-  const notification = ADMIN_PAYMENT_NOTIFICATIONS.find(
-    (n) => n.id === paymentId || n.transactionRef === paymentId || (n as any).studentEmail === studentEmail
-  );
-  if (notification) {
-    notification.status = 'APPROVED';
-    (notification as any).reviewedBy = adminEmail;
-    (notification as any).reviewedAt = new Date().toISOString();
-  }
-
-  res.json({
-    success: true,
-    message: `Payment ${paymentId} approved successfully by ${adminEmail}.`,
-    paymentId,
-    studentId,
-    expiresAt,
-  });
-});
-
-// Telebirr, CBE Birr, CBE, Dashen, and BoA Payment submission & verification
-app.post('/api/payment/verify', (req: Request, res: Response) => {
-  const { provider, transactionId, amount, studentName, grade, phone, studentId } = req.body;
-  const studentEmail = req.user?.email || '';
-
-  const cleanRef = String(transactionId || '').trim();
-  const isValidRef = Boolean(cleanRef && cleanRef.length >= 3);
-
-  // Expected price check server-side
-  let expectedAmount = 160;
-  if (grade === 10) expectedAmount = SERVER_PRICING.grade10;
-  else if (grade === 11) expectedAmount = SERVER_PRICING.grade11;
-  else if (grade === 12) expectedAmount = SERVER_PRICING.grade12;
-  else expectedAmount = SERVER_PRICING.grade9;
-
-  const resolvedAmount = amount || expectedAmount;
-  const receiptNo = `ETH-${(provider || 'PAY').toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
-
-  if (isValidRef) {
-    const existingIdx = ADMIN_PAYMENT_NOTIFICATIONS.findIndex(
-      (n) => n.transactionRef.toLowerCase() === cleanRef.toLowerCase()
-    );
-
-    const record: AdminPaymentNotification = {
-      id: receiptNo,
-      studentId: studentId || (req.user?.uid || 'usr-student'),
-      studentName: studentName || 'ተማሪ',
-      studentEmail,
-      studentPhone: phone || '0910000000',
-      grade: Number(grade) || 10,
-      amount: resolvedAmount,
-      currency: 'ETB',
-      paymentGateway: String(provider || 'telebirr').toLowerCase(),
-      transactionRef: cleanRef,
-      planTitle: `${grade || 10}ኛ ክፍል ወርሃዊ መደበኛ`,
-      submittedAt: new Date().toISOString(),
-      status: 'PENDING',
-    };
-
-    if (existingIdx !== -1) {
-      ADMIN_PAYMENT_NOTIFICATIONS[existingIdx] = record;
-    } else {
-      ADMIN_PAYMENT_NOTIFICATIONS.unshift(record);
-    }
-    console.log(`[VERIFY -> ADMIN QUEUE] FT: ${cleanRef} from ${studentName} (${phone}) queued for Super Admin`);
-  }
-
-  res.json({
-    success: true,
-    approved: false, // Student payments start in PENDING status until Super Admin approves
-    status: isValidRef ? 'PENDING' : 'INVALID_REF',
-    receiptNo,
-    timestamp: new Date().toISOString(),
-    amount: resolvedAmount,
-    currency: 'ETB',
-    studentName,
-    studentEmail,
-    grade,
-    phone,
-    transactionRef: cleanRef,
-    superAdminContact: '0910097862',
-    message: isValidRef
-      ? 'የክፍያ ማረጋገጫ ቁጥሩ ወደ ዋና አስተዳዳሪ ተልኳል (Awaiting Super Admin Nuriye Ahmed Adem verification).'
-      : 'Invalid transaction reference code.',
-  });
-});
 
 // In-memory record for single assignment purchases (persisted alongside Firestore/localStorage)
 const SINGLE_ASSIGNMENT_PURCHASES = new Set<string>();
 
 // Verified Student Entitlement Engine for Academic Work Hub & Premium Assets
-app.post('/api/premium/verify-student-entitlement', (req: Request, res: Response) => {
+app.post('/api/premium/verify-student-entitlement', async (req: Request, res: Response) => {
+  const SERVER_PRICING = await getPricing();
   const { studentId, resourceType = 'homework', assignmentId, grade = 10 } = req.body;
   const hasActiveSubscription = isPremiumActive(req.user);
 
@@ -1616,18 +1292,7 @@ app.post('/api/premium/purchase-single-assignment', (req: Request, res: Response
 
 // System Health and Diagnostics endpoint
 app.get('/api/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    version: '2019-EC-v2.6',
-    schoolSystem: 'የክፍል 9-12 ቲቶሪያል (NUR AI School & High School Tutorial System)',
-    superAdmin: 'mejennur669@gmail.com (Nuriye Ahmed Adem)',
-    aiConfigured: Boolean(apiKey),
-    supportedLanguages: ['am', 'om', 'ti', 'ar', 'so', 'en'],
-    gradesSupported: ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'],
-    moeCurriculumYear: '2019 E.C. (2026 G.C.)',
-    modulesCount: 24,
-    timestamp: new Date().toISOString(),
-  });
+  res.json({ status: 'ok', aiConfigured: Boolean(apiKey), timestamp: new Date().toISOString() });
 });
 
 // Vite middleware or static serving

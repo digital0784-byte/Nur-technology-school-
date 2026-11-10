@@ -339,22 +339,6 @@ export class PaymentService {
       window.dispatchEvent(new CustomEvent('nur_payment_submitted', { detail: newRecord }));
     }
 
-    // Notify backend server admin queue
-    authFetch('/api/payment/notify-admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        studentId: submission.studentId,
-        studentName: submission.studentName,
-        studentEmail: submission.studentEmail,
-        studentPhone: submission.studentPhone,
-        grade: submission.grade,
-        amount: submission.amount,
-        paymentGateway: submission.paymentGateway,
-        transactionRef: submission.transactionRef,
-      }),
-    }).catch(() => {});
-
     return newRecord;
   }
 
@@ -555,25 +539,6 @@ export class PaymentService {
       previousStatus: 'PENDING',
       newStatus: 'ACTIVE',
     });
-
-    if (isFirebaseConfigured) {
-      setDoc(doc(db, 'payments', payment.id), payment, { merge: true }).catch(() => {});
-      setDoc(doc(db, 'subscriptions', payment.studentId), activeSubRecord, { merge: true }).catch(() => {});
-      if (payment.studentEmail) {
-        setDoc(doc(db, 'subscriptions', payment.studentEmail.toLowerCase()), activeSubRecord, { merge: true }).catch(() => {});
-      }
-      // CRITICAL: Update user profile document in Firestore so that when the user logs in from any session/device,
-      // their profile already has isPremium: true and premiumExpiresAt
-      setDoc(
-        doc(db, 'users', payment.studentId),
-        {
-          isPremium: true,
-          premiumExpiresAt: expiresAt,
-          subscriptionStatus: 'ACTIVE',
-        },
-        { merge: true }
-      ).catch(() => {});
-    }
 
     return true;
   }

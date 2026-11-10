@@ -1,0 +1,748 @@
+Task for AI Studio: security + payment hardening (apply EXACTLY, do not redesign anything else)
+Apply every change below to this project. Do not change UI design, translations, curriculum data or any file not listed. After applying, make sure npm run lint (tsc --noEmit) passes and the app still builds. Add dependency firebase-admin only if missing (it is already in package.json).
+Goals: (1) students must not be able to grant themselves Premium; (2) payments are created and approved ONLY on the server (firebase-admin), with price/grade/identity decided by the server; (3) remove hard-coded admin PINs, seed/fake data and no-op admin endpoints; (4) cap AI (Gemini) cost per user per day.
+PART A — whole-file additions/replacements
+FILE: src/server/adminDb.ts  (create/replace the WHOLE file with exactly this)
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'nur-technology-school';
+
+// Uses Application Default Credentials: automatic on Cloud Run / GCE, or set
+// GOOGLE_APPLICATION_CREDENTIALS to a service-account key file when running elsewhere.
+if (!getApps().length) initializeApp({ projectId: PROJECT_ID });
+
+export const adminDb = getFirestore();
+export { FieldValue };
+FILE: src/server/paymentsApi.ts  (create/replace the WHOLE file with exactly this)
+import { Router, Request, Response } from 'express';
+import { adminDb, FieldValue } from './adminDb';
+import { requireSuperAdmin } from './authMiddleware';
+
+export const paymentsRouter = Router();
+
+// ---------------------------------------------------------------------------
+// Config: payment accounts are public by design (students need them to pay).
+// Pricing is read from Firestore app_config/payment (editable by the Super Admin
+// in the dashboard) with these defaults as a fallback.
+// ---------------------------------------------------------------------------
+export const VERIFIED_PAYMENT_ACCOUNTS = [
+  { id: 'telebirr', name: 'ቴሌብር (Telebirr)', accountName: 'Nuriye Ahmed Adem', accountNumberOrPhone: '0910097862', ussdCode: '*127#', method: 'In-app transfer or USSD (*127#)' },
+  { id: 'cbe_birr', name: 'ሲቢኢ ብር (CBE Birr)', accountName: 'Nuriye Ahmed Adem', accountNumberOrPhone: '0910097862', ussdCode: '*847#', method: 'In-app transfer or USSD (*847#)' },
+  { id: 'cbe', name: 'የኢትዮጵያ ንግድ ባንክ (Commercial Bank of Ethiopia - CBE)', accountName: 'Nuriye Ahmed Adem', accountNumberOrPhone: '1000382883776', method: 'CBE Mobile Banking, CBE Birr, or branch deposit' },
+  { id: 'dashen', name: 'ዳሸን ባንክ (Dashen Bank / Amole)', accountName: 'Nuriye Ahmed Adem', accountNumberOrPhone: '2976196269611', method: 'Dashen Mobile App or Amole' },
+  { id: 'abyssinia', name: 'አቢሲኒያ ባንክ (Bank of Abyssinia)', accountName: 'Nuriye Ahmed Adem', accountNumberOrPhone: '251120889', method: 'BoA Mobile Banking or branch transfer' },
+];
+
+const GATEWAY_IDS = new Set(VERIFIED_PAYMENT_ACCOUNTS.map((a) => a.id));
+
+export const DEFAULT_PRICING = {
+  grade9: 160,
+  grade10: 180,
+  grade11: 200,
+  grade12: 200,
+  singleAssignment: 57,
+  billingCycleDays: 30,
+  currency: 'ETB',
+};
+export type Pricing = typeof DEFAULT_PRICING;
+
+let pricingCache: { at: number; value: Pricing } | null = null;
+const PRICING_TTL_MS = 60_000;
+
+export async function getPricing(): Promise<Pricing> {
+  if (pricingCache && Date.now() - pricingCache.at < PRICING_TTL_MS) return pricingCache.value;
+  let value: Pricing = { ...DEFAULT_PRICING };
+  try {
+    const snap = await adminDb.collection('app_config').doc('payment').get();
+    const p = snap.data()?.pricing;
+    if (p && typeof p === 'object') {
+      for (const k of Object.keys(DEFAULT_PRICING) as Array<keyof Pricing>) {
+        if (k === 'currency') continue;
+        const n = Number((p as any)[k]);
+        if (Number.isFinite(n) && n > 0 && n < 100_000) (value as any)[k] = n;
+      }
+    }
+  } catch (e) {
+    console.error('Pricing lookup failed, using defaults:', e);
+  }
+  pricingCache = { at: Date.now(), value };
+  return value;
+}
+
+export function priceForGrade(p: Pricing, grade: number): number {
+  return grade === 10 ? p.grade10 : grade === 11 ? p.grade11 : grade === 12 ? p.grade12 : p.grade9;
+}
+
+const toYmd = (d: Date) => d.toISOString().slice(0, 10);
+const MAX_PENDING_PER_USER = 5;
+
+// GET /api/payment/config
+paymentsRouter.get('/config', async (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    accounts: VERIFIED_PAYMENT_ACCOUNTS,
+    pricing: await getPricing(),
+    superAdminContact: { email: 'mejennur669@gmail.com', name: 'Nuriye Ahmed Adem', phone: '0910097862' },
+  });
+});
+
+// POST /api/payment/submit  — the ONLY way a student payment record is created.
+// Identity comes from the verified token, grade/name from the user's profile,
+// the amount from server-side pricing. The document id (gateway_ref) is unique,
+// so the same transaction number can never be submitted twice.
+paymentsRouter.post('/submit', async (req: Request, res: Response) => {
+  const user = req.user!;
+  const gateway = String(req.body?.gateway || '').toLowerCase();
+  const ref = String(req.body?.transactionRef || '').trim().replace(/[^A-Za-z0-9_-]/g, '');
+  const phone = String(req.body?.phone || '').trim();
+
+  if (!GATEWAY_IDS.has(gateway)) {
+    return res.status(400).json({ success: false, error: 'የክፍያ መንገድ ትክክል አይደለም / Invalid payment gateway.' });
+  }
+  if (ref.length < 4 || ref.length > 64) {
+    return res.status(400).json({ success: false, error: 'እባክዎ ትክክለኛ የግብይት ማረጋገጫ (FT Reference) ያስገቡ።' });
+  }
+  if (phone.length < 9 || phone.length > 20) {
+    return res.status(400).json({ success: false, error: 'እባክዎ ትክክለኛ የስልክ ቁጥር ያስገቡ።' });
+  }
+
+  try {
+    const profileSnap = await adminDb.collection('users').doc(user.uid).get();
+    const profile = profileSnap.data() || {};
+    const grade = [9, 10, 11, 12].includes(Number(profile.grade)) ? Number(profile.grade) : 9;
+    const pricing = await getPricing();
+    const amount = priceForGrade(pricing, grade);
+
+    const pending = await adminDb
+      .collection('payments')
+      .where('userId', '==', user.uid)
+      .where('status', '==', 'pending')
+      .limit(MAX_PENDING_PER_USER)
+      .get();
+    if (pending.size >= MAX_PENDING_PER_USER) {
+      return res.status(429).json({
+        success: false,
+        error: 'ብዙ ያልተረጋገጡ ክፍያዎች አሉዎት። እባክዎ አድሚኑ እስኪያረጋግጥ ይጠብቁ።',
+      });
+    }
+
+    const id = `${gateway}_${ref}`;
+    const data = {
+      userId: user.uid,
+      studentId: user.uid,
+      studentName: String(profile.name || user.email || 'ተማሪ').slice(0, 120),
+      studentEmail: user.email || '',
+      studentPhone: phone,
+      grade,
+      amount,
+      currency: 'ETB',
+      paymentGateway: gateway,
+      transactionRef: ref,
+      status: 'pending',
+      createdAt: FieldValue.serverTimestamp(),
+    };
+
+    try {
+      await adminDb.collection('payments').doc(id).create(data);
+    } catch (e: any) {
+      if (e?.code === 6 || String(e?.message || '').includes('ALREADY_EXISTS')) {
+        return res.status(409).json({
+          success: false,
+          error: 'ይህ የግብይት ቁጥር ቀድሞ ገብቷል / This transaction ID was already submitted.',
+        });
+      }
+      throw e;
+    }
+
+    await adminDb.collection('audit_logs').add({
+      scope: 'payment',
+      actorUid: user.uid,
+      actorEmail: user.email || '',
+      action: 'SUBMITTED',
+      targetUserId: user.uid,
+      targetPaymentId: id,
+      details: `${gateway} ${ref} ${amount} ETB (Grade ${grade})`,
+      newStatus: 'PENDING',
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    return res.json({
+      success: true,
+      submission: { id, ...data, createdAt: null },
+    });
+  } catch (e: any) {
+    console.error('payment submit failed:', e);
+    return res.status(500).json({ success: false, error: 'ክፍያውን መመዝገብ አልተቻለም። እባክዎ ቆይተው ይሞክሩ።' });
+  }
+});
+
+// GET /api/payment/admin/notifications — pending payments for the Super Admin.
+paymentsRouter.get('/admin/notifications', requireSuperAdmin, async (req: Request, res: Response) => {
+  try {
+    const pendingOnly = req.query.pending === 'true';
+    let q: FirebaseFirestore.Query = adminDb.collection('payments');
+    if (pendingOnly) q = q.where('status', '==', 'pending');
+    const snap = await q.limit(200).get();
+    const notifications = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    res.json({
+      success: true,
+      count: notifications.length,
+      pendingCount: notifications.filter((n: any) => n.status === 'pending').length,
+      notifications,
+    });
+  } catch (e) {
+    console.error('notifications failed:', e);
+    res.status(500).json({ success: false, error: 'Failed to load payments' });
+  }
+});
+
+// POST /api/payment/admin/approve — approves a payment and switches Premium on,
+// all in one Firestore transaction (idempotent).
+paymentsRouter.post('/admin/approve', requireSuperAdmin, async (req: Request, res: Response) => {
+  const paymentId = String(req.body?.paymentId || '');
+  if (!paymentId || paymentId.includes('/')) {
+    return res.status(400).json({ success: false, error: 'paymentId is required' });
+  }
+  const adminEmail = req.user?.email || '';
+
+  try {
+    const pricing = await getPricing();
+    const result = await adminDb.runTransaction(async (tx) => {
+      const payRef = adminDb.collection('payments').doc(paymentId);
+      const paySnap = await tx.get(payRef);
+      if (!paySnap.exists) return { code: 404 as const };
+      const pay = paySnap.data()!;
+      const status = String(pay.status || '').toLowerCase();
+      if (status === 'approved') return { code: 200 as const, already: true, expiresAt: pay.expiresAt as string };
+      if (status !== 'pending') return { code: 409 as const };
+
+      const uid = String(pay.studentId || pay.userId || '');
+      if (!uid) return { code: 422 as const };
+      const userRef = adminDb.collection('users').doc(uid);
+      const userSnap = await tx.get(userRef);
+
+      // Extend from the current expiry if the student is still active.
+      const today = toYmd(new Date());
+      const existing = String(userSnap.data()?.premiumExpiresAt || '');
+      const baseStr = existing && existing > today ? existing : today;
+      const base = new Date(`${baseStr}T00:00:00Z`);
+      base.setUTCDate(base.getUTCDate() + (pricing.billingCycleDays || 30));
+      const expiresAt = toYmd(base);
+      const plan = `${pay.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`;
+
+      tx.update(payRef, {
+        status: 'approved',
+        reviewedAt: FieldValue.serverTimestamp(),
+        reviewedBy: adminEmail,
+        expiresAt,
+      });
+      tx.set(
+        userRef,
+        {
+          isPremium: true,
+          premiumExpiresAt: expiresAt,
+          premiumPlan: plan,
+          premiumGateway: pay.paymentGateway || '',
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      tx.set(
+        adminDb.collection('subscriptions').doc(uid),
+        {
+          status: 'ACTIVE',
+          isPremium: true,
+          expiresAt,
+          planTitle: plan,
+          amountPaid: pay.amount ?? null,
+          activePaymentId: paymentId,
+          activatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      tx.set(
+        adminDb.collection('entitlements').doc(uid),
+        { isPremium: true, expiresAt, plan, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      tx.set(adminDb.collection('audit_logs').doc(), {
+        scope: 'payment',
+        actorUid: req.user!.uid,
+        actorEmail: adminEmail,
+        action: 'APPROVED',
+        targetUserId: uid,
+        targetPaymentId: paymentId,
+        details: `Approved ${pay.amount} ETB until ${expiresAt}`,
+        previousStatus: 'PENDING',
+        newStatus: 'APPROVED',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      return { code: 200 as const, already: false, expiresAt };
+    });
+
+    if (result.code === 404) return res.status(404).json({ success: false, error: 'Payment not found' });
+    if (result.code === 409) return res.status(409).json({ success: false, error: 'Payment is not pending' });
+    if (result.code === 422) return res.status(422).json({ success: false, error: 'Payment has no student id' });
+    return res.json({ success: true, paymentId, already: result.already, expiresAt: result.expiresAt });
+  } catch (e) {
+    console.error('approve failed:', e);
+    return res.status(500).json({ success: false, error: 'Approval failed' });
+  }
+});
+FILE: src/server/aiQuota.ts  (create/replace the WHOLE file with exactly this)
+import { AsyncLocalStorage } from 'async_hooks';
+import type { Request, Response, NextFunction } from 'express';
+import { adminDb, FieldValue } from './adminDb';
+import { AuthedUser, isPremiumActive } from './authMiddleware';
+
+// Daily cap on real Gemini calls per user (cache hits do not count).
+// Tune with env vars: AI_FREE_DAILY_LIMIT, AI_PREMIUM_DAILY_LIMIT.
+const FREE_LIMIT = Number(process.env.AI_FREE_DAILY_LIMIT) || 15;
+const PREMIUM_LIMIT = Number(process.env.AI_PREMIUM_DAILY_LIMIT) || 200;
+
+const als = new AsyncLocalStorage<{ user?: AuthedUser }>();
+
+export function aiContextMiddleware(req: Request, _res: Response, next: NextFunction) {
+  als.run({ user: req.user }, next);
+}
+
+export class AiQuotaError extends Error {
+  statusCode = 429;
+  code = 'AI_QUOTA_EXCEEDED';
+  constructor(public limit: number, public premium: boolean) {
+    super(
+      premium
+        ? `የዛሬው የAI ጥያቄ ገደብ (${limit}) ደርሷል። ነገ ይሞክሩ። / Daily AI limit (${limit}) reached.`
+        : `የዛሬው የነጻ AI ጥያቄ ገደብ (${limit}) ደርሷል። ያልተገደበ ለማግኘት ፕሪሚየም ይግዙ ወይም ነገ ይሞክሩ። / Daily free AI limit (${limit}) reached. Upgrade to Premium or try tomorrow.`
+    );
+  }
+}
+
+// Fallback if Firestore is unreachable (per-instance only).
+const memoryCounts = new Map<string, number>();
+
+// Ethiopia is UTC+3, so "today" rolls over at local midnight.
+const dayKey = () => new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+
+export async function consumeAiQuota(): Promise<void> {
+  const user = als.getStore()?.user;
+  if (!user) throw Object.assign(new Error('LOGIN_REQUIRED'), { statusCode: 401 });
+  if (user.role === 'super_admin') return;
+
+  const premium = isPremiumActive(user);
+  const limit = premium ? PREMIUM_LIMIT : FREE_LIMIT;
+  const key = `${user.uid}_${dayKey()}`;
+
+  try {
+    const ref = adminDb.collection('ai_usage').doc(key);
+    await adminDb.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const used = Number(snap.data()?.count || 0);
+      if (used >= limit) throw new AiQuotaError(limit, premium);
+      tx.set(ref, { uid: user.uid, day: dayKey(), count: used + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    });
+  } catch (e) {
+    if (e instanceof AiQuotaError) throw e;
+    console.error('AI quota store unavailable, using in-memory counter:', (e as any)?.message || e);
+    const used = memoryCounts.get(key) || 0;
+    if (used >= limit) throw new AiQuotaError(limit, premium);
+    memoryCounts.set(key, used + 1);
+  }
+}
+FILE: src/server/adminAutomationRouter.ts  (create/replace the WHOLE file with exactly this)
+import { Router, Request, Response } from 'express';
+import { adminDb } from './adminDb';
+
+export const adminAutomationRouter = Router();
+
+// NOTE: Payment approval lives in paymentsApi.ts (/api/payment/admin/approve).
+// The former placeholder endpoints (payments/reconcile, users/override-grade-lock)
+// returned "success" without doing anything and have been removed.
+
+export interface DiagnosticCheckResult {
+  id: number;
+  name: string;
+  nameAm: string;
+  category: 'Core System' | 'Security & RBAC' | 'AI & Resilience' | 'Finance & DRM' | 'Academic Engines' | 'UX & Mobile';
+  status: 'PASSED' | 'FAILED' | 'WARNING';
+  latencyMs: number;
+  assertions: string[];
+  details: string;
+  detailsAm: string;
+}
+
+type Probe = () => Promise<Pick<DiagnosticCheckResult, 'status' | 'assertions' | 'details' | 'detailsAm'>>;
+
+const PROBES: Array<{ id: number; name: string; nameAm: string; category: DiagnosticCheckResult['category']; run: Probe }> = [
+  {
+    id: 1,
+    name: 'Firestore connectivity (server credentials)',
+    nameAm: 'የ Firestore ግንኙነት (የሰርቨር ፈቃድ)',
+    category: 'Core System',
+    run: async () => {
+      await adminDb.collection('app_config').doc('payment').get();
+      return {
+        status: 'PASSED',
+        assertions: ['firebase-admin can read Firestore with the server credentials'],
+        details: 'Server can read and write Firestore.',
+        detailsAm: 'ሰርቨሩ Firestoreን ማንበብ ይችላል።',
+      };
+    },
+  },
+  {
+    id: 2,
+    name: 'Gemini API key configured',
+    nameAm: 'የ Gemini API ቁልፍ ተዘጋጅቷል',
+    category: 'AI & Resilience',
+    run: async () => {
+      const ok = Boolean(process.env.GEMINI_API_KEY);
+      return {
+        status: ok ? 'PASSED' : 'FAILED',
+        assertions: [ok ? 'GEMINI_API_KEY is set' : 'GEMINI_API_KEY is missing'],
+        details: ok ? 'AI endpoints can call Gemini.' : 'AI endpoints will fail until GEMINI_API_KEY is set.',
+        detailsAm: ok ? 'የ AI አገልግሎት ዝግጁ ነው።' : 'GEMINI_API_KEY አልተዘጋጀም።',
+      };
+    },
+  },
+  {
+    id: 3,
+    name: 'AI usage quota store',
+    nameAm: 'የ AI ዕለታዊ ኮታ ማከማቻ',
+    category: 'AI & Resilience',
+    run: async () => {
+      await adminDb.collection('ai_usage').limit(1).get();
+      return {
+        status: 'PASSED',
+        assertions: [
+          `Free daily limit: ${Number(process.env.AI_FREE_DAILY_LIMIT) || 15}`,
+          `Premium daily limit: ${Number(process.env.AI_PREMIUM_DAILY_LIMIT) || 200}`,
+        ],
+        details: 'Per-user daily AI quota is stored in Firestore (ai_usage).',
+        detailsAm: 'ዕለታዊ የ AI ኮታ በ Firestore ይቆጠራል።',
+      };
+    },
+  },
+  {
+    id: 4,
+    name: 'Payment config (pricing document)',
+    nameAm: 'የክፍያ ውቅር (የዋጋ ሰነድ)',
+    category: 'Finance & DRM',
+    run: async () => {
+      const snap = await adminDb.collection('app_config').doc('payment').get();
+      const has = Boolean(snap.data()?.pricing);
+      return {
+        status: has ? 'PASSED' : 'WARNING',
+        assertions: [has ? 'app_config/payment.pricing exists' : 'app_config/payment.pricing missing — built-in default prices are in use'],
+        details: has ? 'Server prices come from Firestore.' : 'Save prices once from the Admin dashboard to override defaults.',
+        detailsAm: has ? 'ዋጋዎች ከ Firestore ይነበባሉ።' : 'ነባሪ ዋጋዎች ጥቅም ላይ ናቸው።',
+      };
+    },
+  },
+  {
+    id: 5,
+    name: 'Production mode',
+    nameAm: 'የምርት (production) ሁኔታ',
+    category: 'Core System',
+    run: async () => {
+      const prod = process.env.NODE_ENV === 'production';
+      return {
+        status: prod ? 'PASSED' : 'WARNING',
+        assertions: [`NODE_ENV=${process.env.NODE_ENV || '(unset)'}`],
+        details: prod ? 'Serving the built client from dist/.' : 'Not in production mode: the Vite dev server is running.',
+        detailsAm: prod ? 'የተገነባው ክላየንት እየቀረበ ነው።' : 'NODE_ENV=production አልተዘጋጀም።',
+      };
+    },
+  },
+];
+
+async function runProbe(p: (typeof PROBES)[number]): Promise<DiagnosticCheckResult> {
+  const t0 = Date.now();
+  try {
+    const r = await p.run();
+    return { id: p.id, name: p.name, nameAm: p.nameAm, category: p.category, latencyMs: Date.now() - t0, ...r };
+  } catch (e: any) {
+    return {
+      id: p.id,
+      name: p.name,
+      nameAm: p.nameAm,
+      category: p.category,
+      status: 'FAILED',
+      latencyMs: Date.now() - t0,
+      assertions: [String(e?.message || e).slice(0, 200)],
+      details: 'Probe threw an error.',
+      detailsAm: 'ምርመራው አልተሳካም።',
+    };
+  }
+}
+
+// Real server-side health probes (replaces the former hard-coded "14 PASSED" list).
+adminAutomationRouter.get('/diagnostics/14-point-check', async (req: Request, res: Response) => {
+  const checkId = req.query.checkId ? parseInt(req.query.checkId as string, 10) : null;
+
+  if (checkId) {
+    const p = PROBES.find((x) => x.id === checkId);
+    if (p) return res.json({ success: true, checkedAt: new Date().toISOString(), probe: await runProbe(p) });
+  }
+
+  const probes = await Promise.all(PROBES.map(runProbe));
+  const passedCount = probes.filter((c) => c.status === 'PASSED').length;
+  const failed = probes.some((c) => c.status === 'FAILED');
+  res.json({
+    status: failed ? 'DEGRADED' : passedCount === probes.length ? 'SYSTEM_OPTIMAL' : 'WARNINGS',
+    healthScore: Math.round((passedCount / probes.length) * 100),
+    passedCount,
+    totalCount: probes.length,
+    score: `${passedCount}/${probes.length} checks passed`,
+    checkedAt: new Date().toISOString(),
+    averageLatencyMs: Math.round(probes.reduce((a, c) => a + c.latencyMs, 0) / probes.length),
+    probes,
+  });
+});
+FILE: firestore.rules  (create/replace the WHOLE file with exactly this)
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is Lifetime Super Admin
+    function isSuperAdmin() {
+      return request.auth != null && 
+        (request.auth.token.email == 'mejennur669@gmail.com' ||
+         request.auth.token.email == 'abuzinad7862@gmail.com' ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')));
+    }
+
+    // Helper function to verify user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper to check ownership
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profile: students can only read and update their own canonical profile, Super Admin has full write access
+    match /users/{userId} {
+      // Users must only access their own protected data unless verified Super Admin
+      allow read: if isOwner(userId) || isSuperAdmin();
+      // Students can create ONLY their own plain student profile: no Premium fields, no elevated role.
+      // (Premium is granted by the server after a payment is approved; super admins may write anything.)
+      allow create: if isOwner(userId) && (
+        isSuperAdmin() ||
+        ((!('role' in request.resource.data) || request.resource.data.role == 'student') &&
+         (!('isPremium' in request.resource.data) || request.resource.data.isPremium == false) &&
+         !request.resource.data.keys().hasAny(['premiumExpiresAt', 'premiumPlan', 'premiumGateway', 'subscriptionStatus']))
+      );
+      // Students may update their own profile but never role, grade, grade lock, or any Premium field.
+      allow update: if isSuperAdmin() ||
+        (isOwner(userId) &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+           'role', 'grade', 'isGradeLocked', 'isPremium', 'premiumExpiresAt',
+           'premiumPlan', 'premiumGateway', 'subscriptionStatus'
+         ]));
+      allow delete: if isSuperAdmin();
+
+      // Student subcollections for progress and quiz records
+      match /progress/{progressId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+      match /quizRecords/{quizId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+    }
+
+    // User Identity Migration Backups: Readable and writable only by Super Admin
+    match /users_migration_backup/{backupId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // Curriculum subjects, units, topics, textbooks: Publicly readable by all students, writable only by Super Admin
+    match /curriculum_subjects/{subjectId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+    match /curriculum_units/{unitId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+    match /curriculum_topics/{topicId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+    match /textbooks/{textbookId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // Quizzes & Exam attempts: Students can create their own attempts and read them
+    match /quiz_attempts/{attemptId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSuperAdmin();
+    }
+    match /exam_attempts/{attemptId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Submissions: Students submit and read their own, Super Admin can grade and view all
+    match /submissions/{subId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Payments: created ONLY by the server (POST /api/payment/submit via firebase-admin), which sets the
+    // identity, grade and amount. Students can read their own; only the Super Admin can modify.
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.studentId == request.auth.uid ||
+        isSuperAdmin()
+      );
+      allow create: if isSuperAdmin();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Assignment & STEM submissions: Students submit and read their own, Super Admin can grade
+    match /assignment_submissions/{subId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if isSuperAdmin();
+    }
+    match /stem_project_submissions/{subId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isSuperAdmin());
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // Subscriptions & Entitlements: Read own, modified only by Super Admin upon verification
+    match /subscriptions/{userId} {
+      allow read: if isAuthenticated() && (userId == request.auth.uid || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+    match /entitlements/{userId} {
+      allow read: if isAuthenticated() && (userId == request.auth.uid || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
+    // System Pricing & Payment Accounts: Publicly readable, modifiable only by Super Admin
+    match /pricing_config/{configId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+    match /payment_accounts/{accId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // Audit logs: written by the server (admin SDK) or the Super Admin; readable only by the Super Admin.
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow update, delete: if false; // Append-only immutability
+    }
+    match /payment_audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow update, delete: if false;
+    }
+
+    // Feedback: signed-in users only, bounded size; only Super Admin can view/resolve
+    match /feedback/{feedbackId} {
+      allow create: if isAuthenticated() && request.resource.data.keys().size() <= 15;
+      allow read, update, delete: if isSuperAdmin();
+    }
+
+    // App configuration (pricing/accounts): readable by signed-in users, writable only by Super Admin
+    match /app_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // Student homework answers: doc id is {uid}_{questionId}; each student only touches their own
+    match /student_homework/{docId} {
+      allow read, write: if isAuthenticated() && (docId.matches(request.auth.uid + '_.*') || isSuperAdmin());
+    }
+
+    // Default deny. (ai_usage and security_audit_logs are written only by the server via the admin SDK.)
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+  }
+}
+(Firestore rules cannot be deployed by AI Studio: keep the file in the repo and I will publish it from the Firebase console.)
+PART B — edits to existing files
+B1. server.ts
+Add imports after import { CURRICULUM_DATA } from './src/data/curriculum';:
+import { paymentsRouter, VERIFIED_PAYMENT_ACCOUNTS, getPricing } from './src/server/paymentsApi';
+import { aiContextMiddleware, consumeAiQuota } from './src/server/aiQuota';
+Right after app.use('/api', rateLimiterMiddleware); add:
+app.use('/api', aiContextMiddleware);
+app.use('/api/payment', paymentsRouter);
+In callResilientGemini, right after the if (!ai) { throw ... } block add:
+  // Enforces the per-user daily cap on real (non-cached) Gemini calls.
+  await consumeAiQuota();
+Replace every const isVip = Boolean(is_premium || isPremium); with const isVip = isPremiumActive(req.user); (do not trust the client flag).
+In the catch blocks of all /api/ai/* endpoints replace res.status(500) with res.status(err?.statusCode === 429 ? 429 : 500).
+DELETE the whole old payment section: from the comment // Ethiopian High School Platform - Verified Payment & Subscription API down to (not including) // In-memory record for single assignment purchases. This removes VERIFIED_PAYMENT_ACCOUNTS, SERVER_PRICING, /api/payment/config, /api/payment/admin/*, /api/admin/stats, ADMIN_PAYMENT_NOTIFICATIONS, /api/payment/notify-admin, /api/payment/verify.
+Change the handler app.post('/api/premium/verify-student-entitlement', (req, res) => { to async (req, res) => { and put const SERVER_PRICING = await getPricing(); as its first line.
+Replace the /api/health handler body with: res.json({ status: 'ok', aiConfigured: Boolean(apiKey), timestamp: new Date().toISOString() });
+B2. src/server/securityRouter.ts
+import { adminDb } from './adminDb';
+Make IMMUTABLE_AUDIT_LOGS, ACTIVE_DEVICE_SESSIONS, RBAC_USERS empty arrays (delete all seeded fake entries).
+After IMMUTABLE_AUDIT_LOGS add:
+export function pushAudit(log: AuditLog) {
+  IMMUTABLE_AUDIT_LOGS.unshift(log);
+  if (IMMUTABLE_AUDIT_LOGS.length > 500) IMMUTABLE_AUDIT_LOGS.pop();
+  adminDb.collection('security_audit_logs').doc(log.logId).set(log)
+    .catch((e) => console.warn('Audit log persist failed:', e?.message || e));
+}
+and replace every other IMMUTABLE_AUDIT_LOGS.unshift( with pushAudit(.
+4. GET /audit-logs → make it async; load logs with adminDb.collection('security_audit_logs').orderBy('timestamp','desc').limit(500).get() (fall back to the in-memory array on error), then keep the existing action/actorRole/result filters and limit.
+5. POST /audit-logs → take identity from the verified token, never from the body: actorId = req.user.email || req.user.uid, actorRole = req.user.role === 'super_admin' ? 'SUPER_ADMIN' : 'STUDENT', ip = req.ip; clip action(64)/resourceType(64)/resourceId(128)/details(500) strings; use pushAudit(newLog).
+6. POST /devices/register → studentEmail = req.user?.email || '' and studentId = req.user?.uid instead of reading them from the body; remove the fake default IP 196.188.64.12.
+B3. src/context/SubscriptionContext.tsx
+In submitPayment: replace everything from const id = \gateway{ref}`;through thereturn { success: true, submission: ... }` line with a call to the server:
+try {
+  const res = await authFetch('/api/payment/submit', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gateway, transactionRef: ref, phone: cleanPhone }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body?.success) return { success: false, error: body?.error || 'Payment submission failed' };
+  const sub = body.submission;
+  return { success: true, submission: toSubmission(sub.id, { ...sub, createdAt: null }) };
+} catch (err: any) {
+  return { success: false, error: err?.message || 'Payment submission failed' };
+}
+In approvePayment: delete the local expiry calculation, the client setDoc writes to payments/users/subscriptions/entitlements, the later /api/payment/admin/approve notify call and the logAudit call. Replace with:
+const approveRes = await authFetch('/api/payment/admin/approve', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ paymentId }),
+});
+const approveBody = await approveRes.json().catch(() => ({}));
+if (!approveRes.ok || !approveBody?.success) return false;
+const expiresAt: string = approveBody.expiresAt;
+const adminEmail = currentUser.email || '';
+then keep PaymentService.approvePayment(paymentId, adminEmail), the local state update, and return true.
+B4. src/components/growth/SubscriptionPaymentModal.tsx
+Delete the // Notify backend server directly try/catch that calls /api/payment/notify-admin.
+B5. src/services/paymentService.ts
+Delete the authFetch('/api/payment/notify-admin', ...) block at the end of submitPayment.
+In approvePayment delete the whole if (isFirebaseConfigured) { setDoc(...payments...) ... setDoc(...users..., isPremium: true ...) } block (Firestore is written only by the server).
+B6. src/components/admin/AdminErpDashboard.tsx
+const { isSuperAdmin: authIsSuperAdmin, currentUser, login } = useAuth();
+Replace handleUnlockSession with an async version that calls await login(currentUser.email || '', unlockPin); on success unlock and reset the 30-minute timer, on failure setPinError(true). No hard-coded PINs.
+Lock screen: placeholder የይለፍ ቃል / Password, text asks for the Super Admin's password; delete the line Super Admin Default PINs: 2019 • 7862; remove admin emails from the "Super Admin Only" message shown to non-admins.
+B7. src/components/admin/SystemIntegrationView.tsx
+Replace the toast '✅ 14ቱም አውቶሜትድ ፈተናዎች በተሟላ ሁኔታ አልፈዋል! 100% Operational' with 'ምርመራው ተጠናቋል — ውጤቱን ከታች ይመልከቱ / Diagnostics finished — see results below'.
+B8. .env.example — append
+# GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+# FIREBASE_PROJECT_ID="nur-technology-school"
+# AI_FREE_DAILY_LIMIT=15
+# AI_PREMIUM_DAILY_LIMIT=200
+When finished, list every file you changed and confirm npm run lint passes.
