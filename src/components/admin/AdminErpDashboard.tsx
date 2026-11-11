@@ -32,6 +32,7 @@ import {
   Save,
   Check,
   Database,
+  Bell,
 } from 'lucide-react';
 import {
   AdminKpiStats,
@@ -51,6 +52,7 @@ import {
   UserAuditRecord,
   isFirebaseUid,
 } from '../../services/userMigrationService';
+import { AdminNotificationCenter } from './AdminNotificationCenter';
 
 type AdminTab =
   | 'kpi'
@@ -59,6 +61,7 @@ type AdminTab =
   | 'identity_migration'
   | 'drm_cms'
   | 'pricing'
+  | 'notifications_settings'
   | 'audit_session';
 
 export const AdminErpDashboard: React.FC = () => {
@@ -675,6 +678,23 @@ export const AdminErpDashboard: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab('notifications_settings')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+            activeTab === 'notifications_settings'
+              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200 dark:border-slate-700'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+          }`}
+        >
+          <Bell className="w-4 h-4 text-amber-500" />
+          7. Notifications & Automation
+          {pendingPaymentsCount > 0 && (
+            <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+              {pendingPaymentsCount}
+            </span>
+          )}
+        </button>
+
+        <button
           onClick={() => setActiveTab('audit_session')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
             activeTab === 'audit_session'
@@ -683,7 +703,7 @@ export const AdminErpDashboard: React.FC = () => {
           }`}
         >
           <KeyRound className="w-4 h-4" />
-          7. Security & Audit Trail
+          8. Security & Audit Trail
         </button>
       </div>
 
@@ -2300,6 +2320,16 @@ export const AdminErpDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: NOTIFICATIONS & SYSTEM AUTOMATION SETTINGS */}
+      {/* ========================================================================= */}
+      {activeTab === 'notifications_settings' && (
+        <AdminNotificationCenter
+          onApprovePayment={approvePayment}
+          onNavigateTab={(tab) => setActiveTab(tab as AdminTab)}
+        />
       )}
     </div>
   );

@@ -66,8 +66,10 @@ export type ModuleId =
   | 'premium_learning_center'
   | 'subscription_payment'
   | 'system_feedback'
+  | 'student_notifications'
   // Category 5: 🛡️ አስተዳደርና ደህንነት (Administration & Security - Admin Only)
   | 'admin_dashboard'
+  | 'admin_notifications'
   | 'security_fortress'
   | 'system_integration';
 
@@ -208,3 +210,5 @@ export interface SecurityUser {
   lastLogin: string;
   status: 'ACTIVE' | 'SUSPENDED';
 }
+
+export * from './types/notification';

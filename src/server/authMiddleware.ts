@@ -46,6 +46,23 @@ async function loadProfile(uid: string, idToken: string) {
     console.error('Profile lookup failed:', e);
   }
 
+  // Check fallback storage if premium wasn't found in live Firestore
+  if (!isPremium) {
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const usersFile = path.resolve(process.cwd(), '.data/users_store.json');
+      if (fs.existsSync(usersFile)) {
+        const users = JSON.parse(fs.readFileSync(usersFile, 'utf-8'));
+        if (users[uid]) {
+          if (users[uid].isPremium) isPremium = true;
+          if (users[uid].premiumExpiresAt) premiumExpiresAt = users[uid].premiumExpiresAt;
+          if (users[uid].role) role = users[uid].role;
+        }
+      }
+    } catch {}
+  }
+
   const entry = { at: Date.now(), role, isPremium, premiumExpiresAt };
   profileCache.set(uid, entry);
   return entry;

@@ -11,6 +11,9 @@ import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { WelcomeModal } from './components/WelcomeModal';
 import { ProfileModal } from './components/ProfileModal';
+import { StudentNotificationCenterModal } from './components/notifications/StudentNotificationCenterModal';
+import { StudentNotificationCenterView } from './components/notifications/StudentNotificationCenterView';
+import { AdminNotificationCenter } from './components/admin/AdminNotificationCenter';
 import { PaywallGate } from './components/common/PaywallGate';
 
 // 📚 Category 1: Core Learning & Books
@@ -49,11 +52,12 @@ import { SystemIntegrationView } from './components/admin/SystemIntegrationView'
 
 function MainAppShell() {
   const { isAuthenticated, authLoading } = useAuth();
-  const { isUnlocked } = useSubscription();
+  const { isUnlocked, approvePayment } = useSubscription();
   const [currentModule, setCurrentModule] = useState<ModuleId>('student_app');
   const [historyStack, setHistoryStack] = useState<ModuleId[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [tutorContext, setTutorContext] = useState<{ subject: string; topic: string } | null>(null);
 
   const handleSelectModule = (newModule: ModuleId) => {
@@ -128,10 +132,14 @@ function MainAppShell() {
         return <SubscriptionPaymentView />;
       case 'system_feedback':
         return <SystemFeedbackView />;
+      case 'student_notifications':
+        return <StudentNotificationCenterView onNavigateModule={handleSelectModule} />;
 
       // Category 5: 🛡️ አስተዳደርና ደህንነት
       case 'admin_dashboard':
         return <AdminDashboardView />;
+      case 'admin_notifications':
+        return <AdminNotificationCenter onApprovePayment={approvePayment} onNavigateTab={(tab) => handleSelectModule(tab as ModuleId)} />;
       case 'security_fortress':
         return <SecurityFortressView />;
       case 'system_integration':
@@ -150,9 +158,11 @@ function MainAppShell() {
     const isExemptFromPaywall =
       currentModule === 'subscription_payment' ||
       currentModule === 'system_feedback' ||
+      currentModule === 'student_notifications' ||
       currentModule === 'premium_learning_center' ||
       currentModule === 'academic_work_hub' ||
       currentModule === 'admin_dashboard' ||
+      currentModule === 'admin_notifications' ||
       currentModule === 'security_fortress' ||
       currentModule === 'system_integration';
 
@@ -182,6 +192,8 @@ function MainAppShell() {
         canGoBack={historyStack.length > 0}
         onGoBack={handleGoBack}
         onOpenProfileModal={() => setIsProfileModalOpen(true)}
+        onOpenNotificationCenter={() => setIsNotificationCenterOpen(true)}
+        onNavigateModule={handleSelectModule}
       />
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
@@ -209,6 +221,13 @@ function MainAppShell() {
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+      />
+
+      {/* Student Notification Center */}
+      <StudentNotificationCenterModal
+        isOpen={isNotificationCenterOpen}
+        onClose={() => setIsNotificationCenterOpen(false)}
+        onNavigateModule={handleSelectModule}
       />
     </div>
   );

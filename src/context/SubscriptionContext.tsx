@@ -277,7 +277,42 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body?.success) return { success: false, error: body?.error || 'Payment submission failed' };
       const sub = body.submission;
-      return { success: true, submission: toSubmission(sub.id, { ...sub, createdAt: null }) };
+      const parsedSub = toSubmission(sub.id, { ...sub, createdAt: sub.createdAt || new Date().toISOString() });
+      
+      // Update local state immediately so PaywallGate instantly reflects PENDING
+      setAllSubmissions((prev) => [parsedSub, ...prev.filter((p) => p.id !== parsedSub.id)]);
+      
+      // Sync local storage service
+      PaymentService.submitPayment({
+        studentId: currentUser.id,
+        studentName: currentUser.name || 'ተማሪ',
+        studentEmail: currentUser.email,
+        studentPhone: cleanPhone,
+        grade: (currentUser.grade || activeGrade) as GradeLevel,
+        amount: currentGradePrice,
+        paymentGateway: gateway,
+        transactionRef: ref,
+      });
+
+      // Dispatch event to trigger notification center acknowledgement & sound chime
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('nur_payment_submitted', {
+            detail: {
+              id: parsedSub.id,
+              userId: currentUser.id,
+              studentId: currentUser.id,
+              studentName: currentUser.name,
+              amount: currentGradePrice,
+              grade: activeGrade,
+              paymentGateway: gateway,
+              transactionRef: ref,
+            },
+          })
+        );
+      }
+
+      return { success: true, submission: parsedSub };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Payment submission failed' };
     }

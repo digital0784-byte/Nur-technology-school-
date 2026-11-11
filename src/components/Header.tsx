@@ -18,11 +18,15 @@ import {
   Clock,
 } from 'lucide-react';
 
+import { NotificationBell } from './notifications/NotificationBell';
+
 interface HeaderProps {
   onToggleMobileMenu: () => void;
   canGoBack: boolean;
   onGoBack: () => void;
   onOpenProfileModal: () => void;
+  onOpenNotificationCenter: () => void;
+  onNavigateModule?: (moduleId: any) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,6 +34,8 @@ export const Header: React.FC<HeaderProps> = ({
   canGoBack,
   onGoBack,
   onOpenProfileModal,
+  onOpenNotificationCenter,
+  onNavigateModule,
 }) => {
   const { currentUser, activeGrade, setActiveGrade, isSuperAdmin, isGradeLocked } = useAuth();
   const { status, subscription, allSubmissions } = useSubscription();
@@ -164,6 +170,14 @@ export const Header: React.FC<HeaderProps> = ({
           {/* STRICT REQUIREMENT: LanguageSelectorDropdown on top flex row, always visible on 360px mobile! */}
           <div className="shrink-0">
             <LanguageSelectorDropdown variant="header" />
+          </div>
+
+          {/* Notification Bell with Badge & Dropdown */}
+          <div className="shrink-0">
+            <NotificationBell
+              onOpenFullCenter={onOpenNotificationCenter}
+              onNavigateModule={onNavigateModule}
+            />
           </div>
 
           {/* User Profile / Quick Switcher Trigger */}

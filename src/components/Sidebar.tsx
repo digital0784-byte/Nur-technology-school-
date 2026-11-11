@@ -27,6 +27,7 @@ import {
   ShieldAlert,
   KeyRound,
   Activity,
+  Bell,
   X,
   Lock,
   ArrowLeft,
@@ -98,6 +99,7 @@ export const CATEGORY_GROUPS: CategoryGroup[] = [
       { id: 'premium_learning_center', icon: Sparkles },
       { id: 'subscription_payment', icon: CreditCard },
       { id: 'system_feedback', icon: MessageSquare },
+      { id: 'student_notifications', icon: Bell },
     ],
   },
   {
@@ -105,6 +107,7 @@ export const CATEGORY_GROUPS: CategoryGroup[] = [
     categoryLabelKey: 'category_admin_security',
     modules: [
       { id: 'admin_dashboard', icon: ShieldAlert, adminOnly: true },
+      { id: 'admin_notifications', icon: Bell, adminOnly: true },
       { id: 'security_fortress', icon: KeyRound, adminOnly: true },
       { id: 'system_integration', icon: Activity, adminOnly: true },
     ],

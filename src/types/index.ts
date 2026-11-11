@@ -186,3 +186,11 @@ export interface AuditLog {
 }
 
 export * from './payment';
+export type {
+  NotificationType,
+  NotificationPriority,
+  NotificationGrade,
+  AppNotification,
+  NotificationSettings,
+  BroadcastPayload,
+} from './notification';
