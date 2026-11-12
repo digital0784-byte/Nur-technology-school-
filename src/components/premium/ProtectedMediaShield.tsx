@@ -21,7 +21,7 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
   onOpenPaymentModal,
 }) => {
   const { currentUser, isSuperAdmin } = useAuth();
-  const { isUnlocked, currentGradePrice } = useSubscription();
+  const { isUnlocked, isPremiumLearningUnlocked, currentGradePrice } = useSubscription();
   const { language } = useLanguage();
 
   const [isScreenProtected, setIsScreenProtected] = useState(false);
@@ -34,7 +34,7 @@ export const ProtectedMediaShield: React.FC<ProtectedMediaShieldProps> = ({
     currentUser.email === 'mejennur669@gmail.com' ||
     currentUser.email?.toLowerCase().includes('mejennur') ||
     (currentUser as any).phone === '0910097862';
-  const hasAccess = isOwnerAdmin || isUnlocked;
+  const hasAccess = isOwnerAdmin || isPremiumLearningUnlocked;
 
   // Live time ticker for dynamic watermark
   useEffect(() => {

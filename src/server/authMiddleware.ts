@@ -10,6 +10,8 @@ export interface AuthedUser {
   role: 'student' | 'super_admin';
   isPremium: boolean;
   premiumExpiresAt?: string;
+  hasPremiumLearning?: boolean;
+  premiumLearningExpiresAt?: string;
 }
 
 declare global {
@@ -21,7 +23,14 @@ declare global {
 }
 
 const PROFILE_TTL_MS = 60_000;
-const profileCache = new Map<string, { at: number; role: AuthedUser['role']; isPremium: boolean; premiumExpiresAt?: string }>();
+const profileCache = new Map<string, {
+  at: number;
+  role: AuthedUser['role'];
+  isPremium: boolean;
+  premiumExpiresAt?: string;
+  hasPremiumLearning?: boolean;
+  premiumLearningExpiresAt?: string;
+}>();
 
 // Reads users/{uid} using the user's OWN token, so Firestore rules apply:
 // the role can only come from the protected Firestore document.
@@ -32,6 +41,8 @@ async function loadProfile(uid: string, idToken: string) {
   let role: AuthedUser['role'] = 'student';
   let isPremium = false;
   let premiumExpiresAt: string | undefined;
+  let hasPremiumLearning = false;
+  let premiumLearningExpiresAt: string | undefined;
 
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${uid}`;
@@ -41,29 +52,31 @@ async function loadProfile(uid: string, idToken: string) {
       role = f.role?.stringValue === 'super_admin' ? 'super_admin' : 'student';
       isPremium = f.isPremium?.booleanValue === true;
       premiumExpiresAt = f.premiumExpiresAt?.stringValue;
+      hasPremiumLearning = f.hasPremiumLearning?.booleanValue === true;
+      premiumLearningExpiresAt = f.premiumLearningExpiresAt?.stringValue;
     }
   } catch (e) {
     console.error('Profile lookup failed:', e);
   }
 
-  // Check fallback storage if premium wasn't found in live Firestore
-  if (!isPremium) {
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const usersFile = path.resolve(process.cwd(), '.data/users_store.json');
-      if (fs.existsSync(usersFile)) {
-        const users = JSON.parse(fs.readFileSync(usersFile, 'utf-8'));
-        if (users[uid]) {
-          if (users[uid].isPremium) isPremium = true;
-          if (users[uid].premiumExpiresAt) premiumExpiresAt = users[uid].premiumExpiresAt;
-          if (users[uid].role) role = users[uid].role;
-        }
+  // Check fallback storage if premium or premiumLearning wasn't found in live Firestore
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const usersFile = path.resolve(process.cwd(), '.data/users_store.json');
+    if (fs.existsSync(usersFile)) {
+      const users = JSON.parse(fs.readFileSync(usersFile, 'utf-8'));
+      if (users[uid]) {
+        if (!isPremium && users[uid].isPremium) isPremium = true;
+        if (!premiumExpiresAt && users[uid].premiumExpiresAt) premiumExpiresAt = users[uid].premiumExpiresAt;
+        if (!hasPremiumLearning && users[uid].hasPremiumLearning) hasPremiumLearning = true;
+        if (!premiumLearningExpiresAt && users[uid].premiumLearningExpiresAt) premiumLearningExpiresAt = users[uid].premiumLearningExpiresAt;
+        if (users[uid].role) role = users[uid].role;
       }
-    } catch {}
-  }
+    }
+  } catch {}
 
-  const entry = { at: Date.now(), role, isPremium, premiumExpiresAt };
+  const entry = { at: Date.now(), role, isPremium, premiumExpiresAt, hasPremiumLearning, premiumLearningExpiresAt };
   profileCache.set(uid, entry);
   return entry;
 }
@@ -85,6 +98,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       role: isSuper ? 'super_admin' : p.role,
       isPremium: isSuper ? true : p.isPremium,
       premiumExpiresAt: isSuper ? undefined : p.premiumExpiresAt,
+      hasPremiumLearning: isSuper ? true : p.hasPremiumLearning,
+      premiumLearningExpiresAt: isSuper ? undefined : p.premiumLearningExpiresAt,
     };
     next();
   } catch {
@@ -108,4 +123,16 @@ export function isPremiumActive(u?: AuthedUser): boolean {
   if (!u.isPremium) return false;
   if (!u.premiumExpiresAt) return true;
   return new Date(u.premiumExpiresAt + 'T23:59:59') >= new Date();
+}
+
+export function isPremiumLearningActive(u?: AuthedUser): boolean {
+  if (!u) return false;
+  if (u.role === 'super_admin') return true;
+  if (!u.hasPremiumLearning) return false;
+  if (!u.premiumLearningExpiresAt) return true;
+  return new Date(u.premiumLearningExpiresAt + 'T23:59:59') >= new Date();
+}
+
+export function hasAnyPaidPlan(u?: AuthedUser): boolean {
+  return isPremiumActive(u) || isPremiumLearningActive(u);
 }

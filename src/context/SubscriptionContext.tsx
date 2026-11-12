@@ -38,6 +38,8 @@ import {
 interface SubscriptionContextType {
   status: PaymentSubscriptionStatus;
   isUnlocked: boolean; // True if ACTIVE or isSuperAdmin
+  isPremiumLearningUnlocked: boolean;
+  premiumLearningPrice: number;
   subscription: StudentSubscriptionRecord;
   pricing: GradePricingConfig;
   accounts: PaymentAccountConfig[];
@@ -48,7 +50,8 @@ interface SubscriptionContextType {
     gateway: PaymentGatewayId,
     transactionRef: string,
     phone: string,
-    receiptImageUrl?: string
+    receiptImageUrl?: string,
+    product?: 'grade' | 'premium'
   ) => Promise<{ success: boolean; submission?: PaymentSubmission; error?: string }>;
   approvePayment: (paymentId: string) => Promise<boolean>;
   rejectPayment: (paymentId: string, reason: string) => Promise<boolean>;
@@ -85,6 +88,7 @@ const toSubmission = (id: string, d: any): PaymentSubmission => ({
   studentEmail: d.studentEmail || d.email || '',
   studentPhone: d.studentPhone || d.phone || '',
   grade: d.grade || 9,
+  product: (d.product === 'premium' ? 'premium' : 'grade') as PaymentSubmission['product'],
   amount: d.amount || 57,
   currency: 'ETB',
   paymentGateway: d.paymentGateway || d.gateway || 'telebirr',
@@ -214,6 +218,15 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const profilePremiumActive = Boolean(currentUser.isPremium) && (!expiresAtStr || expiresMs > Date.now());
   const isUnlocked: boolean = isSuperAdmin || profilePremiumActive;
 
+  // Premium Learning (57 ETB/month) is SEPARATE from grade plan
+  const learningExpiresAtStr = currentUser.premiumLearningExpiresAt ?? '';
+  const learningExpiresMs = learningExpiresAtStr
+    ? new Date(learningExpiresAtStr.includes('T') ? learningExpiresAtStr : `${learningExpiresAtStr}T23:59:59`).getTime()
+    : 0;
+  const isPremiumLearningUnlocked: boolean =
+    isSuperAdmin || (Boolean(currentUser.hasPremiumLearning) && (!learningExpiresAtStr || learningExpiresMs > Date.now()));
+  const premiumLearningPrice = pricing.singleAssignment || 57;
+
   const myLatest = allSubmissions.find((s) => s.studentId === currentUser.id);
   const hasPending = allSubmissions.some((s) => s.studentId === currentUser.id && s.status === 'PENDING');
 
@@ -252,7 +265,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     gateway: PaymentGatewayId,
     transactionRef: string,
     phone: string,
-    _receiptImageUrl?: string
+    _receiptImageUrl?: string,
+    product: 'grade' | 'premium' = 'grade'
   ): Promise<{ success: boolean; submission?: PaymentSubmission; error?: string }> => {
     // Canonical Auth UID must be the single source of truth for payment submission
     const canonicalUid = auth.currentUser?.uid || (currentUser.id && currentUser.id !== 'guest' ? currentUser.id : null);
@@ -268,11 +282,13 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       return { success: false, error: 'እባክዎ ትክክለኛ የስልክ ቁጥር ያስገቡ።' };
     }
 
+    const submissionAmount = product === 'premium' ? premiumLearningPrice : currentGradePrice;
+
     try {
       const res = await authFetch('/api/payment/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gateway, transactionRef: ref, phone: cleanPhone }),
+        body: JSON.stringify({ gateway, transactionRef: ref, phone: cleanPhone, product }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body?.success) return { success: false, error: body?.error || 'Payment submission failed' };
@@ -289,7 +305,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         studentEmail: currentUser.email,
         studentPhone: cleanPhone,
         grade: (currentUser.grade || activeGrade) as GradeLevel,
-        amount: currentGradePrice,
+        amount: submissionAmount,
         paymentGateway: gateway,
         transactionRef: ref,
       });
@@ -303,8 +319,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
               userId: currentUser.id,
               studentId: currentUser.id,
               studentName: currentUser.name,
-              amount: currentGradePrice,
+              amount: submissionAmount,
               grade: activeGrade,
+              product,
               paymentGateway: gateway,
               transactionRef: ref,
             },
@@ -477,6 +494,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       value={{
         status,
         isUnlocked,
+        isPremiumLearningUnlocked,
+        premiumLearningPrice,
         subscription,
         pricing,
         accounts,

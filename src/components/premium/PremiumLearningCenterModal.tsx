@@ -51,7 +51,7 @@ export const PremiumLearningCenterModal: React.FC<PremiumLearningCenterModalProp
 }) => {
   const { language } = useLanguage();
   const { currentUser, isSuperAdmin } = useAuth();
-  const { isUnlocked, currentGradePrice } = useSubscription();
+  const { isUnlocked, isPremiumLearningUnlocked, currentGradePrice } = useSubscription();
 
   const [activeTab, setActiveTab] = useState<PremiumHubTab>(initialTab);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -66,7 +66,7 @@ export const PremiumLearningCenterModal: React.FC<PremiumLearningCenterModalProp
     currentUser.email?.toLowerCase().includes('mejennur') ||
     (currentUser as any).phone === '0910097862';
 
-  const hasVipAccess = isOwnerAdmin || isUnlocked;
+  const hasVipAccess = isOwnerAdmin || isPremiumLearningUnlocked;
 
   const TABS = [
     {
@@ -374,6 +374,8 @@ export const PremiumLearningCenterModal: React.FC<PremiumLearningCenterModalProp
         <SubscriptionPaymentModal
           isOpen={isPaymentModalOpen}
           onClose={() => setIsPaymentModalOpen(false)}
+          product="premium"
+          singlePriceETB={57}
         />
       </div>
     </div>

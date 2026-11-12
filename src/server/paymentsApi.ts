@@ -93,6 +93,15 @@ export function priceForGrade(p: Pricing, grade: number): number {
   return grade === 10 ? p.grade10 : grade === 11 ? p.grade11 : grade === 12 ? p.grade12 : p.grade9;
 }
 
+export type PaymentProduct = 'grade' | 'premium';
+
+export function priceForProduct(pricing: Pricing, product: PaymentProduct, grade: number): number {
+  if (product === 'premium') {
+    return pricing.singleAssignment || 57;
+  }
+  return priceForGrade(pricing, grade);
+}
+
 const toYmd = (d: Date) => d.toISOString().slice(0, 10);
 const MAX_PENDING_PER_USER = 5;
 
@@ -112,6 +121,7 @@ paymentsRouter.post('/submit', async (req: Request, res: Response) => {
   const gateway = String(req.body?.gateway || '').toLowerCase();
   const ref = String(req.body?.transactionRef || '').trim().replace(/[^A-Za-z0-9_-]/g, '');
   const phone = String(req.body?.phone || '').trim();
+  const product: PaymentProduct = req.body?.product === 'premium' ? 'premium' : 'grade';
 
   if (!GATEWAY_IDS.has(gateway)) {
     return res.status(400).json({ success: false, error: 'የክፍያ መንገድ ትክክል አይደለም / Invalid payment gateway.' });
@@ -133,7 +143,7 @@ paymentsRouter.post('/submit', async (req: Request, res: Response) => {
     }
     const grade = [9, 10, 11, 12].includes(Number(profile.grade)) ? Number(profile.grade) : 9;
     const pricing = await getPricing();
-    const amount = priceForGrade(pricing, grade);
+    const amount = priceForProduct(pricing, product, grade);
 
     const id = `${gateway}_${ref}`;
 
@@ -154,6 +164,7 @@ paymentsRouter.post('/submit', async (req: Request, res: Response) => {
       studentEmail: user.email || '',
       studentPhone: phone,
       grade,
+      product,
       amount,
       currency: 'ETB',
       paymentGateway: gateway,
@@ -190,7 +201,7 @@ paymentsRouter.post('/submit', async (req: Request, res: Response) => {
           action: 'SUBMITTED',
           targetUserId: user.uid,
           targetPaymentId: id,
-          details: `${gateway} ${ref} ${amount} ETB (Grade ${grade})`,
+          details: `${gateway} ${ref} ${amount} ETB (${product === 'premium' ? 'Premium Learning' : `Grade ${grade}`})`,
           newStatus: 'PENDING',
           createdAt: FieldValue.serverTimestamp(),
         });
@@ -209,7 +220,7 @@ paymentsRouter.post('/submit', async (req: Request, res: Response) => {
     try {
       const id = `${gateway}_${ref}`;
       const pricing = await getPricing();
-      const amount = priceForGrade(pricing, 9);
+      const amount = priceForProduct(pricing, product, 9);
       const fallbackRecord = {
         id,
         userId: user.uid,
@@ -218,6 +229,7 @@ paymentsRouter.post('/submit', async (req: Request, res: Response) => {
         studentEmail: user.email || '',
         studentPhone: phone,
         grade: 9,
+        product,
         amount,
         currency: 'ETB',
         paymentGateway: gateway,
@@ -265,7 +277,7 @@ paymentsRouter.get('/admin/notifications', requireSuperAdmin, async (req: Reques
   });
 });
 
-// POST /api/payment/admin/approve — approves a payment and switches Premium on.
+// POST /api/payment/admin/approve — approves a payment and switches plan on.
 paymentsRouter.post('/admin/approve', requireSuperAdmin, async (req: Request, res: Response) => {
   const paymentId = String(req.body?.paymentId || '');
   if (!paymentId || paymentId.includes('/')) {
@@ -275,9 +287,6 @@ paymentsRouter.post('/admin/approve', requireSuperAdmin, async (req: Request, re
 
   const pricing = await getPricing();
   const today = toYmd(new Date());
-  const base = new Date(`${today}T00:00:00Z`);
-  base.setUTCDate(base.getUTCDate() + (pricing.billingCycleDays || 30));
-  const expiresAt = toYmd(base);
 
   // 1. Try live Firestore transaction
   try {
@@ -295,48 +304,81 @@ paymentsRouter.post('/admin/approve', requireSuperAdmin, async (req: Request, re
       const userRef = adminDb.collection('users').doc(uid);
       const userSnap = await tx.get(userRef);
 
-      const existing = String(userSnap.data()?.premiumExpiresAt || '');
-      const baseStr = existing && existing > today ? existing : today;
-      const expDate = new Date(`${baseStr}T00:00:00Z`);
-      expDate.setUTCDate(expDate.getUTCDate() + (pricing.billingCycleDays || 30));
-      const finalExpiresAt = toYmd(expDate);
-      const plan = `${pay.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`;
+      const isPremiumProduct = pay.product === 'premium';
+      let finalExpiresAt: string;
+      let plan: string;
 
-      tx.update(payRef, {
-        status: 'approved',
-        reviewedAt: FieldValue.serverTimestamp(),
-        reviewedBy: adminEmail,
-        expiresAt: finalExpiresAt,
-      });
-      tx.set(
-        userRef,
-        {
-          isPremium: true,
-          premiumExpiresAt: finalExpiresAt,
-          premiumPlan: plan,
-          premiumGateway: pay.paymentGateway || '',
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-      tx.set(
-        adminDb.collection('subscriptions').doc(uid),
-        {
-          status: 'ACTIVE',
-          isPremium: true,
+      if (isPremiumProduct) {
+        const existing = String(userSnap.data()?.premiumLearningExpiresAt || '');
+        const baseStr = existing && existing > today ? existing : today;
+        const expDate = new Date(`${baseStr}T00:00:00Z`);
+        expDate.setUTCDate(expDate.getUTCDate() + (pricing.billingCycleDays || 30));
+        finalExpiresAt = toYmd(expDate);
+        plan = 'ፕሪሚየም ትምህርት (ፎቶ/ቪዲዮ Solvers)';
+
+        tx.update(payRef, {
+          status: 'approved',
+          reviewedAt: FieldValue.serverTimestamp(),
+          reviewedBy: adminEmail,
           expiresAt: finalExpiresAt,
-          planTitle: plan,
-          amountPaid: pay.amount ?? null,
-          activePaymentId: paymentId,
-          activatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-      tx.set(
-        adminDb.collection('entitlements').doc(uid),
-        { isPremium: true, expiresAt: finalExpiresAt, plan, updatedAt: FieldValue.serverTimestamp() },
-        { merge: true }
-      );
+        });
+        tx.set(
+          userRef,
+          {
+            hasPremiumLearning: true,
+            premiumLearningExpiresAt: finalExpiresAt,
+            premiumLearningPlan: plan,
+            premiumLearningGateway: pay.paymentGateway || '',
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        // Do NOT touch isPremium!
+      } else {
+        const existing = String(userSnap.data()?.premiumExpiresAt || '');
+        const baseStr = existing && existing > today ? existing : today;
+        const expDate = new Date(`${baseStr}T00:00:00Z`);
+        expDate.setUTCDate(expDate.getUTCDate() + (pricing.billingCycleDays || 30));
+        finalExpiresAt = toYmd(expDate);
+        plan = `${pay.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`;
+
+        tx.update(payRef, {
+          status: 'approved',
+          reviewedAt: FieldValue.serverTimestamp(),
+          reviewedBy: adminEmail,
+          expiresAt: finalExpiresAt,
+        });
+        tx.set(
+          userRef,
+          {
+            isPremium: true,
+            premiumExpiresAt: finalExpiresAt,
+            premiumPlan: plan,
+            premiumGateway: pay.paymentGateway || '',
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        tx.set(
+          adminDb.collection('subscriptions').doc(uid),
+          {
+            status: 'ACTIVE',
+            isPremium: true,
+            expiresAt: finalExpiresAt,
+            planTitle: plan,
+            amountPaid: pay.amount ?? null,
+            activePaymentId: paymentId,
+            activatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+        tx.set(
+          adminDb.collection('entitlements').doc(uid),
+          { isPremium: true, expiresAt: finalExpiresAt, plan, updatedAt: FieldValue.serverTimestamp() },
+          { merge: true }
+        );
+      }
+
       return { code: 200 as const, already: false, expiresAt: finalExpiresAt };
     });
 
@@ -351,34 +393,74 @@ paymentsRouter.post('/admin/approve', requireSuperAdmin, async (req: Request, re
   const allFallback = readFallbackPayments();
   const fallbackPay = allFallback[paymentId];
   if (fallbackPay) {
-    fallbackPay.status = 'approved';
-    fallbackPay.reviewedAt = new Date().toISOString();
-    fallbackPay.reviewedBy = adminEmail;
-    fallbackPay.expiresAt = expiresAt;
-    saveFallbackPayment(paymentId, fallbackPay);
-
-    // Save student premium status to fallback users
+    const isPremiumProduct = fallbackPay.product === 'premium';
     const uid = fallbackPay.studentId || fallbackPay.userId;
-    if (uid) {
-      ensureDataDir();
-      try {
-        let users: Record<string, any> = {};
-        if (fs.existsSync(USERS_FILE)) {
-          users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
-        }
+
+    ensureDataDir();
+    let users: Record<string, any> = {};
+    try {
+      if (fs.existsSync(USERS_FILE)) {
+        users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+      }
+    } catch {}
+
+    const existingUser = (uid && users[uid]) || {};
+    let finalExpiresAt: string;
+    let plan: string;
+
+    if (isPremiumProduct) {
+      const existing = String(existingUser.premiumLearningExpiresAt || '');
+      const baseStr = existing && existing > today ? existing : today;
+      const expDate = new Date(`${baseStr}T00:00:00Z`);
+      expDate.setUTCDate(expDate.getUTCDate() + (pricing.billingCycleDays || 30));
+      finalExpiresAt = toYmd(expDate);
+      plan = 'ፕሪሚየም ትምህርት (ፎቶ/ቪዲዮ Solvers)';
+
+      fallbackPay.status = 'approved';
+      fallbackPay.reviewedAt = new Date().toISOString();
+      fallbackPay.reviewedBy = adminEmail;
+      fallbackPay.expiresAt = finalExpiresAt;
+      saveFallbackPayment(paymentId, fallbackPay);
+
+      if (uid) {
         users[uid] = {
-          ...(users[uid] || {}),
-          isPremium: true,
-          premiumExpiresAt: expiresAt,
+          ...existingUser,
+          hasPremiumLearning: true,
+          premiumLearningExpiresAt: finalExpiresAt,
+          premiumLearningPlan: plan,
+          premiumLearningGateway: fallbackPay.paymentGateway || '',
           updatedAt: new Date().toISOString(),
         };
         fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
-      } catch (e) {
-        console.error('Failed to update fallback user:', e);
+      }
+    } else {
+      const existing = String(existingUser.premiumExpiresAt || '');
+      const baseStr = existing && existing > today ? existing : today;
+      const expDate = new Date(`${baseStr}T00:00:00Z`);
+      expDate.setUTCDate(expDate.getUTCDate() + (pricing.billingCycleDays || 30));
+      finalExpiresAt = toYmd(expDate);
+      plan = `${fallbackPay.grade || 10}ኛ ክፍል ወርሃዊ ሙሉ ፈቃድ`;
+
+      fallbackPay.status = 'approved';
+      fallbackPay.reviewedAt = new Date().toISOString();
+      fallbackPay.reviewedBy = adminEmail;
+      fallbackPay.expiresAt = finalExpiresAt;
+      saveFallbackPayment(paymentId, fallbackPay);
+
+      if (uid) {
+        users[uid] = {
+          ...existingUser,
+          isPremium: true,
+          premiumExpiresAt: finalExpiresAt,
+          premiumPlan: plan,
+          premiumGateway: fallbackPay.paymentGateway || '',
+          updatedAt: new Date().toISOString(),
+        };
+        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
       }
     }
 
-    return res.json({ success: true, paymentId, already: false, expiresAt });
+    return res.json({ success: true, paymentId, already: false, expiresAt: finalExpiresAt });
   }
 
   return res.status(404).json({ success: false, error: 'Payment not found' });

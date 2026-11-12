@@ -27,7 +27,7 @@ const MATH_SYMBOLS = ['√', '∛', 'π', 'θ', 'Δ', '∑', '∫', '²', '³', 
 
 export const PremiumAssignmentEngine: React.FC = () => {
   const { activeGrade, currentUser, isSuperAdmin, updateUserXP } = useAuth();
-  const { isUnlocked: hasActiveSubscription } = useSubscription();
+  const { isPremiumLearningUnlocked: hasActiveSubscription } = useSubscription();
   const { language } = useLanguage();
 
   const [selectedAssignment, setSelectedAssignment] = useState<PremiumAssignment>(
@@ -472,6 +472,7 @@ export const PremiumAssignmentEngine: React.FC = () => {
         onClose={() => setIsPaymentModalOpen(false)}
         targetItemTitle={selectedAssignment.title}
         singlePriceETB={57}
+        product="premium"
       />
     </div>
   );

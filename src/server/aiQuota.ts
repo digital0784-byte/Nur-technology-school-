@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import type { Request, Response, NextFunction } from 'express';
 import { adminDb, FieldValue } from './adminDb';
-import { AuthedUser, isPremiumActive } from './authMiddleware';
+import { AuthedUser, hasAnyPaidPlan } from './authMiddleware';
 
 // Daily cap on real Gemini calls per user (cache hits do not count).
 // Tune with env vars: AI_FREE_DAILY_LIMIT, AI_PREMIUM_DAILY_LIMIT.
@@ -37,7 +37,7 @@ export async function consumeAiQuota(): Promise<void> {
   if (!user) throw Object.assign(new Error('LOGIN_REQUIRED'), { statusCode: 401 });
   if (user.role === 'super_admin') return;
 
-  const premium = isPremiumActive(user);
+  const premium = hasAnyPaidPlan(user);
   const limit = premium ? PREMIUM_LIMIT : FREE_LIMIT;
   const key = `${user.uid}_${dayKey()}`;
 

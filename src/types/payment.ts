@@ -34,6 +34,7 @@ export interface PaymentSubmission {
   studentEmail: string;
   studentPhone: string;
   grade: GradeLevel;
+  product?: 'grade' | 'premium';
   amount: number;
   currency: 'ETB';
   paymentGateway: PaymentGatewayId;

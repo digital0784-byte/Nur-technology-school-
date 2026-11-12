@@ -167,6 +167,9 @@ const normalizeProfile = (id: string, d: any): UserProfile => {
     quizzesTakenCount: Number(d.quizzesTakenCount) || 0,
     averageScore: Number(d.averageScore) || 0,
     isPremium: isSuperAdminEmail ? true : d.isPremium === true,
+    premiumExpiresAt: isSuperAdminEmail ? undefined : d.premiumExpiresAt,
+    hasPremiumLearning: isSuperAdminEmail ? true : d.hasPremiumLearning === true,
+    premiumLearningExpiresAt: isSuperAdminEmail ? undefined : d.premiumLearningExpiresAt,
     completedLessonIds: Array.isArray(d.completedLessonIds) ? d.completedLessonIds : [],
   };
 };

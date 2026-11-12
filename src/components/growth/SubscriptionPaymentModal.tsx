@@ -24,6 +24,7 @@ interface SubscriptionPaymentModalProps {
   onClose: () => void;
   targetItemTitle?: string;
   singlePriceETB?: number;
+  product?: 'grade' | 'premium';
 }
 
 export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> = ({
@@ -31,6 +32,7 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
   onClose,
   targetItemTitle,
   singlePriceETB = 57,
+  product = 'grade',
 }) => {
   const {
     accounts,
@@ -42,6 +44,9 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
 
   const { currentUser, activeGrade } = useAuth();
   const { language } = useLanguage();
+
+  const isPremiumProduct = product === 'premium';
+  const effectivePrice = isPremiumProduct ? singlePriceETB : currentGradePrice;
 
   const [selectedGateway, setSelectedGateway] = useState<PaymentGatewayId>('telebirr');
   const [transactionRef, setTransactionRef] = useState('');
@@ -77,7 +82,9 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
     const res = await submitPayment(
       selectedGateway,
       cleanRef,
-      cleanPhone
+      cleanPhone,
+      undefined,
+      product
     );
 
     setIsSubmitting(false);
@@ -107,10 +114,14 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
             የክፍያ ማረጋገጫ (Direct Telebirr & CBE Payment)
           </div>
           <h3 className="text-xl font-black text-white">
-            {targetItemTitle || `የ ${activeGrade}ኛ ክፍል ፕሪሚየም ፍቃድ`}
+            {targetItemTitle || (isPremiumProduct ? 'ፕሪሚየም ትምህርት (ፎቶ/ቪዲዮ Solvers)' : `የ ${activeGrade}ኛ ክፍል ፕሪሚየም ፍቃድ`)}
           </h3>
           <p className="text-xs text-slate-300 mt-1">
-            ወርሃዊ ተመን: <b>{currentGradePrice} ETB</b> | ፕሪሚየም ማዕከል / ነጠላ ጥቅል: <b>{singlePriceETB} ETB</b>
+            {isPremiumProduct ? (
+              <>የፕሪሚየም ትምህርት ተመን (ፎቶ/ቪዲዮ Solvers): <b>{singlePriceETB} ETB / ወር</b></>
+            ) : (
+              <>የ{activeGrade}ኛ ክፍል ወርሃዊ ተመን: <b>{currentGradePrice} ETB / ወር</b></>
+            )}
           </p>
         </div>
 
@@ -283,7 +294,7 @@ export const SubscriptionPaymentModal: React.FC<SubscriptionPaymentModalProps> =
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4 text-emerald-300" />
-                  ክፍያውን አረጋግጥ እና ፍቃድ አግብር (Submit Reference)
+                  ክፍያውን አረጋግጥ ({effectivePrice} ETB / ፍቃድ አግብር)
                 </>
               )}
             </button>

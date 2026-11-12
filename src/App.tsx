@@ -159,6 +159,7 @@ function MainAppShell() {
       currentModule === 'subscription_payment' ||
       currentModule === 'system_feedback' ||
       currentModule === 'student_notifications' ||
+      currentModule === 'photo_voice_tutor' ||
       currentModule === 'premium_learning_center' ||
       currentModule === 'academic_work_hub' ||
       currentModule === 'admin_dashboard' ||

@@ -13,7 +13,7 @@ import {
 } from './src/server/securityRouter';
 import { sharedAiCache } from './src/server/sharedAiCache';
 import { generateCurriculumLessonFallback } from './curriculumLessonFallback';
-import { requireAuth, requireSuperAdmin, isPremiumActive } from './src/server/authMiddleware';
+import { requireAuth, requireSuperAdmin, isPremiumActive, isPremiumLearningActive } from './src/server/authMiddleware';
 import { CURRICULUM_DATA } from './src/data/curriculum';
 import { paymentsRouter, VERIFIED_PAYMENT_ACCOUNTS, getPricing } from './src/server/paymentsApi';
 import { aiContextMiddleware, consumeAiQuota } from './src/server/aiQuota';
@@ -262,10 +262,18 @@ TEACHING RULES & PEDAGOGICAL CONSTRAINTS:
 
 // Multimodal OCR Question Solver (Image & Voice)
 app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
-  try {
-    const { imageBase64, mimeType = 'image/jpeg', questionPrompt, grade = '9-12', subject = 'Science', language = 'am', is_premium, isPremium } = req.body;
+  if (!isPremiumLearningActive(req.user)) {
+    return res.status(402).json({
+      success: false,
+      code: 'PREMIUM_LEARNING_REQUIRED',
+      error: 'ፎቶና ቪዲዮ ሶልቨርን ለመጠቀም የፕሪሚየም ትምህርት ፈቃድ (57 ETB/month) ያስፈልጋል። እባክዎ ክፍያ ይፈጽሙ። / Premium Learning plan (57 ETB/month) required.',
+    });
+  }
 
-    const isVip = isPremiumActive(req.user);
+  try {
+    const { imageBase64, mimeType = 'image/jpeg', questionPrompt, grade = '9-12', subject = 'Science', language = 'am' } = req.body;
+
+    const isVip = isPremiumLearningActive(req.user);
 
     if (!imageBase64 && !questionPrompt) {
       return res.status(400).json({ success: false, error: 'Either imageBase64 or questionPrompt must be provided' });
@@ -1217,7 +1225,7 @@ const SINGLE_ASSIGNMENT_PURCHASES = new Set<string>();
 app.post('/api/premium/verify-student-entitlement', async (req: Request, res: Response) => {
   const SERVER_PRICING = await getPricing();
   const { studentId, resourceType = 'homework', assignmentId, grade = 10 } = req.body;
-  const hasActiveSubscription = isPremiumActive(req.user);
+  const hasActiveSubscription = isPremiumLearningActive(req.user);
 
   // 1. Free Tier: Homework and STEM Projects are 100% free for all students
   if (resourceType === 'homework' || resourceType === 'stem_project' || resourceType === 'free') {

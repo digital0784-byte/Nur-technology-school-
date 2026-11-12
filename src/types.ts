@@ -22,6 +22,8 @@ export interface UserProfile {
   averageScore: number;
   isPremium: boolean;
   premiumExpiresAt?: string;
+  hasPremiumLearning?: boolean;
+  premiumLearningExpiresAt?: string;
   completedLessonIds?: string[];
   streakFreezeAvailable?: boolean;
   streakFreezeActive?: boolean;

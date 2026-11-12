@@ -1,11 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { Camera, Mic, Sparkles, Loader2, CheckCircle } from 'lucide-react';
+import { Camera, Mic, Sparkles, Loader2, CheckCircle, Lock, Crown } from 'lucide-react';
 import { authFetch } from '../../services/apiClient';
+import { SubscriptionPaymentModal } from '../growth/SubscriptionPaymentModal';
 
 export const PhotoVoiceTutorView: React.FC = () => {
   const { activeGrade, updateUserXP, currentUser, isSuperAdmin } = useAuth();
+  const { isPremiumLearningUnlocked, premiumLearningPrice } = useSubscription();
   const { t, language } = useLanguage();
 
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
@@ -13,9 +16,17 @@ export const PhotoVoiceTutorView: React.FC = () => {
   const [isSolving, setIsSolving] = useState(false);
   const [solution, setSolution] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const hasAccess = isSuperAdmin || isPremiumLearningUnlocked;
+
   const handleSolve = async () => {
+    if (!hasAccess) {
+      setIsPaymentModalOpen(true);
+      return;
+    }
+
     setIsSolving(true);
     setSolution(null);
     setIsCached(false);
@@ -29,14 +40,28 @@ export const PhotoVoiceTutorView: React.FC = () => {
           grade: activeGrade,
           subject: 'Mathematics & Science',
           language,
-          is_premium: currentUser.isPremium || isSuperAdmin,
         }),
       });
+
+      if (res.status === 402) {
+        setIsPaymentModalOpen(true);
+        setSolution('ይህንን የፎቶ/ቪዲዮ ሶልቨር ለመጠቀም የፕሪሚየም ትምህርት ፈቃድ (57 ETB/ወር) ያስፈልጋል። እባክዎ ክፍያውን ያጠናቅቁ።');
+        return;
+      }
+
       const data = await res.json();
+      if (data.code === 'PREMIUM_LEARNING_REQUIRED') {
+        setIsPaymentModalOpen(true);
+        setSolution(data.error || 'የፕሪሚየም ትምህርት ፈቃድ (57 ETB/ወር) ያስፈልጋል።');
+        return;
+      }
+
       if (data.success && data.solution) {
         setSolution(data.solution);
         setIsCached(data.cached === true);
         updateUserXP(45);
+      } else if (data.error) {
+        setSolution(data.error);
       }
     } catch {
       setSolution('የፎቶ ጥያቄው ተፈትቷል። መልሱ በኢትዮጵያ መማሪያ መፅሐፍ የክፍል 12 ካልኩለስ ክፍል 1 ላይ ተብራርቷል።');
@@ -55,6 +80,32 @@ export const PhotoVoiceTutorView: React.FC = () => {
         <h1 className="text-xl sm:text-2xl font-black">{t('mod_photo_voice_tutor')}</h1>
         <p className="text-xs sm:text-sm text-teal-100">{t('mod_photo_voice_tutor_sub')}</p>
       </div>
+
+      {!hasAccess && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                የፎቶና ቪዲዮ ሶልቨር (Premium Learning Plan)
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                ይህንን የAI ፈጣን ጥያቄ መፍቻ ለመጠቀም የፕሪሚየም ትምህርት ፈቃድ (በወር 57 ብር) ያስፈልጋል።
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsPaymentModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 flex items-center gap-1.5 shadow-md transition"
+          >
+            <Crown className="w-4 h-4" />
+            በወር 57 ብር ክፈት (Unlock)
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-6 space-y-4">
@@ -164,6 +215,14 @@ export const PhotoVoiceTutorView: React.FC = () => {
           )}
         </div>
       </div>
+
+      <SubscriptionPaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        product="premium"
+        targetItemTitle="ፕሪሚየም ትምህርት — የፎቶና ቪዲዮ ሶልቨር (Photo & Video Solver)"
+        singlePriceETB={premiumLearningPrice || 57}
+      />
     </div>
   );
 };

@@ -31,14 +31,19 @@ service cloud.firestore {
         isSuperAdmin() ||
         ((!('role' in request.resource.data) || request.resource.data.role == 'student') &&
          (!('isPremium' in request.resource.data) || request.resource.data.isPremium == false) &&
-         !request.resource.data.keys().hasAny(['premiumExpiresAt', 'premiumPlan', 'premiumGateway', 'subscriptionStatus']))
+         (!('hasPremiumLearning' in request.resource.data) || request.resource.data.hasPremiumLearning == false) &&
+         !request.resource.data.keys().hasAny([
+           'premiumExpiresAt', 'premiumPlan', 'premiumGateway', 'subscriptionStatus',
+           'hasPremiumLearning', 'premiumLearningExpiresAt', 'premiumLearningPlan', 'premiumLearningGateway'
+         ]))
       );
       // Students may update their own profile but never role, grade, grade lock, or any Premium field.
       allow update: if isSuperAdmin() ||
         (isOwner(userId) &&
          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
            'role', 'grade', 'isGradeLocked', 'isPremium', 'premiumExpiresAt',
-           'premiumPlan', 'premiumGateway', 'subscriptionStatus'
+           'premiumPlan', 'premiumGateway', 'subscriptionStatus',
+           'hasPremiumLearning', 'premiumLearningExpiresAt', 'premiumLearningPlan', 'premiumLearningGateway'
          ]));
       allow delete: if isSuperAdmin();
 
