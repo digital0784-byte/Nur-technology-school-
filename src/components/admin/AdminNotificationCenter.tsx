@@ -33,7 +33,7 @@ export const AdminNotificationCenter: React.FC<AdminNotificationCenterProps> = (
   onApprovePayment,
   onNavigateTab,
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, isSuperAdmin } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<'stream' | 'broadcast' | 'settings'>('stream');
   const [filterType, setFilterType] = useState<'all' | 'payment' | 'security' | 'system'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -64,6 +64,7 @@ export const AdminNotificationCenter: React.FC<AdminNotificationCenterProps> = (
   };
 
   useEffect(() => {
+    if (!isSuperAdmin) return;
     loadNotifications();
 
     const handleUpdate = () => loadNotifications();
@@ -73,7 +74,7 @@ export const AdminNotificationCenter: React.FC<AdminNotificationCenterProps> = (
       window.removeEventListener('nur_notification_updated', handleUpdate);
       window.removeEventListener('nur_notification_settings_updated', handleUpdate);
     };
-  }, []);
+  }, [isSuperAdmin]);
 
   const showBanner = (msg: string) => {
     setSuccessMessage(msg);
@@ -179,6 +180,8 @@ export const AdminNotificationCenter: React.FC<AdminNotificationCenterProps> = (
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const pendingPaymentsCount = notifications.filter((n) => n.type === 'payment' && !n.read).length;
+
+  if (!isSuperAdmin) return null;
 
   return (
     <div className="space-y-6 animate-in fade-in">

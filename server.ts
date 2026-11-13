@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
@@ -952,25 +953,130 @@ COUNT CONSTRAINTS:
   }
 });
 
+const FREE_HOMEWORK_LIMIT_PER_CHAPTER = 5;
+const HOMEWORK_USAGE_FILE = path.resolve(process.cwd(), '.data/homework_usage.json');
+
+function getHomeworkUsageDocId(uid: string, grade: string, subject: string, chapter: string): string {
+  const normalized = `${uid}::${grade.trim()}::${subject.trim().toLowerCase()}::${chapter.trim().toLowerCase()}`;
+  return crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 40);
+}
+
+async function getHomeworkChapterUsage(docId: string): Promise<number> {
+  try {
+    const snap = await adminDb.collection('homework_usage').doc(docId).get();
+    if (snap.exists) {
+      return Number(snap.data()?.count || 0);
+    }
+  } catch {
+    // Fallback to local .data file when adminDb is unavailable
+  }
+  try {
+    if (fs.existsSync(HOMEWORK_USAGE_FILE)) {
+      const store = JSON.parse(fs.readFileSync(HOMEWORK_USAGE_FILE, 'utf-8'));
+      return Number(store[docId]?.count || 0);
+    }
+  } catch {
+    // ignore read error
+  }
+  return 0;
+}
+
+async function incrementHomeworkChapterUsage(docId: string, delta: number, meta: Record<string, any>): Promise<number> {
+  if (delta <= 0) return await getHomeworkChapterUsage(docId);
+  let nextCount = delta;
+  try {
+    const ref = adminDb.collection('homework_usage').doc(docId);
+    await adminDb.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const current = Number(snap.data()?.count || 0);
+      nextCount = current + delta;
+      tx.set(ref, { ...meta, count: nextCount, updatedAt: new Date().toISOString() }, { merge: true });
+    });
+    return nextCount;
+  } catch {
+    // Fallback to local .data file when adminDb is unavailable
+  }
+  try {
+    const dir = path.dirname(HOMEWORK_USAGE_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const store = fs.existsSync(HOMEWORK_USAGE_FILE)
+      ? JSON.parse(fs.readFileSync(HOMEWORK_USAGE_FILE, 'utf-8'))
+      : {};
+    const current = Number(store[docId]?.count || 0);
+    nextCount = current + delta;
+    store[docId] = { ...meta, count: nextCount, updatedAt: new Date().toISOString() };
+    fs.writeFileSync(HOMEWORK_USAGE_FILE, JSON.stringify(store, null, 2));
+  } catch {
+    // ignore write error
+  }
+  return nextCount;
+}
+
 // University Entrance Examination (EUEE) & Diagnostic Exam Generator
 app.post('/api/ai/exam-gen', async (req: Request, res: Response) => {
   try {
-    const { grade = '12', subject = 'Mathematics', count = 5, chapter = 'All Units', difficulty = 'standard', language = 'am' } = req.body;
+    const {
+      grade = '12',
+      subject = 'Mathematics',
+      count = 5,
+      chapter = 'All Units',
+      difficulty = 'standard',
+      language = 'am',
+      purpose = 'exam',
+      staticCountInChapter = 0,
+    } = req.body;
+
+    const isHomeworkRequest = String(purpose) === 'homework';
+    const isPremiumMember = isPremiumLearningActive(req.user);
+    const uid = req.user?.uid || 'anonymous';
+    const hwDocId = getHomeworkUsageDocId(uid, String(grade), String(subject), String(chapter));
+
+    let requestedCount = Math.max(1, Math.min(Number(count) || 2, 20));
+    let usedInChapter = 0;
+
+    if (isHomeworkRequest && !isPremiumMember) {
+      const serverAiUsed = await getHomeworkChapterUsage(hwDocId);
+      const safeStaticCount = Math.max(0, Math.min(Number(staticCountInChapter) || 0, FREE_HOMEWORK_LIMIT_PER_CHAPTER));
+      usedInChapter = serverAiUsed + safeStaticCount;
+      const remaining = FREE_HOMEWORK_LIMIT_PER_CHAPTER - usedInChapter;
+
+      if (remaining <= 0) {
+        return res.status(402).json({
+          success: false,
+          code: 'HOMEWORK_CHAPTER_LIMIT_REACHED',
+          limit: FREE_HOMEWORK_LIMIT_PER_CHAPTER,
+          used: usedInChapter,
+          error: 'ነፃ የቤት ስራ በአንድ ቻፕተር ውስጥ 5 ጥያቄ ብቻ ነው። ከአምስት በተጨማሪ መጠቀም ከፈለጉ የPremium አባል መሆን አለብዎት (57 ETB/ወር)።',
+        });
+      }
+      requestedCount = Math.min(requestedCount, remaining);
+    }
 
     // Check persistent shared AI cache first
     const cachedExam = sharedAiCache.getExamGen({
       grade: String(grade),
       subject: String(subject),
       chapter: String(chapter),
-      count: Number(count),
+      count: requestedCount,
       difficulty: String(difficulty),
       language: String(language),
     });
 
     if (cachedExam) {
+      const cachedQuestions = Array.isArray(cachedExam.questions)
+        ? cachedExam.questions.slice(0, requestedCount)
+        : [];
+      if (isHomeworkRequest && !isPremiumMember && cachedQuestions.length > 0) {
+        await incrementHomeworkChapterUsage(hwDocId, cachedQuestions.length, {
+          uid,
+          grade: String(grade),
+          subject: String(subject),
+          chapter: String(chapter),
+        });
+      }
       return res.json({
         success: true,
-        questions: cachedExam.questions,
+        questions: cachedQuestions,
         modelUsed: cachedExam.modelUsed || 'shared-community-cache',
         cached: true,
         source: 'SHARED_COMMUNITY_CACHE',
@@ -978,7 +1084,7 @@ app.post('/api/ai/exam-gen', async (req: Request, res: Response) => {
       });
     }
 
-    const prompt = `Generate ${count} high-quality Ethiopian High School Multiple-Choice Exam questions for Grade ${grade}, Subject: ${subject}, Unit/Focus: ${chapter}.
+    const prompt = `Generate ${requestedCount} high-quality Ethiopian High School Multiple-Choice Exam questions for Grade ${grade}, Subject: ${subject}, Unit/Focus: ${chapter}.
 Format: Strict JSON array.
 Difficulty: ${difficulty} (aligned with Ethiopian National Educational Assessment & Examinations Agency (EAES) / MoE Entrance Standards).
 Target language: ${language}.
@@ -996,7 +1102,7 @@ Output MUST be a valid JSON array of objects with keys:
       temperature: 0.5,
     });
 
-    let questions = [];
+    let questions: any[] = [];
     try {
       questions = JSON.parse(result.text);
     } catch {
@@ -1007,19 +1113,32 @@ Output MUST be a valid JSON array of objects with keys:
       }
     }
 
+    if (Array.isArray(questions) && questions.length > requestedCount) {
+      questions = questions.slice(0, requestedCount);
+    }
+
     // Save to shared AI knowledge cache
     sharedAiCache.setExamGen(
       {
         grade: String(grade),
         subject: String(subject),
         chapter: String(chapter),
-        count: Number(count),
+        count: requestedCount,
         difficulty: String(difficulty),
         language: String(language),
       },
       questions,
       result.modelUsed
     );
+
+    if (isHomeworkRequest && !isPremiumMember && Array.isArray(questions) && questions.length > 0) {
+      await incrementHomeworkChapterUsage(hwDocId, questions.length, {
+        uid,
+        grade: String(grade),
+        subject: String(subject),
+        chapter: String(chapter),
+      });
+    }
 
     res.json({
       success: true,
@@ -1227,14 +1346,41 @@ app.post('/api/premium/verify-student-entitlement', async (req: Request, res: Re
   const { studentId, resourceType = 'homework', assignmentId, grade = 10 } = req.body;
   const hasActiveSubscription = isPremiumLearningActive(req.user);
 
-  // 1. Free Tier: Homework and STEM Projects are 100% free for all students
-  if (resourceType === 'homework' || resourceType === 'stem_project' || resourceType === 'free') {
+  // 1. Homework (5 free questions per chapter; >5 requires Premium) and Free STEM Projects
+  if (resourceType === 'homework') {
+    const chapterQuestionCount = Number(req.body.chapterQuestionCount || 0);
+    if (hasActiveSubscription || chapterQuestionCount < FREE_HOMEWORK_LIMIT_PER_CHAPTER) {
+      return res.json({
+        success: true,
+        entitled: true,
+        reason: hasActiveSubscription ? 'ACTIVE_SUBSCRIPTION' : 'FREE_TIER',
+        resourceType,
+        freeLimitPerChapter: FREE_HOMEWORK_LIMIT_PER_CHAPTER,
+        message: hasActiveSubscription
+          ? 'Unlimited homework access active via Premium Learning subscription.'
+          : `Free tier allows up to ${FREE_HOMEWORK_LIMIT_PER_CHAPTER} homework questions per chapter.`,
+      });
+    }
+    return res.json({
+      success: true,
+      entitled: false,
+      reason: 'HOMEWORK_CHAPTER_LIMIT_REACHED',
+      resourceType,
+      freeLimitPerChapter: FREE_HOMEWORK_LIMIT_PER_CHAPTER,
+      singlePriceETB: SERVER_PRICING.singleAssignment || 57,
+      currency: 'ETB',
+      accounts: VERIFIED_PAYMENT_ACCOUNTS,
+      message: 'ነፃ የቤት ስራ በአንድ ቻፕተር ውስጥ 5 ጥያቄ ብቻ ነው። ከአምስት በተጨማሪ መጠቀም ከፈለጉ የPremium አባል መሆን አለብዎት (57 ETB/ወር)።',
+    });
+  }
+
+  if (resourceType === 'stem_project' || resourceType === 'free') {
     return res.json({
       success: true,
       entitled: true,
       reason: 'FREE_TIER',
       resourceType,
-      message: 'Homework and Practical STEM Projects are free and open to all registered students.',
+      message: 'Practical STEM Projects are free and open to all registered students.',
     });
   }
 

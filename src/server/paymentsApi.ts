@@ -188,7 +188,7 @@ paymentsRouter.post('/submit', async (req: Request, res: Response) => {
         });
       }
       // Resilient fallback storage: save locally so payment proof is NEVER lost
-      console.warn('[paymentsApi] Firestore adminDb unavailable, using resilient fallback storage:', e?.message || e);
+      console.warn('[paymentsApi] Firestore adminDb unavailable, using local fallback storage.');
       saveFallbackPayment(id, data);
     }
 
@@ -385,8 +385,8 @@ paymentsRouter.post('/admin/approve', requireSuperAdmin, async (req: Request, re
     if (result.code === 200) {
       return res.json({ success: true, paymentId, already: result.already, expiresAt: result.expiresAt });
     }
-  } catch (err: any) {
-    console.warn('[paymentsApi] Firestore approve transaction unavailable, falling back to local persistent store:', err?.message || err);
+  } catch {
+    console.warn('[paymentsApi] Firestore approve transaction unavailable, falling back to local persistent store.');
   }
 
   // 2. Fallback approval for persistent store

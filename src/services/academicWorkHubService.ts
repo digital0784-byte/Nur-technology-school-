@@ -12,19 +12,27 @@ import { db, isFirebaseConfigured } from './firebase';
 import { authFetch } from './apiClient';
 
 const STORAGE_KEY_HW_ANSWERS = 'eth_academic_hub_homework_answers_v1';
+const STORAGE_KEY_AI_HOMEWORK = 'eth_academic_hub_ai_homework_v1';
 const STORAGE_KEY_ASSIGNMENTS = 'eth_academic_hub_assignments_v1';
 const STORAGE_KEY_STEM_PROJECTS = 'eth_academic_hub_stem_projects_v1';
 const STORAGE_KEY_PURCHASES = 'eth_academic_hub_purchases_v1';
 
+export const FREE_HOMEWORK_LIMIT_PER_CHAPTER = 5;
+
 export class AcademicWorkHubService {
-  // 1. Entitlement Verification (Super Admin bypass, Free Homework/STEM, 57 ETB Assignment Check)
+  static getChapterKey(grade: number | string, subject: string, chapter: string): string {
+    return `g${String(grade).trim()}::${(subject || 'General').trim().toLowerCase()}::${(chapter || 'General Chapter').trim().toLowerCase()}`;
+  }
+
+  // 1. Entitlement Verification (Super Admin bypass, Homework 5/chapter free limit, 57 ETB Premium Learning Check)
   static async verifyEntitlement(
     studentEmail: string,
     studentId: string,
     resourceType: 'homework' | 'stem_project' | 'premium_assignment',
     assignmentId?: string,
     grade: GradeLevel = 10,
-    hasActiveSubscription: boolean = false
+    hasActiveSubscription: boolean = false,
+    chapterQuestionCount: number = 0
   ): Promise<{
     entitled: boolean;
     reason: string;
@@ -41,7 +49,21 @@ export class AcademicWorkHubService {
       };
     }
 
-    if (resourceType === 'homework' || resourceType === 'stem_project') {
+    if (resourceType === 'homework') {
+      if (hasActiveSubscription || chapterQuestionCount < FREE_HOMEWORK_LIMIT_PER_CHAPTER) {
+        return {
+          entitled: true,
+          reason: hasActiveSubscription ? 'ACTIVE_SUBSCRIPTION' : 'FREE_TIER',
+        };
+      }
+      return {
+        entitled: false,
+        reason: 'HOMEWORK_CHAPTER_LIMIT_REACHED',
+        singlePriceETB: 57,
+      };
+    }
+
+    if (resourceType === 'stem_project') {
       return {
         entitled: true,
         reason: 'FREE_TIER',
@@ -170,6 +192,25 @@ export class AcademicWorkHubService {
   static getHomeworkAnswers(studentId: string): Record<string, any> {
     const saved = localStorage.getItem(`${STORAGE_KEY_HW_ANSWERS}_${studentId}`);
     return saved ? JSON.parse(saved) : {};
+  }
+
+  static getSavedAiHomeworkQuestions(studentId: string): HomeworkQuestion[] {
+    const saved = localStorage.getItem(`${STORAGE_KEY_AI_HOMEWORK}_${studentId}`);
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static saveAiHomeworkQuestions(studentId: string, questions: HomeworkQuestion[]): void {
+    try {
+      localStorage.setItem(`${STORAGE_KEY_AI_HOMEWORK}_${studentId}`, JSON.stringify(questions));
+    } catch {
+      // ignore storage quota errors
+    }
   }
 
   // 4. Premium Assignment Submissions with AI Grading & Teacher Override

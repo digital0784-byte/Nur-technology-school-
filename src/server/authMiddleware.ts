@@ -55,8 +55,8 @@ async function loadProfile(uid: string, idToken: string) {
       hasPremiumLearning = f.hasPremiumLearning?.booleanValue === true;
       premiumLearningExpiresAt = f.premiumLearningExpiresAt?.stringValue;
     }
-  } catch (e) {
-    console.error('Profile lookup failed:', e);
+  } catch (e: any) {
+    console.warn('[authMiddleware] Profile lookup notice:', String(e?.message || e).replace(/\s+/g, ' ').slice(0, 140));
   }
 
   // Check fallback storage if premium or premiumLearning wasn't found in live Firestore

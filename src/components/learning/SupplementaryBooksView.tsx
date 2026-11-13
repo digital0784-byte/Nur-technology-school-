@@ -1,10 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Language } from '../../types';
 import {
+  AllBookReadingState,
+  loadBookReadingState,
+  syncBookReadingProgressFromCloud,
+  saveSupplementaryProgress,
+  getLastReadSupplementary,
+} from '../../services/bookReadingProgressService';
+import {
   BookOpen,
+  Bookmark,
   BookmarkCheck,
   Lock,
   Unlock,
@@ -612,13 +620,45 @@ export const SupplementaryBooksView: React.FC = () => {
   // Premium Access determination: Super Admin has lifetime root bypass
   const hasPremiumAccess = isSuperAdmin || isUnlocked || currentUser.isPremium;
 
-  // State
+  // State (initialized from saved supplementary reading state)
+  const [readingState, setReadingState] = useState<AllBookReadingState>(() =>
+    loadBookReadingState(currentUser.id)
+  );
   const [selectedSeries, setSelectedSeries] = useState<string>('ALL');
   const [selectedSubject, setSelectedSubject] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeBookId, setActiveBookId] = useState<string>(SUPPLEMENTARY_BOOKS_CATALOG[0].id);
-  const [expandedChapter, setExpandedChapter] = useState<number | null>(1);
-  const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
+  const [activeBookId, setActiveBookId] = useState<string>(() => {
+    const last = getLastReadSupplementary(currentUser.id);
+    if (last && SUPPLEMENTARY_BOOKS_CATALOG.some((b) => b.id === last.bookId)) {
+      return last.bookId;
+    }
+    return SUPPLEMENTARY_BOOKS_CATALOG[0].id;
+  });
+  const [expandedChapter, setExpandedChapter] = useState<number | null>(() => {
+    const initialState = loadBookReadingState(currentUser.id);
+    const bookId = initialState.lastSupplementaryId || SUPPLEMENTARY_BOOKS_CATALOG[0].id;
+    return initialState.supplementary[bookId]?.chapterNumber ?? 1;
+  });
+  const [expandedExercise, setExpandedExercise] = useState<number | null>(() => {
+    const initialState = loadBookReadingState(currentUser.id);
+    const bookId = initialState.lastSupplementaryId || SUPPLEMENTARY_BOOKS_CATALOG[0].id;
+    return initialState.supplementary[bookId]?.expandedExercise ?? null;
+  });
+  const viewerSectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const local = loadBookReadingState(currentUser.id);
+    setReadingState(local);
+    let cancelled = false;
+    syncBookReadingProgressFromCloud(currentUser.id).then((merged) => {
+      if (!cancelled) {
+        setReadingState(merged);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser.id]);
 
   // Filtered books catalog
   const filteredBooks = useMemo(() => {
@@ -639,6 +679,27 @@ export const SupplementaryBooksView: React.FC = () => {
       SUPPLEMENTARY_BOOKS_CATALOG[0]
     );
   }, [activeBookId]);
+
+  // Persist reading state whenever activeBook, expandedChapter, or expandedExercise changes
+  useEffect(() => {
+    const chapterNum = expandedChapter ?? activeBook.chapters[0]?.chapterNumber ?? 1;
+    const chapterObj =
+      activeBook.chapters.find((c) => c.chapterNumber === chapterNum) || activeBook.chapters[0];
+    const updated = saveSupplementaryProgress(currentUser.id, {
+      bookId: activeBook.id,
+      bookTitle: activeBook.title[language] || activeBook.title.en,
+      series: activeBook.series,
+      chapterNumber: chapterNum,
+      chapterTitle: chapterObj ? chapterObj.title[language] || chapterObj.title.en : '',
+      expandedExercise,
+    });
+    setReadingState(updated);
+  }, [activeBook, expandedChapter, expandedExercise, currentUser.id, language]);
+
+  const lastSupp = getLastReadSupplementary(currentUser.id);
+  const lastSuppBook = lastSupp
+    ? SUPPLEMENTARY_BOOKS_CATALOG.find((b) => b.id === lastSupp.bookId) || null
+    : null;
 
   return (
     <div className={`space-y-6 ${isRtl ? 'text-right' : 'text-left'}`}>
@@ -774,6 +835,44 @@ export const SupplementaryBooksView: React.FC = () => {
         </div>
       )}
 
+      {/* Continue Supplementary Reading Quick Banner */}
+      {lastSupp && lastSuppBook && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 text-white border border-indigo-500/40 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1 min-w-0">
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-300">
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>
+                {language === 'am'
+                  ? 'ካቆሙበት አጋዥ መጽሐፍ ይቀጥሉ (Continue Reading)'
+                  : 'Resume Where You Left Off'}
+              </span>
+            </div>
+            <div className="text-sm font-black truncate">
+              {lastSuppBook.title[language] || lastSuppBook.title.en}
+            </div>
+            <div className="text-xs text-indigo-200 truncate">
+              {language === 'am' ? `ምዕራፍ ${lastSupp.chapterNumber}` : `Chapter ${lastSupp.chapterNumber}`}
+              {lastSupp.chapterTitle ? ` • ${lastSupp.chapterTitle}` : ''}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveBookId(lastSuppBook.id);
+              setExpandedChapter(lastSupp.chapterNumber);
+              setExpandedExercise(lastSupp.expandedExercise ?? null);
+              requestAnimationFrame(() => {
+                viewerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }}
+            className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center gap-1.5 self-start sm:self-center shrink-0 shadow-xs transition-all"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>{language === 'am' ? 'ካቆሙበት ቀጥል' : 'Resume Chapter'}</span>
+          </button>
+        </div>
+      )}
+
       {/* 2-Column Layout: Catalog List & Interactive Book View */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Book Cards (5 Cols) */}
@@ -788,14 +887,15 @@ export const SupplementaryBooksView: React.FC = () => {
           <div className="space-y-3">
             {filteredBooks.map((book) => {
               const isSelected = book.id === activeBookId;
+              const bookSaved = readingState.supplementary[book.id];
 
               return (
                 <div
                   key={book.id}
                   onClick={() => {
                     setActiveBookId(book.id);
-                    setExpandedChapter(1);
-                    setExpandedExercise(null);
+                    setExpandedChapter(bookSaved?.chapterNumber ?? 1);
+                    setExpandedExercise(bookSaved?.expandedExercise ?? null);
                   }}
                   className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
                     isSelected
@@ -820,12 +920,29 @@ export const SupplementaryBooksView: React.FC = () => {
                     <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
                       {book.description[language] || book.description.en}
                     </p>
+
+                    {bookSaved && (
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 text-[10px] font-bold">
+                        <Bookmark className="w-3 h-3 shrink-0" />
+                        <span>
+                          {language === 'am'
+                            ? `ያቆሙበት: ምዕራፍ ${bookSaved.chapterNumber}`
+                            : `Last read: Chapter ${bookSaved.chapterNumber}`}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-3 flex items-center justify-between text-xs text-slate-500">
                     <span className="font-mono">{book.totalPages} Pages</span>
                     <span className="text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1 text-[11px]">
-                      {language === 'am' ? 'ማጠቃለያውን ክፈት' : 'Inspect Chapters'}
+                      {bookSaved
+                        ? language === 'am'
+                          ? `ካቆሙበት ቀጥል (ምዕራፍ ${bookSaved.chapterNumber})`
+                          : `Resume Ch. ${bookSaved.chapterNumber}`
+                        : language === 'am'
+                        ? 'ማጠቃለያውን ክፈት'
+                        : 'Inspect Chapters'}
                       <ChevronRight className="w-3.5 h-3.5" />
                     </span>
                   </div>
@@ -836,7 +953,7 @@ export const SupplementaryBooksView: React.FC = () => {
         </div>
 
         {/* Right Column: Selected Book Interactive Viewer (7 Cols) */}
-        <div className="lg:col-span-7 space-y-4">
+        <div ref={viewerSectionRef} className="lg:col-span-7 space-y-4">
           <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
             {/* Header Metadata */}
             <div className="space-y-2 border-b border-slate-100 dark:border-slate-800 pb-4">
@@ -869,22 +986,35 @@ export const SupplementaryBooksView: React.FC = () => {
               <div className="space-y-2.5">
                 {activeBook.chapters.map((chap) => {
                   const isOpen = expandedChapter === chap.chapterNumber;
+                  const isLastSavedChapter =
+                    readingState.supplementary[activeBook.id]?.chapterNumber === chap.chapterNumber;
 
                   return (
                     <div
                       key={chap.chapterNumber}
-                      className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50/50 dark:bg-slate-900/60"
+                      className={`rounded-xl border overflow-hidden ${
+                        isLastSavedChapter
+                          ? 'border-indigo-400 dark:border-indigo-700 bg-indigo-50/40 dark:bg-indigo-950/30'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60'
+                      }`}
                     >
                       <button
                         type="button"
                         onClick={() => setExpandedChapter(isOpen ? null : chap.chapterNumber)}
-                        className="w-full p-3.5 text-left flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
+                        className="w-full p-3.5 text-left flex items-center justify-between gap-2 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
                       >
-                        <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
-                          {chap.title[language] || chap.title.en}
-                        </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                            {chap.title[language] || chap.title.en}
+                          </span>
+                          {isLastSavedChapter && (
+                            <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold shrink-0">
+                              ያቆሙበት
+                            </span>
+                          )}
+                        </div>
                         <ChevronDown
-                          className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                          className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
                             isOpen ? 'rotate-180' : ''
                           }`}
                         />

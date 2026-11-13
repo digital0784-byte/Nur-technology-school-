@@ -29,14 +29,14 @@ export const AcademicWorkHubView: React.FC = () => {
       labelAm: 'የቤት ስራ ሞተር',
       labelEn: 'Homework Engine',
       icon: BookOpen,
-      badge: 'Free',
+      badge: '5 Free/Ch',
     },
     {
       id: 'premium_assignment',
       labelAm: 'ልዩ አሳይመንቶች',
       labelEn: 'Premium Assignments',
       icon: Crown,
-      badge: '54 ETB',
+      badge: '57 ETB',
     },
     {
       id: 'stem_project',

@@ -371,6 +371,8 @@ export const SystemIntegrationView: React.FC = () => {
   );
   const totalAssertionsCount = probes.reduce((sum, p) => sum + p.assertions.length, 0);
 
+  if (!isSuperAdmin) return null;
+
   return (
     <div className="space-y-6 animate-in fade-in pb-16">
       {/* Toast Notification */}

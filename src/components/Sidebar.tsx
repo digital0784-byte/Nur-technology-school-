@@ -29,7 +29,6 @@ import {
   Activity,
   Bell,
   X,
-  Lock,
   ArrowLeft,
   ArrowRight,
 } from 'lucide-react';
@@ -131,12 +130,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onCloseMobile();
   };
 
-  const isDevAdmin =
-    isSuperAdmin ||
-    (typeof window !== 'undefined' && localStorage.getItem('nur_admin_dev_bypass') === 'true');
+  const isEntranceGradeAllowed = activeGrade === 11 || activeGrade === 12;
 
   const filteredCategories = CATEGORY_GROUPS.map((cat) => {
-    const modulesAllowed = cat.modules;
+    const modulesAllowed = cat.modules.filter((mod) => {
+      if (mod.adminOnly && !isSuperAdmin) {
+        return false;
+      }
+      if (mod.id === 'entrance_prep' && !isEntranceGradeAllowed) {
+        return false;
+      }
+      return true;
+    });
 
     if (!searchFilter.trim()) {
       return { ...cat, modules: modulesAllowed };
@@ -221,7 +226,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {group.modules.map((mod) => {
                 const IconComponent = mod.icon;
                 const isActive = currentModule === mod.id;
-                const isLockedForStudent = mod.adminOnly && !isDevAdmin;
 
                 return (
                   <button
@@ -231,8 +235,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={`w-full group flex items-start gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all ${
                       isActive
                         ? 'bg-emerald-600 text-white shadow-sm font-semibold'
-                        : isLockedForStudent
-                        ? 'text-slate-600 dark:text-slate-400 hover:bg-amber-50/50 dark:hover:bg-amber-950/20'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70'
                     }`}
                   >
@@ -273,8 +275,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {t(`mod_${mod.id}_sub`)}
                       </div>
                     </div>
-
-                    {isLockedForStudent && <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-1" />}
                   </button>
                 );
               })}

@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { ModuleId } from '../../types';
-import { Home, BookOpen, Bot, Award, Camera, Crown, Sparkles } from 'lucide-react';
+import { Home, BookOpen, Bot, Award, Camera, Crown, Sparkles, Bookmark } from 'lucide-react';
+import {
+  TextbookReadingProgress,
+  SupplementaryReadingProgress,
+  getLastReadTextbook,
+  getLastReadSupplementary,
+  syncBookReadingProgressFromCloud,
+  requestAutoResumeTextbook,
+  computeReadingPercent,
+} from '../../services/bookReadingProgressService';
 
 interface StudentPortalDashboardProps {
   onNavigateModule: (mod: ModuleId) => void;
@@ -11,6 +20,31 @@ interface StudentPortalDashboardProps {
 export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ onNavigateModule }) => {
   const { currentUser, activeGrade } = useAuth();
   const { t } = useLanguage();
+  const [lastTextbook, setLastTextbook] = useState<TextbookReadingProgress | null>(() =>
+    getLastReadTextbook(currentUser.id, activeGrade) || getLastReadTextbook(currentUser.id)
+  );
+  const [lastSupp, setLastSupp] = useState<SupplementaryReadingProgress | null>(() =>
+    getLastReadSupplementary(currentUser.id)
+  );
+
+  useEffect(() => {
+    setLastTextbook(
+      getLastReadTextbook(currentUser.id, activeGrade) || getLastReadTextbook(currentUser.id)
+    );
+    setLastSupp(getLastReadSupplementary(currentUser.id));
+
+    let cancelled = false;
+    syncBookReadingProgressFromCloud(currentUser.id).then(() => {
+      if (cancelled) return;
+      setLastTextbook(
+        getLastReadTextbook(currentUser.id, activeGrade) || getLastReadTextbook(currentUser.id)
+      );
+      setLastSupp(getLastReadSupplementary(currentUser.id));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser.id, activeGrade]);
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -100,6 +134,65 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
         </button>
       </div>
 
+      {/* Continue Reading Card (when student has saved textbook or supplementary progress) */}
+      {(lastTextbook || lastSupp) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {lastTextbook && (
+            <button
+              type="button"
+              onClick={() => {
+                requestAutoResumeTextbook(lastTextbook.bookId);
+                onNavigateModule('textbook');
+              }}
+              className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/90 via-slate-900 to-teal-950 border border-emerald-500/40 text-left hover:border-emerald-400 transition-all shadow-md flex items-center justify-between gap-3 group"
+            >
+              <div className="min-w-0 space-y-1">
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-300">
+                  <Bookmark className="w-3.5 h-3.5 text-amber-300" />
+                  <span>ካቆሙበት መጽሐፍ ይቀጥሉ</span>
+                </div>
+                <div className="text-xs sm:text-sm font-black text-white truncate">
+                  {lastTextbook.bookTitle || `Grade ${lastTextbook.grade} Textbook`}
+                </div>
+                <div className="text-[11px] text-emerald-100/80 truncate">
+                  ምዕራፍ {lastTextbook.unitNumber} • ገፅ {lastTextbook.pageNumber}
+                  {lastTextbook.totalPages > 0
+                    ? ` (${computeReadingPercent(lastTextbook.pageNumber, lastTextbook.totalPages)}%)`
+                    : ''}
+                </div>
+              </div>
+              <span className="px-3 py-1.5 rounded-xl bg-emerald-500 group-hover:bg-emerald-400 text-slate-950 font-black text-xs shrink-0 transition">
+                ቀጥል →
+              </span>
+            </button>
+          )}
+
+          {lastSupp && (
+            <button
+              type="button"
+              onClick={() => onNavigateModule('supplementary')}
+              className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/90 via-slate-900 to-purple-950 border border-indigo-500/40 text-left hover:border-indigo-400 transition-all shadow-md flex items-center justify-between gap-3 group"
+            >
+              <div className="min-w-0 space-y-1">
+                <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-300">
+                  <Bookmark className="w-3.5 h-3.5 text-amber-300" />
+                  <span>ካቆሙበት አጋዥ መጽሐፍ ይቀጥሉ</span>
+                </div>
+                <div className="text-xs sm:text-sm font-black text-white truncate">
+                  {lastSupp.bookTitle}
+                </div>
+                <div className="text-[11px] text-indigo-100/80 truncate">
+                  {lastSupp.series} Series • ምዕራፍ {lastSupp.chapterNumber}
+                </div>
+              </div>
+              <span className="px-3 py-1.5 rounded-xl bg-indigo-400 group-hover:bg-indigo-300 text-slate-950 font-black text-xs shrink-0 transition">
+                ቀጥል →
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* VIP Premium Learning Hub Card */}
       <button
         type="button"
@@ -116,7 +209,9 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
               <Sparkles className="w-4 h-4 text-amber-400" />
             </div>
             <div className="text-xs text-slate-300 mt-0.5">
-              HD ቪዲዮ ማስተርክላስ፣ 3D STEM አኒሜሽን፣ የ EUEE ብሔራዊ ፈተና ሲሙሌተር እና የድምፅ ማዕከል
+              {activeGrade === 11 || activeGrade === 12
+                ? 'HD ቪዲዮ ማስተርክላስ፣ 3D STEM አኒሜሽን፣ የ EUEE ብሔራዊ ፈተና ሲሙሌተር እና የድምፅ ማዕከል'
+                : 'HD ቪዲዮ ማስተርክላስ፣ 3D STEM አኒሜሽን፣ ምናባዊ ሳይንስ ላብ እና የድምፅ ማዕከል'}
             </div>
           </div>
         </div>

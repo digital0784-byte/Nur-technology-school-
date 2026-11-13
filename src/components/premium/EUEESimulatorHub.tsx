@@ -19,6 +19,7 @@ import {
   Calendar,
   Send,
   Flag,
+  Lock,
 } from 'lucide-react';
 
 interface EueeQuestion {
@@ -147,7 +148,7 @@ const GENERATE_EUEE_QUESTIONS = (): EueeQuestion[] => {
 
 export const EUEESimulatorHub: React.FC = () => {
   const { language } = useLanguage();
-  const { currentUser } = useAuth();
+  const { currentUser, activeGrade, setActiveGrade, isSuperAdmin } = useAuth();
 
   // Configuration
   const [selectedYear, setSelectedYear] = useState<number | 'ALL'>('ALL');
@@ -248,6 +249,45 @@ export const EUEESimulatorHub: React.FC = () => {
 
   const currentQ = activeQuestions[currentIdx] || activeQuestions[0];
   const answeredCount = Object.keys(selectedAnswers).length;
+
+  const isEntranceGradeAllowed = activeGrade === 11 || activeGrade === 12;
+
+  if (!isEntranceGradeAllowed) {
+    return (
+      <div className="p-8 rounded-3xl bg-slate-900 border border-amber-500/30 text-center space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center">
+          <Lock className="w-7 h-7" />
+        </div>
+        <span className="inline-block px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-bold uppercase tracking-wider">
+          ለ11ኛ እና 12ኛ ክፍል ብቻ • Grades 11 & 12 Only
+        </span>
+        <h3 className="text-xl font-black text-white">
+          የዩኒቨርሲቲ መግቢያ ፈተና (EUEE Simulator) ለ11ኛ እና 12ኛ ክፍል ተማሪዎች ብቻ ነው
+        </h3>
+        <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+          ይህንን የEUEE ብሔራዊ ፈተና ሲሙሌተር ማየት እና መጠቀም የሚችሉት የ11ኛ እና 12ኛ ክፍል ተማሪዎች ብቻ ናቸው።
+        </p>
+        {isSuperAdmin && (
+          <div className="pt-2 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveGrade(11)}
+              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold"
+            >
+              Grade 11
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveGrade(12)}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+            >
+              Grade 12
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 text-white animate-in fade-in">

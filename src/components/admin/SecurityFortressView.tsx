@@ -133,17 +133,19 @@ export const SecurityFortressView: React.FC = () => {
     }
   };
 
-  // Initial Load & polling refresh
+  // Initial Load & polling refresh (Super Admin only)
   useEffect(() => {
+    if (!isSuperAdmin) return;
     fetchUsers();
     fetchDevices();
     fetchRateLimits();
     fetchAuditLogs();
-  }, []);
+  }, [isSuperAdmin]);
 
   useEffect(() => {
+    if (!isSuperAdmin) return;
     fetchAuditLogs();
-  }, [actionFilter, roleFilter, resultFilter]);
+  }, [isSuperAdmin, actionFilter, roleFilter, resultFilter]);
 
   // Handle User Role / Grade Lock Update
   const handleUpdateUserRole = async (e: React.FormEvent) => {
@@ -298,6 +300,8 @@ export const SecurityFortressView: React.FC = () => {
         (l.details && l.details.toLowerCase().includes(q))
     );
   }, [auditLogs, searchLogText]);
+
+  if (!isSuperAdmin) return null;
 
   return (
     <div className="space-y-6 animate-in fade-in max-w-7xl mx-auto pb-12">

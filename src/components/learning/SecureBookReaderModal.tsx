@@ -4,6 +4,11 @@ import { useLanguage } from '../../context/LanguageContext';
 import { TextbookRecord, TextbookChapter } from '../../data/textbooksRegistry';
 import { authFetch } from '../../services/apiClient';
 import {
+  getTextbookProgress,
+  saveTextbookProgress,
+  computeReadingPercent,
+} from '../../services/bookReadingProgressService';
+import {
   BookOpen,
   ZoomIn,
   ZoomOut,
@@ -33,34 +38,36 @@ interface SecureBookReaderModalProps {
   initialChapterIdx?: number;
   isOpen: boolean;
   onClose: () => void;
+  onProgressSaved?: () => void;
 }
 
 export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
   book,
-  initialPage = 1,
+  initialPage,
   initialChapterIdx = 0,
   isOpen,
   onClose,
+  onProgressSaved,
 }) => {
   const { currentUser, isSuperAdmin } = useAuth();
   const { language } = useLanguage();
 
   // Reader states
-  const [currentPage, setCurrentPage] = useState<number>(() => {
-    const saved = localStorage.getItem(`nur_last_read_${book.id}`);
-    return saved ? parseInt(saved, 10) : initialPage;
-  });
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [resumedFromPage, setResumedFromPage] = useState<number | null>(null);
 
   const [zoomLevel, setZoomLevel] = useState<number>(100); // 75 to 200%
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'sepia'>('light');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isTocDrawerOpen, setIsTocDrawerOpen] = useState<boolean>(false);
-  const [jumpPageInput, setJumpPageInput] = useState<string>(currentPage.toString());
+  const [jumpPageInput, setJumpPageInput] = useState<string>('1');
   const [violationToast, setViolationToast] = useState<string | null>(null);
   const [isBlinded, setIsBlinded] = useState<boolean>(false);
   const [sessionTimestamp, setSessionTimestamp] = useState<string>(new Date().toUTCString());
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
+  const scrollCanvasRef = useRef<HTMLDivElement>(null);
+  const savedScrollTopRef = useRef<number>(0);
 
   // Derive phone number for watermark: student profile phone or fallback
   const studentPhone =
@@ -69,25 +76,98 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
 
   const sessionId = useRef(`SEC-${Math.random().toString(36).substring(2, 8).toUpperCase()}`).current;
 
-  // Auto-save reading progress to localStorage and Firestore
+  // Restore exact saved page & scroll position whenever modal opens or book changes
   useEffect(() => {
-    localStorage.setItem(`nur_last_read_${book.id}`, currentPage.toString());
-    setJumpPageInput(currentPage.toString());
+    if (!isOpen) return;
+    const saved = getTextbookProgress(currentUser.id, book.id);
+    const fallbackStartPage = book.chapters[initialChapterIdx]?.startPage || 1;
+    const targetPage =
+      typeof initialPage === 'number' && initialPage > 0
+        ? initialPage
+        : saved && saved.pageNumber > 0
+        ? Math.min(book.totalPages, saved.pageNumber)
+        : fallbackStartPage;
 
-    // Update session timestamp periodically
+    setCurrentPage(targetPage);
+    setJumpPageInput(targetPage.toString());
+    if (saved && saved.pageNumber > 1 && targetPage === saved.pageNumber) {
+      setResumedFromPage(saved.pageNumber);
+      savedScrollTopRef.current = saved.scrollTop || 0;
+    } else {
+      setResumedFromPage(null);
+      savedScrollTopRef.current = 0;
+    }
+
+    // Restore scroll position after modal paints
+    const rafId = requestAnimationFrame(() => {
+      if (scrollCanvasRef.current && savedScrollTopRef.current > 0) {
+        scrollCanvasRef.current.scrollTop = savedScrollTopRef.current;
+      }
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [isOpen, book.id, initialPage, initialChapterIdx, currentUser.id, book.totalPages, book.chapters]);
+
+  // Determine current active chapter based on currentPage
+  const foundChapterIdx = book.chapters.findIndex(
+    (ch) => currentPage >= ch.startPage && currentPage <= ch.endPage
+  );
+  const activeChapterIdx = foundChapterIdx >= 0 ? foundChapterIdx : Math.max(0, initialChapterIdx);
+  const activeChapter: TextbookChapter = book.chapters[activeChapterIdx] || book.chapters[0];
+
+  const persistCurrentProgress = useCallback(
+    (pageToSave: number, scrollTopOverride?: number) => {
+      if (!isOpen) return;
+      const chIdx = book.chapters.findIndex(
+        (ch) => pageToSave >= ch.startPage && pageToSave <= ch.endPage
+      );
+      const resolvedIdx = chIdx >= 0 ? chIdx : activeChapterIdx;
+      const resolvedChapter = book.chapters[resolvedIdx] || book.chapters[0];
+      const scrollVal =
+        typeof scrollTopOverride === 'number'
+          ? scrollTopOverride
+          : scrollCanvasRef.current?.scrollTop ?? savedScrollTopRef.current;
+      savedScrollTopRef.current = scrollVal;
+
+      saveTextbookProgress(currentUser.id, {
+        bookId: book.id,
+        grade: book.grade,
+        bookTitle: book.title[language] || book.title.am || book.title.en,
+        chapterIdx: resolvedIdx,
+        unitNumber: resolvedChapter?.unitNumber || 1,
+        chapterTitle:
+          resolvedChapter?.title[language] ||
+          resolvedChapter?.title.am ||
+          resolvedChapter?.title.en ||
+          '',
+        tab: 'theory',
+        pageNumber: pageToSave,
+        totalPages: book.totalPages,
+        scrollTop: Math.round(scrollVal),
+        readerMode: 'secure_reader',
+      });
+      onProgressSaved?.();
+    },
+    [isOpen, book, activeChapterIdx, currentUser.id, language, onProgressSaved]
+  );
+
+  // Auto-save reading progress whenever currentPage updates
+  useEffect(() => {
+    if (!isOpen) return;
+    setJumpPageInput(currentPage.toString());
+    persistCurrentProgress(currentPage);
+
     const timer = setInterval(() => {
       setSessionTimestamp(new Date().toUTCString());
     }, 10000);
     return () => clearInterval(timer);
-  }, [currentPage, book.id]);
+  }, [isOpen, currentPage, persistCurrentProgress]);
 
-  // Determine current active chapter based on currentPage
-  const activeChapterIdx = Math.max(
-    0,
-    book.chapters.findIndex((ch) => currentPage >= ch.startPage && currentPage <= ch.endPage)
-  );
-  const activeChapter: TextbookChapter =
-    book.chapters[activeChapterIdx >= 0 ? activeChapterIdx : initialChapterIdx] || book.chapters[0];
+  const handleCloseWithSave = () => {
+    persistCurrentProgress(currentPage, scrollCanvasRef.current?.scrollTop ?? 0);
+    onClose();
+  };
+
+  const progressPct = computeReadingPercent(currentPage, book.totalPages);
 
   const triggerViolation = useCallback((type: string, message: string) => {
     setViolationToast(message);
@@ -372,17 +452,49 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
           {/* Close Reader */}
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCloseWithSave}
             className="p-2 rounded-xl hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-500 hover:text-rose-600 transition-all ml-1"
-            title="መጽሐፉን ዝጋ (Close Reader)"
+            title="መጽሐፉን ዝጋ (Save & Close Reader)"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
       </header>
 
+      {/* Reading Progress Strip + Resume Indicator */}
+      <div className="shrink-0 bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 px-4 py-1.5 flex items-center justify-between gap-3 text-[11px] z-20">
+        <div className="flex items-center gap-2 min-w-0">
+          {resumedFromPage && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold shrink-0">
+              <Bookmark className="w-3 h-3" />
+              <span>ካቆሙበት ገፅ {resumedFromPage} ቀጥለዋል</span>
+            </span>
+          )}
+          <span className="text-slate-500 dark:text-slate-400 truncate">
+            Unit {activeChapter.unitNumber}: {activeChapter.title[language] || activeChapter.title.en}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-24 sm:w-32 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+            {progressPct}%
+          </span>
+        </div>
+      </div>
+
       {/* ================= MAIN READING CANVAS AREA ================= */}
-      <div className="relative flex-1 overflow-auto flex justify-center p-3 sm:p-6">
+      <div
+        ref={scrollCanvasRef}
+        onScroll={(e) => {
+          savedScrollTopRef.current = e.currentTarget.scrollTop;
+        }}
+        className="relative flex-1 overflow-auto flex justify-center p-3 sm:p-6"
+      >
         {/* Dynamic Translucent Student Watermark Diagonal Overlay */}
         <div
           className="pointer-events-none fixed inset-0 z-20 flex flex-col justify-around overflow-hidden opacity-10"

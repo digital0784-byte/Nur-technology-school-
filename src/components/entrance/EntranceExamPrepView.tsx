@@ -18,10 +18,11 @@ import {
   ChevronLeft,
   Sparkles,
   Info,
+  Lock,
 } from 'lucide-react';
 
 export const EntranceExamPrepView: React.FC = () => {
-  const { activeGrade, updateUserXP, unlockBadge } = useAuth();
+  const { activeGrade, setActiveGrade, isSuperAdmin, updateUserXP, unlockBadge } = useAuth();
   const { t } = useLanguage();
 
   const [stream, setStream] = useState<'natural' | 'social'>('natural');
@@ -30,6 +31,53 @@ export const EntranceExamPrepView: React.FC = () => {
   const [isExamSubmitted, setIsExamSubmitted] = useState(false);
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const isEntranceGradeAllowed = activeGrade === 11 || activeGrade === 12;
+
+  if (!isEntranceGradeAllowed) {
+    return (
+      <div className="max-w-2xl mx-auto my-8 p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/60 shadow-xl text-center space-y-5 animate-in fade-in">
+        <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center ring-8 ring-amber-50 dark:ring-amber-900/20">
+          <Lock className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <span className="inline-block px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold text-xs uppercase tracking-wider">
+            ለ11ኛ እና 12ኛ ክፍል ብቻ • Grades 11 & 12 Only
+          </span>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+            የዩኒቨርሲቲ መግቢያ ፈተና (Entrance Exam) ክፍል የተቆለፈ ነው
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto leading-relaxed">
+            ይህንን የዩኒቨርሲቲ መግቢያ ፈተና (EUEE / Entrance Exam) ክፍል ማየት እና መጠቀም የሚችሉት የ11ኛ እና 12ኛ ክፍል ተማሪዎች ብቻ ናቸው። እርስዎ አሁን በ{activeGrade}ኛ ክፍል ላይ ነዎት።
+          </p>
+        </div>
+
+        {isSuperAdmin && (
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+            <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
+              🛡️ Super Admin: ይህንን ክፍል ለማየት ወደ 11ኛ ወይም 12ኛ ክፍል ይቀይሩ፡
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveGrade(11)}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition"
+              >
+                ወደ 11ኛ ክፍል ቀይር (Grade 11)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveGrade(12)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition"
+              >
+                ወደ 12ኛ ክፍል ቀይር (Grade 12)
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const questions: EUEEQuestion[] = EUEE_GRADE_12_MATH_MODEL_EXAM;
   const q = questions[currentIdx] || questions[0];

@@ -16,7 +16,7 @@ export function pushAudit(log: AuditLog) {
     .collection('security_audit_logs')
     .doc(log.logId)
     .set(log)
-    .catch((e) => console.warn('Audit log persist failed:', e?.message || e));
+    .catch(() => {});
 }
 
 // ==========================================
@@ -173,8 +173,8 @@ securityRouter.get('/audit-logs', async (req: Request, res: Response) => {
       .limit(500)
       .get();
     logs = snap.docs.map((d) => d.data() as AuditLog);
-  } catch (e) {
-    console.warn('Failed to fetch security_audit_logs from Firestore, falling back to in-memory:', (e as any)?.message || e);
+  } catch {
+    console.warn('[securityRouter] Firestore unavailable for security_audit_logs, using in-memory logs.');
     logs = [...IMMUTABLE_AUDIT_LOGS];
   }
 

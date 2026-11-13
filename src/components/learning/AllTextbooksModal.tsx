@@ -7,6 +7,10 @@ import {
 } from '../../data/textbooksRegistry';
 import { GradeLevel } from '../../types';
 import {
+  getTextbookProgress,
+  computeReadingPercent,
+} from '../../services/bookReadingProgressService';
+import {
   BookOpen,
   Search,
   ShieldCheck,
@@ -34,7 +38,7 @@ export const AllTextbooksModal: React.FC<AllTextbooksModalProps> = ({
   onSelectBook,
 }) => {
   const { language } = useLanguage();
-  const { isSuperAdmin, activeGrade } = useAuth();
+  const { currentUser, isSuperAdmin, activeGrade } = useAuth();
 
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | 'all'>('all');
   const [selectedStream, setSelectedStream] = useState<'All' | 'Natural Science' | 'Social Science'>('All');
@@ -166,7 +170,11 @@ export const AllTextbooksModal: React.FC<AllTextbooksModalProps> = ({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredBooks.map((book) => {
-                const lastReadPage = localStorage.getItem(`nur_last_read_${book.id}`);
+                const savedProgress = getTextbookProgress(currentUser.id, book.id);
+                const lastReadPage = savedProgress?.pageNumber;
+                const progressPct = lastReadPage
+                  ? computeReadingPercent(lastReadPage, book.totalPages)
+                  : 0;
 
                 const coverGradients: Record<string, string> = {
                   emerald: 'from-emerald-700 to-teal-900',
@@ -215,7 +223,7 @@ export const AllTextbooksModal: React.FC<AllTextbooksModalProps> = ({
                       </div>
 
                       {/* Metadata details */}
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                           {book.subjectName[language] || book.subjectName.en}
                         </div>
@@ -225,15 +233,28 @@ export const AllTextbooksModal: React.FC<AllTextbooksModalProps> = ({
                         </div>
 
                         {lastReadPage && (
-                          <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 pt-1">
-                            <Bookmark className="w-3 h-3" />
-                            <span>ያቆሙበት ገጽ: {lastReadPage}</span>
+                          <div className="pt-1 space-y-1">
+                            <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-between gap-1">
+                              <span className="flex items-center gap-1 truncate">
+                                <Bookmark className="w-3 h-3 shrink-0" />
+                                <span>
+                                  ያቆሙበት: {savedProgress?.unitNumber ? `ምዕራፍ ${savedProgress.unitNumber} • ` : ''}ገጽ {lastReadPage}
+                                </span>
+                              </span>
+                              <span className="font-mono text-[10px]">{progressPct}%</span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div
+                                className="h-full bg-emerald-500 rounded-full"
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Open Button */}
+                    {/* Open / Resume Button */}
                     <button
                       type="button"
                       onClick={() => {
@@ -243,7 +264,11 @@ export const AllTextbooksModal: React.FC<AllTextbooksModalProps> = ({
                       className="w-full py-2.5 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5"
                     >
                       <BookOpen className="w-3.5 h-3.5" />
-                      <span>ክፈትና አንብብ (Open Reader)</span>
+                      <span>
+                        {lastReadPage
+                          ? `ካቆሙበት ቀጥል (ገጽ ${lastReadPage})`
+                          : 'ክፈትና አንብብ (Open Reader)'}
+                      </span>
                     </button>
                   </div>
                 );

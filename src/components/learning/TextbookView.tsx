@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import {
@@ -15,7 +15,18 @@ import { SubTopicDeepDiveModal, SubTopicItem } from './SubTopicDeepDiveModal';
 import { Language } from '../../types';
 import { authFetch } from '../../services/apiClient';
 import {
+  AllBookReadingState,
+  TextbookSectionTab,
+  loadBookReadingState,
+  syncBookReadingProgressFromCloud,
+  saveTextbookProgress,
+  getLastReadTextbook,
+  consumeAutoResumeTextbook,
+  computeReadingPercent,
+} from '../../services/bookReadingProgressService';
+import {
   BookOpen,
+  Bookmark,
   FileText,
   ShieldCheck,
   CheckCircle2,
@@ -43,11 +54,15 @@ import {
 } from 'lucide-react';
 
 type ViewMode = 'catalog_index' | 'reader';
-type SectionTab = 'theory' | 'examples' | 'activities' | 'experiments' | 'exercises' | 'supplementary';
+type SectionTab = TextbookSectionTab;
 
 export const TextbookView: React.FC = () => {
-  const { activeGrade } = useAuth();
+  const { currentUser, activeGrade } = useAuth();
   const { t, language } = useLanguage();
+
+  const [readingState, setReadingState] = useState<AllBookReadingState>(() =>
+    loadBookReadingState(currentUser.id)
+  );
 
   const [viewMode, setViewMode] = useState<ViewMode>('catalog_index');
   const [selectedLanguageOverride, setSelectedLanguageOverride] = useState<Language>(language);
@@ -56,10 +71,17 @@ export const TextbookView: React.FC = () => {
   const { coreSubjects, supplementaryGuides } = getCurriculumMasterIndex(activeGrade);
   const allGradeBooks = [...coreSubjects, ...supplementaryGuides];
 
-  // Selected Book state
-  const [selectedBookId, setSelectedBookId] = useState<string>(
-    coreSubjects[0]?.id || COMPREHENSIVE_TEXTBOOKS_REGISTRY[0].id
-  );
+  // Selected Book state (initialize from last read textbook for this grade if available)
+  const [selectedBookId, setSelectedBookId] = useState<string>(() => {
+    const initialState = loadBookReadingState(currentUser.id);
+    const lastForGrade = initialState.lastTextbookId
+      ? initialState.textbooks[initialState.lastTextbookId]
+      : undefined;
+    if (lastForGrade && lastForGrade.grade === activeGrade) {
+      return lastForGrade.bookId;
+    }
+    return coreSubjects[0]?.id || COMPREHENSIVE_TEXTBOOKS_REGISTRY[0].id;
+  });
   const currentBook: TextbookRecord =
     COMPREHENSIVE_TEXTBOOKS_REGISTRY.find((b) => b.id === selectedBookId) ||
     COMPREHENSIVE_TEXTBOOKS_REGISTRY[0];
@@ -72,6 +94,8 @@ export const TextbookView: React.FC = () => {
   const [isAllTextbooksModalOpen, setIsAllTextbooksModalOpen] = useState<boolean>(false);
   const [isSecureReaderOpen, setIsSecureReaderOpen] = useState<boolean>(false);
   const [secureReaderBook, setSecureReaderBook] = useState<TextbookRecord>(currentBook);
+  const [secureReaderInitialPage, setSecureReaderInitialPage] = useState<number | undefined>(undefined);
+  const [secureReaderInitialChapterIdx, setSecureReaderInitialChapterIdx] = useState<number>(0);
   const [deepDiveTopic, setDeepDiveTopic] = useState<{
     topic: SubTopicItem;
     unitNumber: number;
@@ -79,22 +103,153 @@ export const TextbookView: React.FC = () => {
     book: TextbookRecord;
   } | null>(null);
 
-  const [selectedChapterIdx, setSelectedChapterIdx] = useState<number>(0);
+  const [selectedChapterIdx, setSelectedChapterIdx] = useState<number>(() => {
+    const saved = loadBookReadingState(currentUser.id).textbooks[selectedBookId];
+    return saved ? Math.max(0, Math.min(saved.chapterIdx, currentBook.chapters.length - 1)) : 0;
+  });
   const currentChapter: TextbookChapter =
     currentBook.chapters[selectedChapterIdx] || currentBook.chapters[0];
 
-  const [activeTab, setActiveTab] = useState<SectionTab>('theory');
+  const [activeTab, setActiveTab] = useState<SectionTab>(() => {
+    const saved = loadBookReadingState(currentUser.id).textbooks[selectedBookId];
+    return saved?.tab || 'theory';
+  });
   const [aiAnalysisResult, setAiAnalysisResult] = useState<string | null>(null);
   const [aiAnalysisError, setAiAnalysisError] = useState<boolean>(false);
   const [lastAnalysisPrompt, setLastAnalysisPrompt] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
+  const readerContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleOpenSecureReader = (book: TextbookRecord, chapterIdx = 0) => {
+  // Reload & sync cloud progress on user change or mount, and handle Dashboard auto-resume
+  useEffect(() => {
+    const local = loadBookReadingState(currentUser.id);
+    setReadingState(local);
+
+    const pendingBookId = consumeAutoResumeTextbook();
+    if (pendingBookId) {
+      const targetBook = COMPREHENSIVE_TEXTBOOKS_REGISTRY.find((b) => b.id === pendingBookId);
+      const saved = local.textbooks[pendingBookId];
+      if (targetBook && saved) {
+        setSelectedBookId(targetBook.id);
+        setSelectedChapterIdx(Math.max(0, Math.min(saved.chapterIdx, targetBook.chapters.length - 1)));
+        setActiveTab(saved.tab || 'theory');
+        if (saved.readerMode === 'secure_reader') {
+          setSecureReaderBook(targetBook);
+          setSecureReaderInitialPage(saved.pageNumber);
+          setSecureReaderInitialChapterIdx(saved.chapterIdx);
+          setIsSecureReaderOpen(true);
+        } else {
+          setViewMode('reader');
+        }
+      }
+    }
+
+    let cancelled = false;
+    syncBookReadingProgressFromCloud(currentUser.id).then((merged) => {
+      if (!cancelled) {
+        setReadingState(merged);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser.id]);
+
+  // Persist reading position whenever reading in 'reader' (breakdown) mode
+  useEffect(() => {
+    if (viewMode !== 'reader') return;
+    const ch = currentBook.chapters[selectedChapterIdx] || currentBook.chapters[0];
+    if (!ch) return;
+
+    const updated = saveTextbookProgress(currentUser.id, {
+      bookId: currentBook.id,
+      grade: currentBook.grade,
+      bookTitle:
+        currentBook.title[selectedLanguageOverride] || currentBook.title.am || currentBook.title.en,
+      chapterIdx: selectedChapterIdx,
+      unitNumber: ch.unitNumber,
+      chapterTitle:
+        ch.title[selectedLanguageOverride] || ch.title.am || ch.title.en,
+      tab: activeTab,
+      pageNumber: ch.startPage,
+      totalPages: currentBook.totalPages,
+      readerMode: 'breakdown',
+    });
+    setReadingState(updated);
+  }, [
+    viewMode,
+    currentBook.id,
+    currentBook.grade,
+    currentBook.totalPages,
+    selectedChapterIdx,
+    activeTab,
+    currentUser.id,
+    selectedLanguageOverride,
+  ]);
+
+  const handleOpenSecureReader = (
+    book: TextbookRecord,
+    chapterIdx?: number,
+    explicitPage?: number
+  ) => {
+    const saved = readingState.textbooks[book.id];
+    const targetChapterIdx =
+      typeof chapterIdx === 'number' ? chapterIdx : saved?.chapterIdx ?? 0;
+    const targetPage =
+      typeof explicitPage === 'number'
+        ? explicitPage
+        : typeof chapterIdx === 'number'
+        ? book.chapters[chapterIdx]?.startPage
+        : saved?.pageNumber;
+
     setSecureReaderBook(book);
+    setSecureReaderInitialChapterIdx(targetChapterIdx);
+    setSecureReaderInitialPage(targetPage);
     setIsSecureReaderOpen(true);
   };
+
+  const handleResumeTextbook = (
+    book: TextbookRecord,
+    modeOverride?: 'breakdown' | 'secure_reader'
+  ) => {
+    const saved = readingState.textbooks[book.id];
+    const chIdx = saved
+      ? Math.max(0, Math.min(saved.chapterIdx, book.chapters.length - 1))
+      : 0;
+    const targetTab: SectionTab = saved?.tab || 'theory';
+    const targetMode = modeOverride || saved?.readerMode || 'breakdown';
+
+    setSelectedBookId(book.id);
+    setSelectedChapterIdx(chIdx);
+    setActiveTab(targetTab);
+    setAiAnalysisResult(null);
+
+    if (targetMode === 'secure_reader') {
+      handleOpenSecureReader(book, chIdx, saved?.pageNumber);
+    } else {
+      setViewMode('reader');
+      requestAnimationFrame(() => {
+        readerContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  };
+
+  const tabLabelsAm: Record<SectionTab, string> = {
+    theory: 'መማሪያ ይዘት (Theory)',
+    examples: 'ምሳሌዎች (Examples)',
+    activities: 'አክቲቪቲዎች (Activities)',
+    experiments: 'ላቦራቶሪ (Experiments)',
+    exercises: 'መልመጃዎች (Exercises)',
+    supplementary: 'አጋዥ መረጃ (Supplementary)',
+  };
+
+  const lastReadForGrade = getLastReadTextbook(currentUser.id, activeGrade);
+  const lastReadOverall = lastReadForGrade || getLastReadTextbook(currentUser.id);
+  const lastReadBookRecord = lastReadOverall
+    ? COMPREHENSIVE_TEXTBOOKS_REGISTRY.find((b) => b.id === lastReadOverall.bookId) || null
+    : null;
 
   const langNames: Record<Language, { label: string; flag: string }> = {
     am: { label: 'አማርኛ', flag: '🇪🇹' },
@@ -284,6 +439,58 @@ export const TextbookView: React.FC = () => {
             </div>
           </div>
 
+          {/* Continue Where You Left Off Banner */}
+          {lastReadOverall && lastReadBookRecord && (
+            <div className="p-5 rounded-3xl bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white border border-emerald-500/40 shadow-lg flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1.5 min-w-0">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-[11px] font-bold">
+                  <Bookmark className="w-3.5 h-3.5 text-amber-300" />
+                  <span>ካቆሙበት መጽሐፍ ይቀጥሉ (Continue Reading Where You Left Off)</span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black truncate">
+                  {lastReadBookRecord.title[selectedLanguageOverride] || lastReadBookRecord.title.am}
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-100/90">
+                  <span className="font-bold text-amber-300">
+                    Grade {lastReadBookRecord.grade} • ምዕራፍ {lastReadOverall.unitNumber}
+                  </span>
+                  {lastReadOverall.chapterTitle && (
+                    <span className="truncate max-w-md">
+                      — {lastReadOverall.chapterTitle}
+                    </span>
+                  )}
+                  <span className="px-2 py-0.5 rounded bg-white/10 font-mono text-[11px]">
+                    ገፅ {lastReadOverall.pageNumber} / {lastReadBookRecord.totalPages} (
+                    {computeReadingPercent(lastReadOverall.pageNumber, lastReadBookRecord.totalPages)}%)
+                  </span>
+                  {lastReadOverall.readerMode === 'breakdown' && (
+                    <span className="text-[11px] text-emerald-200">
+                      • {tabLabelsAm[lastReadOverall.tab]}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleResumeTextbook(lastReadBookRecord)}
+                  className="px-4 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md transition-all"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>ካቆሙበት ይቀጥሉ (Resume Reading)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleResumeTextbook(lastReadBookRecord, 'secure_reader')}
+                  className="px-3.5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all"
+                >
+                  <span>Secure Reader (ገፅ {lastReadOverall.pageNumber})</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Section A: Official Core Curriculum Textbooks for Enrolled Grade */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
@@ -297,7 +504,13 @@ export const TextbookView: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredCoreSubjects.map((book) => (
+              {filteredCoreSubjects.map((book) => {
+                const bookProgress = readingState.textbooks[book.id];
+                const bookPct = bookProgress
+                  ? computeReadingPercent(bookProgress.pageNumber, book.totalPages)
+                  : 0;
+
+                return (
                 <div
                   key={book.id}
                   onClick={() => handleBookCardClick(book)}
@@ -322,6 +535,26 @@ export const TextbookView: React.FC = () => {
                         {book.title[selectedLanguageOverride] || book.title.am}
                       </p>
                     </div>
+
+                    {bookProgress && (
+                      <div className="p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+                          <span className="flex items-center gap-1 truncate">
+                            <Bookmark className="w-3 h-3 shrink-0" />
+                            <span>
+                              ያቆሙበት: ምዕራፍ {bookProgress.unitNumber} • ገፅ {bookProgress.pageNumber}
+                            </span>
+                          </span>
+                          <span className="font-mono text-[10px]">{bookPct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-emerald-100 dark:bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-600 rounded-full"
+                            style={{ width: `${bookPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {/* Chapters Mini-Preview */}
                     <div className="space-y-1 pt-1">
@@ -372,12 +605,20 @@ export const TextbookView: React.FC = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleOpenSecureReader(book);
+                        if (bookProgress) {
+                          handleResumeTextbook(book);
+                        } else {
+                          handleOpenSecureReader(book);
+                        }
                       }}
                       className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all"
                     >
                       <BookOpen className="w-3.5 h-3.5" />
-                      <span>ክፈትና አንብብ (Secure Reader)</span>
+                      <span>
+                        {bookProgress
+                          ? `ካቆሙበት ቀጥል (ገፅ ${bookProgress.pageNumber})`
+                          : 'ክፈትና አንብብ (Secure Reader)'}
+                      </span>
                     </button>
 
                     <button
@@ -394,7 +635,8 @@ export const TextbookView: React.FC = () => {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -411,7 +653,9 @@ export const TextbookView: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {supplementaryGuides.map((supp) => (
+              {supplementaryGuides.map((supp) => {
+                const suppProgress = readingState.textbooks[supp.id];
+                return (
                 <div
                   key={supp.id}
                   onClick={() => handleBookCardClick(supp)}
@@ -431,6 +675,15 @@ export const TextbookView: React.FC = () => {
                       <span>{supp.title[selectedLanguageOverride] || supp.title.am}</span>
                       <ChevronRight className="w-4 h-4 text-purple-500 group-hover:translate-x-1 transition-transform" />
                     </h3>
+
+                    {suppProgress && (
+                      <div className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-[11px] font-bold text-purple-800 dark:text-purple-300 flex items-center gap-1.5">
+                        <Bookmark className="w-3 h-3 shrink-0" />
+                        <span>
+                          ያቆሙበት: ምዕራፍ {suppProgress.unitNumber} • ገፅ {suppProgress.pageNumber}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Supplementary Mini-Preview */}
                     <div className="space-y-1">
@@ -466,12 +719,20 @@ export const TextbookView: React.FC = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleBookCardClick(supp);
+                        if (suppProgress) {
+                          handleResumeTextbook(supp);
+                        } else {
+                          handleBookCardClick(supp);
+                        }
                       }}
                       className="flex-1 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all"
                     >
                       <ListOrdered className="w-3.5 h-3.5" />
-                      <span>ማውጫውን ክፈት (Open Contents)</span>
+                      <span>
+                        {suppProgress
+                          ? `ካቆሙበት ቀጥል (ምዕራፍ ${suppProgress.unitNumber})`
+                          : 'ማውጫውን ክፈት (Open Contents)'}
+                      </span>
                     </button>
                     <a
                       href={supp.firebaseDownloadUrl}
@@ -484,7 +745,8 @@ export const TextbookView: React.FC = () => {
                     </a>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -494,7 +756,7 @@ export const TextbookView: React.FC = () => {
       {/* MODE 2: INTERACTIVE BOOK READER & 6-LANGUAGE VERBATIM HUB */}
       {/* ======================================================== */}
       {viewMode === 'reader' && (
-        <div className="space-y-6">
+        <div ref={readerContainerRef} className="space-y-6">
           {/* Quick Bar to Return to Master Index or Open Table of Contents Drawer */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs text-xs">
             <button
@@ -519,8 +781,17 @@ export const TextbookView: React.FC = () => {
               <select
                 value={selectedBookId}
                 onChange={(e) => {
-                  setSelectedBookId(e.target.value);
-                  setSelectedChapterIdx(0);
+                  const nextId = e.target.value;
+                  const savedForBook = readingState.textbooks[nextId];
+                  const nextBook =
+                    COMPREHENSIVE_TEXTBOOKS_REGISTRY.find((b) => b.id === nextId) || currentBook;
+                  setSelectedBookId(nextId);
+                  setSelectedChapterIdx(
+                    savedForBook
+                      ? Math.max(0, Math.min(savedForBook.chapterIdx, nextBook.chapters.length - 1))
+                      : 0
+                  );
+                  setActiveTab(savedForBook?.tab || 'theory');
                   setAiAnalysisResult(null);
                 }}
                 className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1 text-xs font-semibold focus:outline-none"
@@ -1268,6 +1539,29 @@ export const TextbookView: React.FC = () => {
 
             {/* Chapters Table of Contents List */}
             <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
+              {readingState.textbooks[tocModalBook.id] && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-200 font-bold">
+                    <Bookmark className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>
+                      ያቆሙበት ቦታ: ምዕራፍ {readingState.textbooks[tocModalBook.id].unitNumber} • ገፅ{' '}
+                      {readingState.textbooks[tocModalBook.id].pageNumber}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTocModalOpen(false);
+                      handleResumeTextbook(tocModalBook);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 self-start sm:self-center shadow-xs"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>ካቆሙበት ቀጥል</span>
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 text-xs font-bold text-slate-500">
                 <span className="uppercase tracking-wider flex items-center gap-1.5">
                   <ListOrdered className="w-4 h-4 text-emerald-600" />
@@ -1277,10 +1571,17 @@ export const TextbookView: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                {tocModalBook.chapters.map((ch, idx) => (
+                {tocModalBook.chapters.map((ch, idx) => {
+                  const isSavedChapter =
+                    readingState.textbooks[tocModalBook.id]?.chapterIdx === idx;
+                  return (
                   <div
                     key={idx}
-                    className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 hover:border-emerald-300 transition-all space-y-3"
+                    className={`p-4 sm:p-5 rounded-2xl border transition-all space-y-3 ${
+                      isSavedChapter
+                        ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 ring-1 ring-emerald-500/40'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 hover:border-emerald-300'
+                    }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5">
@@ -1288,9 +1589,17 @@ export const TextbookView: React.FC = () => {
                           {ch.unitNumber}
                         </span>
                         <div>
-                          <h4 className="font-black text-sm text-slate-900 dark:text-white">
-                            {ch.title[selectedLanguageOverride] || ch.title.am}
-                          </h4>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <h4 className="font-black text-sm text-slate-900 dark:text-white">
+                              {ch.title[selectedLanguageOverride] || ch.title.am}
+                            </h4>
+                            {isSavedChapter && (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center gap-1">
+                                <Bookmark className="w-2.5 h-2.5" />
+                                ያቆሙበት
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[11px] font-mono text-slate-400">
                             የመማሪያ ገፅ {ch.startPage} – {ch.endPage} (Pages)
                           </span>
@@ -1304,7 +1613,7 @@ export const TextbookView: React.FC = () => {
                           onClick={() => handleSelectChapterFromToc(tocModalBook, idx, 'theory')}
                           className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs"
                         >
-                          <span>ምዕራፉን ክፈት</span>
+                          <span>{isSavedChapter ? 'ካቆሙበት ቀጥል' : 'ምዕራፉን ክፈት'}</span>
                           <ArrowRight className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -1410,7 +1719,8 @@ export const TextbookView: React.FC = () => {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -1449,8 +1759,14 @@ export const TextbookView: React.FC = () => {
       {/* ======================================================== */}
       <SecureBookReaderModal
         book={secureReaderBook}
+        initialPage={secureReaderInitialPage}
+        initialChapterIdx={secureReaderInitialChapterIdx}
         isOpen={isSecureReaderOpen}
-        onClose={() => setIsSecureReaderOpen(false)}
+        onClose={() => {
+          setIsSecureReaderOpen(false);
+          setReadingState(loadBookReadingState(currentUser.id));
+        }}
+        onProgressSaved={() => setReadingState(loadBookReadingState(currentUser.id))}
       />
 
       <AllTextbooksModal

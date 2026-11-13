@@ -50,10 +50,13 @@ export const PremiumLearningCenterModal: React.FC<PremiumLearningCenterModalProp
   initialTab = 'videos',
 }) => {
   const { language } = useLanguage();
-  const { currentUser, isSuperAdmin } = useAuth();
+  const { currentUser, isSuperAdmin, activeGrade } = useAuth();
   const { isUnlocked, isPremiumLearningUnlocked, currentGradePrice } = useSubscription();
 
-  const [activeTab, setActiveTab] = useState<PremiumHubTab>(initialTab);
+  const isEntranceGradeAllowed = activeGrade === 11 || activeGrade === 12;
+  const [activeTab, setActiveTab] = useState<PremiumHubTab>(
+    !isEntranceGradeAllowed && initialTab === 'euee_exam' ? 'videos' : initialTab
+  );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
@@ -155,8 +158,12 @@ export const PremiumLearningCenterModal: React.FC<PremiumLearningCenterModalProp
     },
   ];
 
+  const visibleTabs = TABS.filter((t) => isEntranceGradeAllowed || t.id !== 'euee_exam');
+  const effectiveTab: PremiumHubTab =
+    !isEntranceGradeAllowed && activeTab === 'euee_exam' ? 'videos' : activeTab;
+
   const renderActiveHub = () => {
-    switch (activeTab) {
+    switch (effectiveTab) {
       case 'videos':
         return (
           <ProtectedMediaShield
@@ -318,11 +325,11 @@ export const PremiumLearningCenterModal: React.FC<PremiumLearningCenterModalProp
           </div>
         </div>
 
-        {/* 2. The 6 Luxury VIP Hub Switcher Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {TABS.map((tab) => {
+        {/* 2. The Luxury VIP Hub Switcher Tabs */}
+        <div className={`grid grid-cols-2 sm:grid-cols-3 ${visibleTabs.length === 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-6'} gap-3`}>
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
+            const isActive = effectiveTab === tab.id;
             return (
               <button
                 key={tab.id}

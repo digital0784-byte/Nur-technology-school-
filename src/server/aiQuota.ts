@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import type { Request, Response, NextFunction } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { adminDb, FieldValue } from './adminDb';
 import { AuthedUser, hasAnyPaidPlan } from './authMiddleware';
 
@@ -26,8 +28,48 @@ export class AiQuotaError extends Error {
   }
 }
 
-// Fallback if Firestore is unreachable (per-instance only).
+// Persistent local fallback if Firestore Admin is unavailable
+const AI_USAGE_FILE = path.resolve(process.cwd(), '.data/ai_usage.json');
 const memoryCounts = new Map<string, number>();
+let loggedFallbackNotice = false;
+
+function summarizeFirestoreError(err: unknown): string {
+  const raw = String((err as any)?.message || err || 'unknown');
+  if (/PERMISSION_DENIED|insufficient permissions/i.test(raw)) return 'PERMISSION_DENIED';
+  if (/default credentials/i.test(raw)) return 'NO_CREDENTIALS';
+  return raw.replace(/\s+/g, ' ').slice(0, 120);
+}
+
+function readLocalCount(key: string): number {
+  const mem = memoryCounts.get(key);
+  if (typeof mem === 'number') return mem;
+  try {
+    if (fs.existsSync(AI_USAGE_FILE)) {
+      const store = JSON.parse(fs.readFileSync(AI_USAGE_FILE, 'utf-8'));
+      const val = Number(store[key]?.count || 0);
+      memoryCounts.set(key, val);
+      return val;
+    }
+  } catch {
+    // ignore read error
+  }
+  return 0;
+}
+
+function writeLocalCount(key: string, uid: string, day: string, count: number): void {
+  memoryCounts.set(key, count);
+  try {
+    const dir = path.dirname(AI_USAGE_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const store = fs.existsSync(AI_USAGE_FILE)
+      ? JSON.parse(fs.readFileSync(AI_USAGE_FILE, 'utf-8'))
+      : {};
+    store[key] = { uid, day, count, updatedAt: new Date().toISOString() };
+    fs.writeFileSync(AI_USAGE_FILE, JSON.stringify(store, null, 2));
+  } catch {
+    // ignore write error
+  }
+}
 
 // Ethiopia is UTC+3, so "today" rolls over at local midnight.
 const dayKey = () => new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
@@ -39,7 +81,8 @@ export async function consumeAiQuota(): Promise<void> {
 
   const premium = hasAnyPaidPlan(user);
   const limit = premium ? PREMIUM_LIMIT : FREE_LIMIT;
-  const key = `${user.uid}_${dayKey()}`;
+  const day = dayKey();
+  const key = `${user.uid}_${day}`;
 
   try {
     const ref = adminDb.collection('ai_usage').doc(key);
@@ -47,13 +90,16 @@ export async function consumeAiQuota(): Promise<void> {
       const snap = await tx.get(ref);
       const used = Number(snap.data()?.count || 0);
       if (used >= limit) throw new AiQuotaError(limit, premium);
-      tx.set(ref, { uid: user.uid, day: dayKey(), count: used + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      tx.set(ref, { uid: user.uid, day, count: used + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     });
   } catch (e) {
     if (e instanceof AiQuotaError) throw e;
-    console.error('AI quota store unavailable, using in-memory counter:', (e as any)?.message || e);
-    const used = memoryCounts.get(key) || 0;
+    if (!loggedFallbackNotice) {
+      loggedFallbackNotice = true;
+      console.warn('[aiQuota] Firestore unavailable, using local .data/ai_usage.json fallback:', summarizeFirestoreError(e));
+    }
+    const used = readLocalCount(key);
     if (used >= limit) throw new AiQuotaError(limit, premium);
-    memoryCounts.set(key, used + 1);
+    writeLocalCount(key, user.uid, day, used + 1);
   }
 }

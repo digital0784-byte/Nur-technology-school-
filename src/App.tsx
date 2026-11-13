@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { ProgressProvider } from './context/ProgressContext';
@@ -50,8 +50,15 @@ import { AdminDashboardView } from './components/admin/AdminDashboardView';
 import { SecurityFortressView } from './components/admin/SecurityFortressView';
 import { SystemIntegrationView } from './components/admin/SystemIntegrationView';
 
+const ADMIN_ONLY_MODULES: ModuleId[] = [
+  'admin_dashboard',
+  'admin_notifications',
+  'security_fortress',
+  'system_integration',
+];
+
 function MainAppShell() {
-  const { isAuthenticated, authLoading } = useAuth();
+  const { isAuthenticated, authLoading, activeGrade, isSuperAdmin } = useAuth();
   const { isUnlocked, approvePayment } = useSubscription();
   const [currentModule, setCurrentModule] = useState<ModuleId>('student_app');
   const [historyStack, setHistoryStack] = useState<ModuleId[]>([]);
@@ -60,7 +67,16 @@ function MainAppShell() {
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [tutorContext, setTutorContext] = useState<{ subject: string; topic: string } | null>(null);
 
+  useEffect(() => {
+    if (!isSuperAdmin && ADMIN_ONLY_MODULES.includes(currentModule)) {
+      setCurrentModule('student_app');
+    }
+  }, [isSuperAdmin, currentModule]);
+
   const handleSelectModule = (newModule: ModuleId) => {
+    if (ADMIN_ONLY_MODULES.includes(newModule) && !isSuperAdmin) {
+      return;
+    }
     if (newModule !== currentModule) {
       setHistoryStack((prev) => [...prev, currentModule]);
       setCurrentModule(newModule);
@@ -135,15 +151,19 @@ function MainAppShell() {
       case 'student_notifications':
         return <StudentNotificationCenterView onNavigateModule={handleSelectModule} />;
 
-      // Category 5: 🛡️ አስተዳደርና ደህንነት
+      // Category 5: 🛡️ አስተዳደርና ደህንነት (Super Admin Only)
       case 'admin_dashboard':
-        return <AdminDashboardView />;
+        return isSuperAdmin ? <AdminDashboardView /> : <StudentPortalDashboard onNavigateModule={handleSelectModule} />;
       case 'admin_notifications':
-        return <AdminNotificationCenter onApprovePayment={approvePayment} onNavigateTab={(tab) => handleSelectModule(tab as ModuleId)} />;
+        return isSuperAdmin ? (
+          <AdminNotificationCenter onApprovePayment={approvePayment} onNavigateTab={(tab) => handleSelectModule(tab as ModuleId)} />
+        ) : (
+          <StudentPortalDashboard onNavigateModule={handleSelectModule} />
+        );
       case 'security_fortress':
-        return <SecurityFortressView />;
+        return isSuperAdmin ? <SecurityFortressView /> : <StudentPortalDashboard onNavigateModule={handleSelectModule} />;
       case 'system_integration':
-        return <SystemIntegrationView />;
+        return isSuperAdmin ? <SystemIntegrationView /> : <StudentPortalDashboard onNavigateModule={handleSelectModule} />;
 
       default:
         return <StudentPortalDashboard onNavigateModule={handleSelectModule} />;
@@ -155,6 +175,7 @@ function MainAppShell() {
     // All users must pay upfront based on their grade level.
     // Until checked by admin, the system shows PENDING.
     // Admin modules have their own strict Super Admin access gates.
+    const isEntranceGradeAllowed = activeGrade === 11 || activeGrade === 12;
     const isExemptFromPaywall =
       currentModule === 'subscription_payment' ||
       currentModule === 'system_feedback' ||
@@ -165,7 +186,8 @@ function MainAppShell() {
       currentModule === 'admin_dashboard' ||
       currentModule === 'admin_notifications' ||
       currentModule === 'security_fortress' ||
-      currentModule === 'system_integration';
+      currentModule === 'system_integration' ||
+      (currentModule === 'entrance_prep' && !isEntranceGradeAllowed);
 
     if (!isUnlocked && !isExemptFromPaywall) {
       return (
