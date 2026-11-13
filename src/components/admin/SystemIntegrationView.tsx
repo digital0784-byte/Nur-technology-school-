@@ -15,7 +15,6 @@ import {
   Award,
   Smartphone,
   Eye,
-  Download,
   Filter,
   Sparkles,
   ExternalLink,
@@ -338,26 +337,6 @@ export const SystemIntegrationView: React.FC = () => {
     }
   };
 
-  const handleExportJson = () => {
-    const reportData = {
-      systemTitle: 'የክፍል 9-12 ቲቶሪያል (NUR AI High School ERP)',
-      diagnosticSuite: '14-Point Automated E2E Diagnostic Test Suite',
-      healthScore: '100% (14/14 Checks Passed)',
-      verifiedBy: currentUser.email || 'mejennur669@gmail.com',
-      auditedAt: new Date().toISOString(),
-      probes,
-    };
-
-    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `NUR-AI-14-Point-E2E-Diagnostic-Report-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('የ14-ነጥብ ምርመራ ሪፖርት (JSON) ወርዷል!');
-  };
-
   const categories = ['All', 'Core System', 'Security & RBAC', 'AI & Resilience', 'Finance & DRM', 'Academic Engines', 'UX & Mobile'];
 
   const filteredProbes = probes.filter((p) => {
@@ -411,14 +390,10 @@ export const SystemIntegrationView: React.FC = () => {
               {running ? 'ምርመራ እየተካሄደ ነው...' : 'ሁሉንም 14 ፈተናዎች አስጀምር (Run E2E)'}
             </button>
 
-            <button
-              type="button"
-              onClick={handleExportJson}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs transition-all"
-            >
-              <Download className="w-4 h-4 text-emerald-300" />
-              ሪፖርት አውርድ (JSON)
-            </button>
+            <span className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/10 border border-white/20 text-rose-200 font-bold text-xs">
+              <Shield className="w-4 h-4 text-rose-300" />
+              ማውረድ ተከልክሏል (View-Only)
+            </span>
           </div>
         </div>
 

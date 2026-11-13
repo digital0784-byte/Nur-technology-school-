@@ -239,7 +239,47 @@ class SharedAiCacheManager {
     this.scheduleSave();
   }
 
-  // OCR PROBLEM SOLVER CACHE
+  // OCR PROBLEM SOLVER CACHE (Saves answers for exact images & similar questions; never stores raw image files)
+  private extractMeaningfulTokens(str: string): string[] {
+    const norm = this.normalizeText(str);
+    if (!norm) return [];
+    const stopWords = new Set([
+      'solve', 'this', 'question', 'problem', 'step', 'by', 'please', 'help', 'me', 'find',
+      'what', 'is', 'the', 'of', 'a', 'an', 'in', 'on', 'for', 'and', 'to', 'with', 'using',
+      'explain', 'answer', 'show', 'working', 'calculate', 'determine', 'from', 'given',
+      'እባክህ', 'እባክዎ', 'ይህን', 'ይህንን', 'ጥያቄ', 'መልስ', 'በዝርዝር', 'አብራራልኝ', 'ፍታልኝ', 'ድምፅ', 'ተቀድቷል',
+    ]);
+    return Array.from(
+      new Set(
+        norm
+          .split(' ')
+          .map((t) => t.trim())
+          .filter((t) => (t.length >= 2 || /^\d+$/.test(t)) && !stopWords.has(t))
+      )
+    );
+  }
+
+  private extractSolutionQuestionTokens(solution: string): string[] {
+    if (!solution) return [];
+    // Capture Step 1 / Given & Required lines where the problem statement is restated
+    const lines = solution.split('\n').slice(0, 10).join(' ');
+    return this.extractMeaningfulTokens(lines).slice(0, 20);
+  }
+
+  private computeTokenSimilarity(a: string[], b: string[]): number {
+    if (a.length === 0 || b.length === 0) return 0;
+    const setB = new Set(b);
+    let overlap = 0;
+    for (const t of a) {
+      if (setB.has(t)) overlap++;
+    }
+    if (overlap < 2) return 0;
+    const unionSize = a.length + b.length - overlap;
+    const jaccard = overlap / Math.max(1, unionSize);
+    const minContainment = overlap / Math.max(1, Math.min(a.length, b.length));
+    return Math.max(jaccard, minContainment * 0.9);
+  }
+
   getOcrSolve(params: {
     grade: string;
     subject?: string;
@@ -247,18 +287,77 @@ class SharedAiCacheManager {
     imageBase64?: string;
     language: string;
   }): { solution: string; modelUsed?: string; hitCount: number } | null {
+    const lang = params.language || 'am';
     const promptHash = params.questionPrompt ? this.normalizeText(params.questionPrompt) : '';
     const imgHash = params.imageBase64 ? this.hashData(params.imageBase64) : 'no_img';
     const sub = this.normalizeText(params.subject || 'science');
-    const key = `ocr:${params.grade}:${sub}:${promptHash}:${imgHash}:${params.language || 'am'}`;
-    const entry = this.cache.get(key);
-    if (entry) {
-      entry.hitCount = (entry.hitCount || 0) + 1;
-      entry.lastRetrievedAt = new Date().toISOString();
+    const key = `ocr:${params.grade}:${sub}:${promptHash}:${imgHash}:${lang}`;
+
+    // 1. Exact cache hit
+    const exactEntry = this.cache.get(key);
+    if (exactEntry) {
+      exactEntry.hitCount = (exactEntry.hitCount || 0) + 1;
+      exactEntry.lastRetrievedAt = new Date().toISOString();
       this.totalHits++;
       this.scheduleSave();
-      return { solution: entry.payload, modelUsed: entry.modelUsed, hitCount: entry.hitCount };
+      return { solution: exactEntry.payload, modelUsed: exactEntry.modelUsed, hitCount: exactEntry.hitCount };
     }
+
+    // 2. Same image uploaded again (even with a slightly different prompt/grade)
+    if (imgHash !== 'no_img') {
+      for (const entry of this.cache.values()) {
+        if (
+          entry.category === 'ocr-solve' &&
+          entry.meta?.imgHash === imgHash &&
+          (entry.meta?.language || 'am') === lang
+        ) {
+          entry.hitCount = (entry.hitCount || 0) + 1;
+          entry.lastRetrievedAt = new Date().toISOString();
+          this.totalHits++;
+          this.scheduleSave();
+          return { solution: entry.payload, modelUsed: entry.modelUsed, hitCount: entry.hitCount };
+        }
+      }
+    }
+
+    // 3. Similar question matching (only when user provided a meaningful text prompt)
+    const queryTokens = promptHash ? this.extractMeaningfulTokens(params.questionPrompt || '') : [];
+    if (queryTokens.length >= 2) {
+      let bestMatch: { entry: CacheEntry; score: number } | null = null;
+      for (const entry of this.cache.values()) {
+        if (entry.category !== 'ocr-solve') continue;
+        if ((entry.meta?.language || 'am') !== lang) continue;
+
+        if (entry.meta?.normalizedPrompt && entry.meta.normalizedPrompt === promptHash) {
+          bestMatch = { entry, score: 1 };
+          break;
+        }
+
+        const storedTokens: string[] = Array.isArray(entry.meta?.tokens) ? entry.meta.tokens : [];
+        const storedSolTokens: string[] = Array.isArray(entry.meta?.questionKeyTokens) ? entry.meta.questionKeyTokens : [];
+
+        const scorePrompt = this.computeTokenSimilarity(queryTokens, storedTokens);
+        const scoreDerived = imgHash === 'no_img' ? this.computeTokenSimilarity(queryTokens, storedSolTokens) : 0;
+        const score = Math.max(scorePrompt, scoreDerived);
+
+        if (score >= 0.65 && (!bestMatch || score > bestMatch.score)) {
+          bestMatch = { entry, score };
+        }
+      }
+
+      if (bestMatch) {
+        bestMatch.entry.hitCount = (bestMatch.entry.hitCount || 0) + 1;
+        bestMatch.entry.lastRetrievedAt = new Date().toISOString();
+        this.totalHits++;
+        this.scheduleSave();
+        return {
+          solution: bestMatch.entry.payload,
+          modelUsed: bestMatch.entry.modelUsed,
+          hitCount: bestMatch.entry.hitCount,
+        };
+      }
+    }
+
     return null;
   }
 
@@ -274,10 +373,14 @@ class SharedAiCacheManager {
     modelUsed?: string
   ) {
     if (!solution || solution.length < 5) return;
+    const lang = params.language || 'am';
     const promptHash = params.questionPrompt ? this.normalizeText(params.questionPrompt) : '';
     const imgHash = params.imageBase64 ? this.hashData(params.imageBase64) : 'no_img';
     const sub = this.normalizeText(params.subject || 'science');
-    const key = `ocr:${params.grade}:${sub}:${promptHash}:${imgHash}:${params.language || 'am'}`;
+    const key = `ocr:${params.grade}:${sub}:${promptHash}:${imgHash}:${lang}`;
+    const tokens = promptHash ? this.extractMeaningfulTokens(params.questionPrompt || '') : [];
+    const questionKeyTokens = this.extractSolutionQuestionTokens(solution);
+
     const entry: CacheEntry<string> = {
       key,
       category: 'ocr-solve',
@@ -286,10 +389,19 @@ class SharedAiCacheManager {
       hitCount: 1,
       firstGeneratedAt: new Date().toISOString(),
       lastRetrievedAt: new Date().toISOString(),
-      meta: { grade: params.grade, subject: params.subject },
+      meta: {
+        grade: params.grade,
+        subject: params.subject,
+        language: lang,
+        imgHash,
+        normalizedPrompt: promptHash,
+        tokens,
+        questionKeyTokens,
+      },
     };
     this.cache.set(key, entry);
-    this.scheduleSave();
+    // Persist OCR solutions immediately so answers survive restarts while raw uploaded images are never stored
+    this.saveToDisk();
   }
 
   // EXAM GENERATOR CACHE

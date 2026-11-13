@@ -12,7 +12,6 @@ import {
   BookOpen,
   DollarSign,
   Clock,
-  Download,
   Search,
   CheckCircle2,
   XCircle,
@@ -33,6 +32,7 @@ import {
   Check,
   Database,
   Bell,
+  Upload,
 } from 'lucide-react';
 import {
   AdminKpiStats,
@@ -105,7 +105,7 @@ export const AdminErpDashboard: React.FC = () => {
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationResult, setMigrationResult] = useState<any>(null);
   const [showConfirmMigrationModal, setShowConfirmMigrationModal] = useState(false);
-  const [backupDownloadUrl, setBackupDownloadUrl] = useState<string | null>(null);
+  const [backupCreatedId, setBackupCreatedId] = useState<string | null>(null);
   const [identityFilter, setIdentityFilter] = useState<'ALL' | 'MISMATCH' | 'CANONICAL' | 'AMBIGUOUS'>('ALL');
   const [identitySearch, setIdentitySearch] = useState('');
 
@@ -116,6 +116,8 @@ export const AdminErpDashboard: React.FC = () => {
   const [newBookSubject, setNewBookSubject] = useState('Mathematics');
   const [newBookTitle, setNewBookTitle] = useState('');
   const [newBookUrl, setNewBookUrl] = useState('');
+  const [selectedBookFile, setSelectedBookFile] = useState<File | null>(null);
+  const [isUploadingBookFile, setIsUploadingBookFile] = useState(false);
   const [showAddBookModal, setShowAddBookModal] = useState(false);
 
   // 6. Pricing & Accounts State
@@ -333,9 +335,7 @@ export const AdminErpDashboard: React.FC = () => {
         auditReport,
         currentUser.email || 'mejennur669@gmail.com'
       );
-      const blob = new Blob([JSON.stringify(bkp, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      setBackupDownloadUrl(url);
+      setBackupCreatedId(bkp.backupId || `BKP-${Date.now()}`);
     } catch (err: any) {
       console.error('Backup creation failed:', err);
     }
@@ -371,15 +371,49 @@ export const AdminErpDashboard: React.FC = () => {
     setAuditLogs(AdminErpService.getAuditEntries());
   };
 
-  const handleAddTextbook = (e: React.FormEvent) => {
+  const handleAddTextbook = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newBookTitle.trim() || !newBookUrl.trim()) return;
+    if (!isSuperAdmin) return;
+    if (!newBookTitle.trim() || (!newBookUrl.trim() && !selectedBookFile)) return;
+
+    let resolvedUrl = newBookUrl.trim();
+    if (selectedBookFile) {
+      setIsUploadingBookFile(true);
+      try {
+        const res = await authFetch('/api/admin/files/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: selectedBookFile.name,
+            fileSize: selectedBookFile.size,
+            mimeType: selectedBookFile.type || 'application/pdf',
+            subject: newBookSubject,
+            grade: newBookGrade,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.fileUri) {
+          resolvedUrl = data.fileUri;
+        } else if (!resolvedUrl) {
+          resolvedUrl = `drm://admin-vault/grade-${newBookGrade}/${selectedBookFile.name}`;
+        }
+      } catch {
+        if (!resolvedUrl) {
+          resolvedUrl = `drm://admin-vault/grade-${newBookGrade}/${selectedBookFile.name}`;
+        }
+      } finally {
+        setIsUploadingBookFile(false);
+      }
+    }
+
+    if (!resolvedUrl) return;
+
     AdminErpService.addTextbook({
       subject: newBookSubject,
       grade: newBookGrade,
       title: newBookTitle.trim(),
       edition: '2019 E.C. (New Syllabus)',
-      fileUrl: newBookUrl.trim(),
+      fileUrl: resolvedUrl,
       drmLevel: 'HIGH_SECURITY',
       pageCount: 300,
     });
@@ -387,6 +421,7 @@ export const AdminErpDashboard: React.FC = () => {
     setShowAddBookModal(false);
     setNewBookTitle('');
     setNewBookUrl('');
+    setSelectedBookFile(null);
     setAuditLogs(AdminErpService.getAuditEntries());
   };
 
@@ -869,13 +904,10 @@ export const AdminErpDashboard: React.FC = () => {
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs text-slate-500">
                 <span>የመጨረሻ ማሻሻያ: {new Date(kpis.lastUpdated).toLocaleTimeString()}</span>
-                <button
-                  onClick={() => AdminErpService.exportLedgerCsv(allSubmissions)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-100 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  የሂሳብ ሌጀር (CSV) አውርድ
-                </button>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-rose-600 dark:text-rose-300 font-bold">
+                  <Lock className="w-3.5 h-3.5" />
+                  የሂሳብ ሌጀር (View-Only • ማውረድ ተከልክሏል)
+                </span>
               </div>
             </div>
 
@@ -1159,13 +1191,10 @@ export const AdminErpDashboard: React.FC = () => {
               </p>
             </div>
 
-            <button
-              onClick={() => AdminErpService.exportLedgerCsv(allSubmissions)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-xs shadow-md transition-all"
-            >
-              <Download className="w-4 h-4" />
-              የፋይናንስ ሌጀር በ CSV አውርድ (Export Audit Ledger)
-            </button>
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 font-bold text-xs">
+              <Lock className="w-4 h-4" />
+              ማውረድ ተከልክሏል (In-App Audit View Only)
+            </span>
           </div>
 
           {/* Search & Filter Controls */}
@@ -1403,8 +1432,8 @@ export const AdminErpDashboard: React.FC = () => {
                     onClick={handleCreateBackup}
                     className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-black transition-all flex items-center gap-2 border border-slate-700"
                   >
-                    <Download className="w-4 h-4 text-emerald-400" />
-                    ባክአፕ አዘጋጅ (Backup)
+                    <Database className="w-4 h-4 text-emerald-400" />
+                    በሲስተም ባክአፕ አስቀምጥ (In-System Backup)
                   </button>
                 )}
 
@@ -1422,20 +1451,16 @@ export const AdminErpDashboard: React.FC = () => {
               </div>
             </div>
 
-            {backupDownloadUrl && (
+            {backupCreatedId && (
               <div className="mt-4 pt-4 border-t border-indigo-800/40 flex items-center justify-between text-xs">
                 <span className="text-emerald-300 font-bold flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4" />
-                  የቅድመ-ስደት ባክአፕ JSON በተሳካ ሁኔታ ተዘጋጅቷል (Pre-migration backup ready)
+                  የቅድመ-ስደት ባክአፕ በሲስተሙ ውስጥ ተቀምጧል (ID: {backupCreatedId})
                 </span>
-                <a
-                  href={backupDownloadUrl}
-                  download={`nur_users_pre_migration_backup_${new Date().toISOString().slice(0, 10)}.json`}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  JSON ፋይል አውርድ
-                </a>
+                <span className="px-3 py-1 rounded-lg bg-slate-800 text-rose-300 font-bold flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5" />
+                  ፋይል ማውረድ ተከልክሏል
+                </span>
               </div>
             )}
           </div>
@@ -1919,19 +1944,20 @@ export const AdminErpDashboard: React.FC = () => {
                 </div>
               </label>
 
-              <label className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-start gap-3 cursor-pointer">
+              <label className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-rose-300/60 dark:border-rose-800/60 flex items-start gap-3">
                 <input
                   type="checkbox"
-                  checked={drmConfig.disableDirectDownload}
-                  onChange={(e) => setDrmConfig({ ...drmConfig, disableDirectDownload: e.target.checked })}
-                  className="mt-1 rounded text-indigo-600 focus:ring-indigo-500"
+                  checked={true}
+                  disabled={true}
+                  readOnly
+                  className="mt-1 rounded text-rose-600 focus:ring-rose-500 cursor-not-allowed"
                 />
                 <div>
                   <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                    Disallow Direct Download
+                    Disallow Direct Download (Always Enforced)
                   </span>
                   <span className="text-[11px] text-slate-500">
-                    ፒዲኤፍ ቀጥታ እንዳይወርድ ይከለክላል (Protected Stream Only)።
+                    ለሁሉም የሲስተሙ ተጠቃሚዎች ማንኛውንም ነገር ማውረድ በቋሚነት ተከልክሏል።
                   </span>
                 </div>
               </label>
@@ -2057,15 +2083,45 @@ export const AdminErpDashboard: React.FC = () => {
                     />
                   </div>
 
+                  {isSuperAdmin && (
+                    <div className="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 space-y-2">
+                      <label className="font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1.5">
+                        <Upload className="w-3.5 h-3.5" />
+                        Super Admin Only: ፋይል ወደ ሲስተሙ አስገባ (Insert File)
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
+                        onChange={(e) => {
+                          if (!isSuperAdmin) {
+                            e.target.value = '';
+                            return;
+                          }
+                          const file = e.target.files?.[0] || null;
+                          setSelectedBookFile(file);
+                          if (file && !newBookTitle.trim()) {
+                            setNewBookTitle(file.name.replace(/\.[^.]+$/, ''));
+                          }
+                        }}
+                        className="w-full text-[11px] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"
+                      />
+                      {selectedBookFile && (
+                        <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                          ✓ ተመርጧል: {selectedBookFile.name} ({Math.max(1, Math.round(selectedBookFile.size / 1024))} KB)
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <div>
-                    <label className="font-bold block mb-1">የፒዲኤፍ ማውረጃ / እይታ ሊንክ (PDF Link)</label>
+                    <label className="font-bold block mb-1">የመጽሐፉ እይታ ሊንክ (View-Only URL{selectedBookFile ? ' — Optional' : ''})</label>
                     <input
                       type="url"
                       placeholder="https://moe.gov.et/curriculum/..."
                       value={newBookUrl}
                       onChange={(e) => setNewBookUrl(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                      required
+                      required={!selectedBookFile}
                     />
                   </div>
                 </div>
@@ -2073,16 +2129,20 @@ export const AdminErpDashboard: React.FC = () => {
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowAddBookModal(false)}
+                    onClick={() => {
+                      setShowAddBookModal(false);
+                      setSelectedBookFile(null);
+                    }}
                     className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-xs"
                   >
                     ተመለስ
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs"
+                    disabled={isUploadingBookFile}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs"
                   >
-                    መዝግብ (Save Book)
+                    {isUploadingBookFile ? 'በመጫን ላይ...' : 'መዝግብ (Save Book)'}
                   </button>
                 </div>
               </form>

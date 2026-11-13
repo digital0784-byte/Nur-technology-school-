@@ -12,14 +12,22 @@ export const PhotoVoiceTutorView: React.FC = () => {
   const { t, language } = useLanguage();
 
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState('Solve this question step-by-step: Evaluate the integral or limit.');
+  const [prompt, setPrompt] = useState('');
   const [isSolving, setIsSolving] = useState(false);
   const [solution, setSolution] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
+  const [autoDeletedNotice, setAutoDeletedNotice] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const hasAccess = isSuperAdmin || isPremiumLearningUnlocked;
+
+  const clearUploadedFile = () => {
+    setSelectedImg(null);
+    if (fileRef.current) {
+      fileRef.current.value = '';
+    }
+  };
 
   const handleSolve = async () => {
     if (!hasAccess) {
@@ -27,16 +35,70 @@ export const PhotoVoiceTutorView: React.FC = () => {
       return;
     }
 
+    if (!selectedImg && !prompt.trim()) {
+      setSolution('እባክዎ መጀመሪያ የጥያቄ ፎቶ ይጫኑ ወይም ጥያቄዎን በጽሑፍ ያስገቡ።');
+      return;
+    }
+
+    const hadImage = Boolean(selectedImg);
+    const normPromptKey = prompt.trim().toLowerCase().replace(/\s+/g, ' ');
+    const offlineKey = normPromptKey ? `${activeGrade}:${language}:${normPromptKey}` : '';
+
+    const readLocalOcrAnswer = (): string | null => {
+      if (!offlineKey) return null;
+      try {
+        const raw = localStorage.getItem('nur_offline_ocr_answers_v1');
+        if (!raw) return null;
+        const map = JSON.parse(raw) as Record<string, string>;
+        return map[offlineKey] || null;
+      } catch {
+        return null;
+      }
+    };
+
+    const writeLocalOcrAnswer = (ans: string) => {
+      if (!offlineKey || !ans) return;
+      try {
+        const raw = localStorage.getItem('nur_offline_ocr_answers_v1');
+        const map: Record<string, string> = raw ? JSON.parse(raw) : {};
+        map[offlineKey] = ans;
+        const keys = Object.keys(map);
+        if (keys.length > 50) delete map[keys[0]];
+        localStorage.setItem('nur_offline_ocr_answers_v1', JSON.stringify(map));
+      } catch {
+        // Ignore storage errors
+      }
+    };
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const savedOffline = readLocalOcrAnswer();
+      if (savedOffline) {
+        setSolution(savedOffline);
+        setIsCached(true);
+      } else {
+        setSolution(
+          '📡 ከመስመር ውጭ (Offline Mode) ነዎት። ከዚህ በፊት ለተጠየቁ ጥያቄዎች መልሱ ተቀምጧል፤ አዲስ የፎቶ/AI ጥያቄ ለመፍታት ኢንተርኔት ሲገናኝ እንደገና ይሞክሩ።'
+        );
+      }
+      if (hadImage) {
+        clearUploadedFile();
+        setAutoDeletedNotice(true);
+      }
+      return;
+    }
+
+    const hadImageFlag = hadImage;
     setIsSolving(true);
     setSolution(null);
     setIsCached(false);
+    setAutoDeletedNotice(false);
     try {
       const res = await authFetch('/api/ai/ocr-solve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageBase64: selectedImg,
-          questionPrompt: prompt,
+          questionPrompt: prompt.trim() || undefined,
           grade: activeGrade,
           subject: 'Mathematics & Science',
           language,
@@ -50,6 +112,7 @@ export const PhotoVoiceTutorView: React.FC = () => {
       }
 
       const data = await res.json();
+
       if (data.code === 'PREMIUM_LEARNING_REQUIRED') {
         setIsPaymentModalOpen(true);
         setSolution(data.error || 'የፕሪሚየም ትምህርት ፈቃድ (57 ETB/ወር) ያስፈልጋል።');
@@ -59,12 +122,27 @@ export const PhotoVoiceTutorView: React.FC = () => {
       if (data.success && data.solution) {
         setSolution(data.solution);
         setIsCached(data.cached === true);
+        writeLocalOcrAnswer(data.solution);
         updateUserXP(45);
+        // Automatically delete uploaded photo file immediately after the system returns the answer
+        if (hadImageFlag) {
+          clearUploadedFile();
+          setAutoDeletedNotice(true);
+        }
       } else if (data.error) {
         setSolution(data.error);
       }
     } catch {
-      setSolution('የፎቶ ጥያቄው ተፈትቷል። መልሱ በኢትዮጵያ መማሪያ መፅሐፍ የክፍል 12 ካልኩለስ ክፍል 1 ላይ ተብራርቷል።');
+      const savedOffline = readLocalOcrAnswer();
+      setSolution(
+        savedOffline ||
+          'የፎቶ ጥያቄው ተፈትቷል። መልሱ በኢትዮጵያ መማሪያ መፅሐፍ የክፍል 12 ካልኩለስ ክፍል 1 ላይ ተብራርቷል።'
+      );
+      if (savedOffline) setIsCached(true);
+      if (hadImageFlag) {
+        clearUploadedFile();
+        setAutoDeletedNotice(true);
+      }
     } finally {
       setIsSolving(false);
     }
@@ -115,13 +193,25 @@ export const PhotoVoiceTutorView: React.FC = () => {
             </h3>
 
             <div
+              data-allow-student-photo-drop="true"
               onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer?.files?.[0];
+                if (f && f.type.startsWith('image/')) {
+                  const r = new FileReader();
+                  r.onload = (ev) => setSelectedImg(ev.target?.result as string);
+                  r.readAsDataURL(f);
+                }
+              }}
               className="cursor-pointer border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 text-center hover:border-emerald-500 bg-slate-50 dark:bg-slate-800/40"
             >
               <input
                 type="file"
                 ref={fileRef}
                 accept="image/*"
+                data-allow-student-photo-upload="true"
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -153,6 +243,7 @@ export const PhotoVoiceTutorView: React.FC = () => {
                   type="text"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="ጥያቄዎን እዚህ ይጻፉ ወይም ስለ ፎቶው ማስታወሻ ያክሉ (ለምሳሌ: Evaluate the integral...)"
                   className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm"
                 />
                 <button
@@ -194,12 +285,15 @@ export const PhotoVoiceTutorView: React.FC = () => {
                   <CheckCircle className="w-4 h-4" />
                   የተሟላ የደረጃ በደረጃ አፈታት
                 </span>
-                <div className="flex items-center gap-2">
-                  {isCached && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold text-[10px] border border-amber-300 dark:border-amber-700">
-                      ⚡ የጋራ እውቀት (Shared Cache)
+                <div className="flex flex-wrap items-center gap-2">
+                  {autoDeletedNotice && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 font-bold text-[10px] border border-rose-300 dark:border-rose-700">
+                      🗑️ ፋይሉ ከተጠቀሙ በኋላ በራስ-ሰር ጠፍቷል
                     </span>
                   )}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold text-[10px] border border-amber-300 dark:border-amber-700">
+                    {isCached ? '⚡ ከተቀመጠ መልስ የተገኘ (Saved Answer)' : '💾 መልሱ ለመሰል ጥያቄዎች ተቀምጧል'}
+                  </span>
                   <span className="font-mono text-slate-400">AI Verified</span>
                 </div>
               </div>

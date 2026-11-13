@@ -392,13 +392,17 @@ export class AdminErpService {
   }
 
   static saveDrmConfig(config: DrmCurriculumConfig, adminEmail: string = SUPER_ADMIN_EMAIL): void {
-    localStorage.setItem(STORAGE_KEY_DRM_CONFIG, JSON.stringify(config));
+    const enforcedConfig: DrmCurriculumConfig = {
+      ...config,
+      disableDirectDownload: true,
+    };
+    localStorage.setItem(STORAGE_KEY_DRM_CONFIG, JSON.stringify(enforcedConfig));
     this.logAudit({
       actor: adminEmail,
       action: 'DRM_CONFIG_UPDATED',
       target: 'Curriculum DRM Engine',
       status: 'ALERT',
-      details: `DRM policies updated: Anti-Screenshot=${config.antiScreenshotEnabled}, Watermarking=${config.dynamicWatermarkEnabled}, TokenWindow=${config.tokenExpiryMinutes}m, BlockDownload=${config.disableDirectDownload}`,
+      details: `DRM policies updated: Anti-Screenshot=${enforcedConfig.antiScreenshotEnabled}, Watermarking=${enforcedConfig.dynamicWatermarkEnabled}, TokenWindow=${enforcedConfig.tokenExpiryMinutes}m, BlockDownload=${enforcedConfig.disableDirectDownload}`,
     });
   }
 
@@ -414,53 +418,9 @@ export class AdminErpService {
     return newBook;
   }
 
-  // 8. Generate and Download CSV Financial Ledger
-  static exportLedgerCsv(submissions: PaymentSubmission[]): void {
-    const headers = [
-      'Transaction ID',
-      'Date & Time (UTC)',
-      'Student Name',
-      'Student Email',
-      'Student Phone',
-      'Grade Level',
-      'Payment Gateway',
-      'FT Reference Code',
-      'Amount (ETB)',
-      'Status',
-      'Reviewed By',
-      'Review Date',
-      'Subscription Expiry Date',
-      'Rejection Reason',
-    ];
-
-    const rows = submissions.map((sub) => [
-      `"${sub.id}"`,
-      `"${sub.submittedAt}"`,
-      `"${(sub.studentName || '').replace(/"/g, '""')}"`,
-      `"${(sub.studentEmail || '').replace(/"/g, '""')}"`,
-      `"${(sub.studentPhone || '').replace(/"/g, '""')}"`,
-      `"Grade ${sub.grade}"`,
-      `"${(sub.paymentGateway || '').toUpperCase()}"`,
-      `"${(sub.transactionRef || '').replace(/"/g, '""')}"`,
-      sub.amount,
-      `"${sub.status}"`,
-      `"${(sub.reviewedBy || '').replace(/"/g, '""')}"`,
-      `"${sub.reviewedAt || 'N/A'}"`,
-      `"${sub.expiresAt ? sub.expiresAt.split('T')[0] : 'N/A'}"`,
-      `"${(sub.rejectionReason || '').replace(/"/g, '""')}"`,
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const filename = `NUR_AI_School_Financial_Ledger_${new Date().toISOString().split('T')[0]}.csv`;
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  // 8. Financial Ledger Export Disabled (System-Wide No-Download Policy)
+  static exportLedgerCsv(_submissions: PaymentSubmission[]): void {
+    // All file downloads are strictly disabled for all users system-wide.
   }
 
   // 9. ERP Audit Logging

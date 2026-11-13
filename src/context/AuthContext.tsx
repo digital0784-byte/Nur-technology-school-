@@ -174,6 +174,36 @@ const normalizeProfile = (id: string, d: any): UserProfile => {
   };
 };
 
+const OFFLINE_PROFILE_CACHE_KEY = 'nur_offline_user_profile_v1';
+
+const saveOfflineProfile = (p: UserProfile) => {
+  try {
+    localStorage.setItem(OFFLINE_PROFILE_CACHE_KEY, JSON.stringify(p));
+  } catch {
+    // Ignore storage quota errors
+  }
+};
+
+const loadOfflineProfile = (uid: string): UserProfile | null => {
+  try {
+    const raw = localStorage.getItem(OFFLINE_PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UserProfile;
+    if (parsed && parsed.id === uid) return parsed;
+  } catch {
+    // Ignore parse errors
+  }
+  return null;
+};
+
+const clearOfflineProfile = () => {
+  try {
+    localStorage.removeItem(OFFLINE_PROFILE_CACHE_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -197,13 +227,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 2) Follow the signed-in user's Firestore profile (single canonical source of truth at users/{auth.uid}).
   useEffect(() => {
     if (!firebaseUser) return;
-    setAuthLoading(true);
+    const cached = loadOfflineProfile(firebaseUser.uid);
+    if (cached) {
+      setProfile(cached);
+      setAuthLoading(false);
+    } else {
+      setAuthLoading(true);
+    }
     return onSnapshot(
       doc(db, 'users', firebaseUser.uid),
       (snap) => {
         if (snap.exists()) {
           const norm = normalizeProfile(snap.id, snap.data());
           setProfile(norm);
+          saveOfflineProfile(norm);
           // If the authenticated user is super admin but their Firestore document doesn't reflect it,
           // upgrade the Firestore doc so security rules pass.
           if (norm.role === 'super_admin' && snap.data()?.role !== 'super_admin') {
@@ -217,6 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           const def = createDefaultStudentProfile(firebaseUser, activeGrade);
           setProfile((prev) => prev ?? def);
+          saveOfflineProfile(def);
           // Create the Firestore doc if missing using merge: true to avoid overwriting existing fields
           setDoc(doc(db, 'users', firebaseUser.uid), def, { merge: true }).catch((err) => {
             console.warn('Profile creation notice:', err);
@@ -226,7 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
       (err) => {
         console.warn('Profile listener notice:', err);
-        setProfile((prev) => prev ?? createDefaultStudentProfile(firebaseUser, activeGrade));
+        setProfile((prev) => prev ?? cached ?? createDefaultStudentProfile(firebaseUser, activeGrade));
         setAuthLoading(false);
       }
     );
@@ -336,6 +374,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(async () => {
+    clearOfflineProfile();
     await signOut(auth);
   }, []);
 

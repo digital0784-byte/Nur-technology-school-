@@ -43,7 +43,6 @@ import {
   ArrowRight,
   Database,
   Cloud,
-  FileDown,
   ExternalLink,
   Layers,
   Search,
@@ -734,15 +733,17 @@ export const TextbookView: React.FC = () => {
                           : 'ማውጫውን ክፈት (Open Contents)'}
                       </span>
                     </button>
-                    <a
-                      href={supp.firebaseDownloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenSecureReader(supp);
+                      }}
+                      title="በ Secure Reader አንብብ (No Download)"
                       className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
                     >
-                      <FileDown className="w-4 h-4 text-purple-600" />
-                    </a>
+                      <BookOpen className="w-4 h-4 text-purple-600" />
+                    </button>
                   </div>
                 </div>
                 );

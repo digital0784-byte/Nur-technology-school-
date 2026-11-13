@@ -4,6 +4,12 @@ import { auth } from './firebase';
 export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   const user = auth.currentUser;
-  if (user) headers.set('Authorization', `Bearer ${await user.getIdToken()}`);
+  if (user) {
+    try {
+      headers.set('Authorization', `Bearer ${await user.getIdToken()}`);
+    } catch {
+      // Offline token refresh may fail; proceed cleanly so caller can apply offline fallback
+    }
+  }
   return fetch(input, { ...init, headers });
 }

@@ -10,7 +10,6 @@ import {
   FastForward,
   Rewind,
   Volume2,
-  Download,
   CheckCircle2,
   Sparkles,
   BookOpen,
@@ -112,7 +111,6 @@ export const AudioMasterHub: React.FC = () => {
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [volume, setVolume] = useState<number>(0.85);
-  const [offlineDownloaded, setOfflineDownloaded] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'podcasts' | 'flashcards'>('podcasts');
 
   // Flashcard states
@@ -217,13 +215,6 @@ export const AudioMasterHub: React.FC = () => {
     render();
     return () => cancelAnimationFrame(animId);
   }, [isPlaying, currentTimeSec, activeTab, activeTrack, activeCard]);
-
-  const toggleOfflineDownload = (id: string) => {
-    setOfflineDownloaded((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -331,20 +322,10 @@ export const AudioMasterHub: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Offline Download Button for Low-Bandwidth Rural Mode */}
-                <button
-                  onClick={() => toggleOfflineDownload(activeTrack.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border ${
-                    offlineDownloaded[activeTrack.id]
-                      ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
-                      : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                  }`}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  {offlineDownloaded[activeTrack.id]
-                    ? '✓ Offline Saved (Ready)'
-                    : 'Download for Offline (Save 12MB)'}
-                </button>
+                {/* Stream-Only Policy Badge (Downloads Disabled) */}
+                <span className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border bg-slate-950 border-rose-500/40 text-rose-300">
+                  <span>🔒 Stream Only • ማውረድ ተከልክሏል</span>
+                </span>
               </div>
 
               {/* Dynamic Waveform Canvas Visualizer */}
@@ -447,7 +428,7 @@ export const AudioMasterHub: React.FC = () => {
                     </h5>
                     <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1 font-mono">
                       <span>⏱ {formatTime(track.audioDurationSeconds)}</span>
-                      <span>{offlineDownloaded[track.id] ? '✓ Saved' : 'Online'}</span>
+                      <span>Stream Only</span>
                     </div>
                   </button>
                 ))}

@@ -16,7 +16,6 @@ import {
   RefreshCw,
   Cpu,
   Activity,
-  Download,
   Search,
   AlertCircle,
   Eye,
@@ -258,15 +257,6 @@ export const SecurityFortressView: React.FC = () => {
       });
       fetchRateLimits();
     } catch (err) {}
-  };
-
-  // Export Audit Logs as JSON
-  const handleExportJson = () => {
-    const jsonStr = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(auditLogs, null, 2))}`;
-    const dlAnchor = document.createElement('a');
-    dlAnchor.setAttribute('href', jsonStr);
-    dlAnchor.setAttribute('download', `MoE_Audit_Trail_${new Date().toISOString().split('T')[0]}.json`);
-    dlAnchor.click();
   };
 
   // Filtered users
@@ -1311,14 +1301,10 @@ export const SecurityFortressView: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleExportJson}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <Download className="w-3.5 h-3.5 text-indigo-600" />
-                  JSON ላክ (Export)
-                </button>
+                <span className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-rose-600 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" />
+                  ማውረድ ተከልክሏል (In-App View Only)
+                </span>
                 <button
                   type="button"
                   onClick={fetchAuditLogs}

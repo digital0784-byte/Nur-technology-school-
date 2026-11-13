@@ -15,6 +15,7 @@ import { StudentNotificationCenterModal } from './components/notifications/Stude
 import { StudentNotificationCenterView } from './components/notifications/StudentNotificationCenterView';
 import { AdminNotificationCenter } from './components/admin/AdminNotificationCenter';
 import { PaywallGate } from './components/common/PaywallGate';
+import { OfflineIndicator } from './components/common/OfflineIndicator';
 
 // 📚 Category 1: Core Learning & Books
 import { LessonView } from './components/learning/LessonView';
@@ -66,6 +67,94 @@ function MainAppShell() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [tutorContext, setTutorContext] = useState<{ subject: string; topic: string } | null>(null);
+  const [downloadBlockedNotice, setDownloadBlockedNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+    const notifyDownloadBlocked = (msg: string) => {
+      setDownloadBlockedNotice(msg);
+      if (noticeTimer) clearTimeout(noticeTimer);
+      noticeTimer = setTimeout(() => setDownloadBlockedNotice(null), 3200);
+    };
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const key = e.key?.toLowerCase();
+      // Block Ctrl/Cmd + S (Save Page), Ctrl/Cmd + P (Print / Save as PDF), Ctrl/Cmd + U (View Source)
+      if ((e.ctrlKey || e.metaKey) && (key === 's' || key === 'p' || key === 'u')) {
+        e.preventDefault();
+        e.stopPropagation();
+        notifyDownloadBlocked('🔒 ከሲስተሙ ማንኛውንም ነገር ማውረድ ወይም ማስቀመጥ ተከልክሏል! (Downloads & Saving Disabled)');
+      }
+    };
+
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      // Allow context menu inside text inputs/textareas for typing/paste, block everywhere else
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) {
+        return;
+      }
+      e.preventDefault();
+      notifyDownloadBlocked('🔒 ከሲስተሙ ማንኛውንም ፋይል፣ ፎቶ ወይም ጽሑፍ ማውረድ ተከልክሏል! (Downloads Disabled)');
+    };
+
+    const handleGlobalDragStart = (e: DragEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'img' || tag === 'a' || tag === 'video' || tag === 'audio' || tag === 'canvas') {
+        e.preventDefault();
+      }
+    };
+
+    const handleGlobalDragOver = (e: DragEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('[data-allow-student-photo-drop="true"]')) return;
+      if (!isSuperAdmin && e.dataTransfer?.types?.includes('Files')) {
+        e.preventDefault();
+      }
+    };
+
+    const handleGlobalDrop = (e: DragEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('[data-allow-student-photo-drop="true"]')) return;
+      if (!isSuperAdmin && (e.dataTransfer?.types?.includes('Files') || (e.dataTransfer?.files && e.dataTransfer.files.length > 0))) {
+        e.preventDefault();
+        e.stopPropagation();
+        notifyDownloadBlocked('🔒 ወደ ሲስተሙ ፋይል ማስገባት የሚችለው Super Admin ብቻ ነው! (Only Super Admin can upload files)');
+      }
+    };
+
+    const handleGlobalFileInputGuard = (e: Event) => {
+      if (isSuperAdmin) return;
+      const target = e.target as HTMLInputElement | null;
+      if (target && target.tagName?.toLowerCase() === 'input' && target.type === 'file') {
+        if (target.dataset?.allowStudentPhotoUpload === 'true') return;
+        target.value = '';
+        e.preventDefault();
+        e.stopPropagation();
+        notifyDownloadBlocked('🔒 ወደ ሲስተሙ ፋይል ማስገባት የሚችለው Super Admin ብቻ ነው! (Only Super Admin can upload files)');
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    window.addEventListener('contextmenu', handleGlobalContextMenu, true);
+    window.addEventListener('dragstart', handleGlobalDragStart, true);
+    window.addEventListener('dragover', handleGlobalDragOver, true);
+    window.addEventListener('drop', handleGlobalDrop, true);
+    document.addEventListener('click', handleGlobalFileInputGuard, true);
+    document.addEventListener('change', handleGlobalFileInputGuard, true);
+
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown, true);
+      window.removeEventListener('contextmenu', handleGlobalContextMenu, true);
+      window.removeEventListener('dragstart', handleGlobalDragStart, true);
+      window.removeEventListener('dragover', handleGlobalDragOver, true);
+      window.removeEventListener('drop', handleGlobalDrop, true);
+      document.removeEventListener('click', handleGlobalFileInputGuard, true);
+      document.removeEventListener('change', handleGlobalFileInputGuard, true);
+      if (noticeTimer) clearTimeout(noticeTimer);
+    };
+  }, [isSuperAdmin]);
 
   useEffect(() => {
     if (!isSuperAdmin && ADMIN_ONLY_MODULES.includes(currentModule)) {
@@ -252,6 +341,16 @@ function MainAppShell() {
         onClose={() => setIsNotificationCenterOpen(false)}
         onNavigateModule={handleSelectModule}
       />
+
+      {/* Global Offline/Online Status Indicator */}
+      <OfflineIndicator />
+
+      {/* Global Download-Blocked Notice Toast */}
+      {downloadBlockedNotice && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[120] px-4 py-2.5 rounded-2xl bg-rose-950/95 text-rose-100 border border-rose-500/70 shadow-2xl text-xs font-bold backdrop-blur-md animate-in fade-in slide-in-from-bottom-2">
+          {downloadBlockedNotice}
+        </div>
+      )}
     </div>
   );
 }

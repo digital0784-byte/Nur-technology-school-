@@ -271,8 +271,11 @@ app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
     });
   }
 
+  const parts: Array<any> = [];
+  let hadImage = false;
   try {
     const { imageBase64, mimeType = 'image/jpeg', questionPrompt, grade = '9-12', subject = 'Science', language = 'am' } = req.body;
+    hadImage = Boolean(imageBase64);
 
     const isVip = isPremiumLearningActive(req.user);
 
@@ -280,14 +283,14 @@ app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Either imageBase64 or questionPrompt must be provided' });
     }
 
-    // Check shared cross-student AI cache (skip cache for VIP for full deep Socratic derivation)
-    const cachedOcr = !isVip ? sharedAiCache.getOcrSolve({
+    // Check shared AI knowledge cache for identical or similar questions
+    const cachedOcr = sharedAiCache.getOcrSolve({
       grade: String(grade),
       subject: String(subject),
       questionPrompt: questionPrompt ? String(questionPrompt) : undefined,
       imageBase64: imageBase64 ? String(imageBase64) : undefined,
       language: String(language),
-    }) : null;
+    });
 
     if (cachedOcr) {
       return res.json({
@@ -297,10 +300,9 @@ app.post('/api/ai/ocr-solve', async (req: Request, res: Response) => {
         cached: true,
         source: 'SHARED_COMMUNITY_CACHE',
         hitCount: cachedOcr.hitCount,
+        fileDeleted: hadImage,
       });
     }
-
-    const parts: Array<any> = [];
 
     if (imageBase64) {
       const cleanData = imageBase64.replace(/^data:[^;]+;base64,/, '');
@@ -346,7 +348,7 @@ Step 5: ✅ Sanity Check & Final Answer (የውጤቱ ትክክለኛነት ማ�
       temperature: 0.3,
     });
 
-    // Save to persistent shared AI cache
+    // Save answer automatically to persistent shared AI cache (only hash is used; raw image is NOT stored)
     sharedAiCache.setOcrSolve(
       {
         grade: String(grade),
@@ -364,6 +366,8 @@ Step 5: ✅ Sanity Check & Final Answer (የውጤቱ ትክክለኛነት ማ�
       solution: result.text,
       modelUsed: result.modelUsed,
       cached: false,
+      answerSaved: true,
+      fileDeleted: hadImage,
     });
   } catch (err: any) {
     console.error('Error in /api/ai/ocr-solve:', err);
@@ -371,6 +375,12 @@ Step 5: ✅ Sanity Check & Final Answer (የውጤቱ ትክክለኛነት ማ�
       success: false,
       error: err?.message || 'Failed to process OCR solve request',
     });
+  } finally {
+    // Automatically discard uploaded image payload from memory immediately after processing
+    if (req.body && 'imageBase64' in req.body) {
+      delete req.body.imageBase64;
+    }
+    parts.length = 0;
   }
 });
 

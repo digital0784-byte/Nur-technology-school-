@@ -63,11 +63,28 @@
   -webkit-user-select: none;
 }
 
+/* Global Anti-Download & Anti-Drag Media Rules */
+img,
+video,
+audio,
+canvas {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
 @media print {
-  .drm-protected {
+  body * {
     display: none !important;
+    visibility: hidden !important;
   }
-  .drm-print-warning {
+  body::after {
+    content: "ከሲስተሙ ማንኛውንም ነገር ማውረድ ወይም ማተም በጥብቅ ተከልክሏል (Downloads & Printing Disabled)";
     display: block !important;
+    visibility: visible !important;
+    padding: 3rem;
+    text-align: center;
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: #be123c;
   }
 }

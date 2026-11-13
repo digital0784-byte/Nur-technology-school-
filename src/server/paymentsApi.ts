@@ -122,6 +122,15 @@ paymentsRouter.post('/submit', async (req: Request, res: Response) => {
   const ref = String(req.body?.transactionRef || '').trim().replace(/[^A-Za-z0-9_-]/g, '');
   const phone = String(req.body?.phone || '').trim();
   const product: PaymentProduct = req.body?.product === 'premium' ? 'premium' : 'grade';
+  const rawReceiptUrl = typeof req.body?.receiptImageUrl === 'string' ? req.body.receiptImageUrl.trim() : '';
+
+  if (rawReceiptUrl.toLowerCase().startsWith('data:') && user.role !== 'super_admin') {
+    return res.status(403).json({
+      success: false,
+      code: 'SUPER_ADMIN_FILE_UPLOAD_ONLY',
+      error: 'ወደ ሲስተሙ ፋይል ማስገባት የሚችለው Super Admin ብቻ ነው። / Only Super Admin can upload files into the system.',
+    });
+  }
 
   if (!GATEWAY_IDS.has(gateway)) {
     return res.status(400).json({ success: false, error: 'የክፍያ መንገድ ትክክል አይደለም / Invalid payment gateway.' });

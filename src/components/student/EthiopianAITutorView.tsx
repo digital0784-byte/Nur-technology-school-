@@ -118,6 +118,51 @@ ${formatOfficialCitation(activeGrade, activeSubject?.name.en || 'Mathematics', c
     setInputMsg('');
     setLoading(true);
 
+    const normKey = `${activeGrade}:${selectedSubjectCode}:${userText.trim().toLowerCase().replace(/\s+/g, ' ')}:${language}`;
+
+    const readLocalTutorCache = (): string | null => {
+      try {
+        const raw = localStorage.getItem('nur_offline_tutor_answers_v1');
+        if (!raw) return null;
+        const map = JSON.parse(raw) as Record<string, string>;
+        return map[normKey] || null;
+      } catch {
+        return null;
+      }
+    };
+
+    const writeLocalTutorCache = (replyText: string) => {
+      try {
+        const raw = localStorage.getItem('nur_offline_tutor_answers_v1');
+        const map: Record<string, string> = raw ? JSON.parse(raw) : {};
+        map[normKey] = replyText;
+        const keys = Object.keys(map);
+        if (keys.length > 60) {
+          delete map[keys[0]];
+        }
+        localStorage.setItem('nur_offline_tutor_answers_v1', JSON.stringify(map));
+      } catch {
+        // Ignore storage errors
+      }
+    };
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const offlineHit = readLocalTutorCache();
+      const aiMsg: ChatMessage = {
+        id: `ai-off-${Date.now()}`,
+        role: 'assistant',
+        content:
+          offlineHit ||
+          `📡 [Offline Mode / ከመስመር ውጭ]\n📖 ${currentCitation}\n\n${classroomData.excerpt || `በክፍል ${activeGrade} ${activeSubject?.name.en} መማሪያ መጽሐፍ ውስጥ የተካተተ ርዕስ (${selectedTopicTitle})።`}\n\nየኢንተርኔት ግንኙነት ሲመለስ ለተጨማሪ ዝርዝር AI ማብራሪያ እንደገና መጠየቅ ይችላሉ።`,
+        citation: currentCitation,
+        isCached: Boolean(offlineHit),
+        timestamp: 'Offline',
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await authFetch('/api/ai/tutor', {
         method: 'POST',
@@ -142,6 +187,10 @@ ${formatOfficialCitation(activeGrade, activeSubject?.name.en || 'Mathematics', c
         : data.fallbackReply ||
           `ይህ መረጃ በክፍል ${activeGrade} የ${activeSubject?.name.en} ይፋዊ የአዲሱ ስርዓተ-ትምህርት የመማሪያ መጽሐፍ ውስጥ አልተካተተም። (This information is not available in the current curriculum source.)`;
 
+      if (data.success && data.reply) {
+        writeLocalTutorCache(data.reply);
+      }
+
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: 'assistant',
@@ -154,12 +203,16 @@ ${formatOfficialCitation(activeGrade, activeSubject?.name.en || 'Mathematics', c
       setMessages((prev) => [...prev, aiMsg]);
       updateUserXP(20);
     } catch {
+      const offlineHit = readLocalTutorCache();
       const fallbackMsg: ChatMessage = {
         id: `ai-err-${Date.now()}`,
         role: 'assistant',
-        content: `📖 ${currentCitation}\n\nየኔ ተማሪ፣ በኢትዮጵያ ስርዓተ-ትምህርት መሰረት መጀመሪያ የተሰጡትን መጠኖች (Given & Required) ለይተን እንጀምር። ጥያቄው ምን እንደተሰጠህና ምን እንደሚፈልግ ንገረኝ?`,
+        content:
+          offlineHit ||
+          `📖 ${currentCitation}\n\n${classroomData.excerpt ? `${classroomData.excerpt}\n\n` : ''}የኔ ተማሪ፣ በኢትዮጵያ ስርዓተ-ትምህርት መሰረት መጀመሪያ የተሰጡትን መጠኖች (Given & Required) ለይተን እንጀምር። ጥያቄው ምን እንደተሰጠህና ምን እንደሚፈልግ ንገረኝ?`,
         citation: currentCitation,
-        timestamp: 'Just now',
+        isCached: Boolean(offlineHit),
+        timestamp: offlineHit ? 'Offline Cache' : 'Just now',
       };
       setMessages((prev) => [...prev, fallbackMsg]);
     } finally {

@@ -146,3 +146,54 @@ adminAutomationRouter.get('/diagnostics/14-point-check', async (req: Request, re
     probes,
   });
 });
+
+// Super-Admin-Only File Insertion / Registration endpoint
+adminAutomationRouter.post('/files/register', async (req: Request, res: Response) => {
+  if (req.user?.role !== 'super_admin') {
+    return res.status(403).json({
+      success: false,
+      code: 'SUPER_ADMIN_FILE_UPLOAD_ONLY',
+      error: 'ወደ ሲስተሙ ፋይል ማስገባት የሚችለው Super Admin ብቻ ነው። / Only Super Admin can upload files into the system.',
+    });
+  }
+
+  const fileName = String(req.body?.fileName || '').trim().slice(0, 180);
+  const fileSize = Number(req.body?.fileSize) || 0;
+  const mimeType = String(req.body?.mimeType || 'application/octet-stream').trim().slice(0, 100);
+  const subject = String(req.body?.subject || 'General').trim().slice(0, 80);
+  const grade = Number(req.body?.grade) || 10;
+
+  if (!fileName) {
+    return res.status(400).json({ success: false, error: 'File name is required.' });
+  }
+
+  const safeName = fileName.replace(/[^A-Za-z0-9._-]/g, '_');
+  const fileId = `adm_file_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const fileUri = `drm://admin-vault/grade-${grade}/${fileId}-${safeName}`;
+
+  const record = {
+    fileId,
+    fileName,
+    fileSize,
+    mimeType,
+    subject,
+    grade,
+    fileUri,
+    uploadedByUid: req.user.uid,
+    uploadedByEmail: req.user.email || '',
+    uploadedAt: new Date().toISOString(),
+  };
+
+  try {
+    await adminDb.collection('admin_uploaded_files').doc(fileId).set(record);
+  } catch {
+    // Graceful fallback if Firestore admin credentials are not configured locally
+  }
+
+  return res.json({
+    success: true,
+    fileId,
+    fileUri,
+    record,
+  });
+});

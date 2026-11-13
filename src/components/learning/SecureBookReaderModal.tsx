@@ -17,7 +17,6 @@ import {
   Sun,
   Moon,
   Bookmark,
-  Download,
   ChevronLeft,
   ChevronRight,
   X,
@@ -379,7 +378,7 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
           </button>
         </div>
 
-        {/* Right: Zoom, Theme, Fullscreen, Super Admin Offline Download, Close */}
+        {/* Right: Zoom, Theme, Fullscreen, No-Download Shield, Close */}
         <div className="flex items-center gap-1 shrink-0">
           {/* Zoom Controls */}
           <div className="hidden md:flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl">
@@ -434,20 +433,14 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
 
-          {/* Super Admin Unrestricted Offline Download */}
-          {isSuperAdmin && (
-            <a
-              href={book.firebaseDownloadUrl || book.pdfUrl}
-              download={`${book.subjectCode}_Grade${book.grade}_MoE_Official.pdf`}
-              target="_blank"
-              rel="noreferrer"
-              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold shadow-xs transition-all"
-              title="Super Admin Unrestricted Download"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>PDF አውርድ (Root)</span>
-            </a>
-          )}
+          {/* Downloads Disabled System-Wide */}
+          <span
+            className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-[11px] font-bold"
+            title="ማውረድ በሲስተሙ ውስጥ በጥብቅ ተከልክሏል (Downloads Disabled)"
+          >
+            <Lock className="w-3 h-3 text-rose-400" />
+            <span>ማውረድ ተከልክሏል</span>
+          </span>
 
           {/* Close Reader */}
           <button

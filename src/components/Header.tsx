@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { NotificationBell } from './notifications/NotificationBell';
+import { PWAInstallButton } from './common/PWAInstallButton';
 
 interface HeaderProps {
   onToggleMobileMenu: () => void;
@@ -166,6 +167,9 @@ export const Header: React.FC<HeaderProps> = ({
               ) : null}
             </div>
           )}
+
+          {/* Install App PWA Button (Auto-hides if already installed) */}
+          <PWAInstallButton />
 
           {/* STRICT REQUIREMENT: LanguageSelectorDropdown on top flex row, always visible on 360px mobile! */}
           <div className="shrink-0">
