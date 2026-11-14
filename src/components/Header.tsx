@@ -142,8 +142,9 @@ export const Header: React.FC<HeaderProps> = ({
                 title="የተመዘገቡበት የክፍል ደረጃ ተቆልፏል፤ በራስ ፍቃድ መቀየር አይቻልም።"
               >
                 <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>
-                  {t('grade')} {activeGrade} (የተቆለፈ)
+                <span className="truncate max-w-[90px] sm:max-w-none">
+                  {t('grade')} {activeGrade}
+                  <span className="hidden sm:inline"> ({t('grade_locked_short')})</span>
                 </span>
               </div>
 

@@ -236,14 +236,19 @@ export const ObjectivesExamView: React.FC = () => {
     const pageMatch = textbookRef.match(/(\d+)/);
     const targetPage = pageMatch ? parseInt(pageMatch[1], 10) : 1;
 
-    // Look up book in TEXTBOOKS_REGISTRY matching current subject and grade
+    const allowedGrade = isSuperAdmin ? currentUnit.grade : activeGrade;
+
+    // Look up book in TEXTBOOKS_REGISTRY matching current subject and registered grade
     const targetBook =
       TEXTBOOKS_REGISTRY.find(
         (b) =>
-          b.grade === currentUnit.grade &&
+          b.grade === allowedGrade &&
           b.subjectCode.toUpperCase() === currentUnit.subjectCode.toUpperCase()
-      ) || TEXTBOOKS_REGISTRY[0];
+      ) ||
+      TEXTBOOKS_REGISTRY.find((b) => b.grade === allowedGrade) ||
+      null;
 
+    if (!targetBook) return;
     setReaderBook(targetBook);
     setReaderPage(targetPage);
     setIsReaderOpen(true);

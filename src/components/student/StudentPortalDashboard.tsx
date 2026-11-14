@@ -8,6 +8,7 @@ import {
   SupplementaryReadingProgress,
   getLastReadTextbook,
   getLastReadSupplementary,
+  isSupplementaryBookEligibleForGrade,
   syncBookReadingProgressFromCloud,
   requestAutoResumeTextbook,
   computeReadingPercent,
@@ -18,33 +19,32 @@ interface StudentPortalDashboardProps {
 }
 
 export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ onNavigateModule }) => {
-  const { currentUser, activeGrade } = useAuth();
+  const { currentUser, activeGrade, isSuperAdmin } = useAuth();
   const { t } = useLanguage();
+  const readAllowedSupp = () => {
+    const raw = getLastReadSupplementary(currentUser.id);
+    if (!raw) return null;
+    return isSupplementaryBookEligibleForGrade(raw.bookId, activeGrade, isSuperAdmin) ? raw : null;
+  };
   const [lastTextbook, setLastTextbook] = useState<TextbookReadingProgress | null>(() =>
-    getLastReadTextbook(currentUser.id, activeGrade) || getLastReadTextbook(currentUser.id)
+    getLastReadTextbook(currentUser.id, activeGrade, !isSuperAdmin)
   );
-  const [lastSupp, setLastSupp] = useState<SupplementaryReadingProgress | null>(() =>
-    getLastReadSupplementary(currentUser.id)
-  );
+  const [lastSupp, setLastSupp] = useState<SupplementaryReadingProgress | null>(() => readAllowedSupp());
 
   useEffect(() => {
-    setLastTextbook(
-      getLastReadTextbook(currentUser.id, activeGrade) || getLastReadTextbook(currentUser.id)
-    );
-    setLastSupp(getLastReadSupplementary(currentUser.id));
+    setLastTextbook(getLastReadTextbook(currentUser.id, activeGrade, !isSuperAdmin));
+    setLastSupp(readAllowedSupp());
 
     let cancelled = false;
     syncBookReadingProgressFromCloud(currentUser.id).then(() => {
       if (cancelled) return;
-      setLastTextbook(
-        getLastReadTextbook(currentUser.id, activeGrade) || getLastReadTextbook(currentUser.id)
-      );
-      setLastSupp(getLastReadSupplementary(currentUser.id));
+      setLastTextbook(getLastReadTextbook(currentUser.id, activeGrade, !isSuperAdmin));
+      setLastSupp(readAllowedSupp());
     });
     return () => {
       cancelled = true;
     };
-  }, [currentUser.id, activeGrade]);
+  }, [currentUser.id, activeGrade, isSuperAdmin]);
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -53,13 +53,13 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase mb-2">
               <Home className="w-3.5 h-3.5" />
-              {t('student_portal')} • Grade {activeGrade}
+              {t('student_portal')} • {t('grade')} {activeGrade}
             </div>
             <h1 className="text-2xl sm:text-3xl font-black">
-              እንኳን ደህና መጣህ፣ {currentUser.name}!
+              {t('portal_welcome')} {currentUser.name}!
             </h1>
             <p className="text-xs sm:text-sm text-emerald-100/90 max-w-lg">
-              የኢ.ፌ.ዲ.ሪ የትምህርት ሚኒስቴር አዲሱ ስርዓተ-ትምህርት (2019 ዓ.ም) የመማሪያ መግቢያ።
+              {t('portal_sub')}
             </p>
           </div>
 
@@ -86,8 +86,8 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
             <BookOpen className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xs font-bold text-slate-900 dark:text-white">ትምህርት ቀጥል</div>
-            <div className="text-[10px] text-slate-400">Lessons & Units</div>
+            <div className="text-xs font-bold text-slate-900 dark:text-white">{t('quick_continue_lesson')}</div>
+            <div className="text-[10px] text-slate-400">{t('quick_continue_lesson_sub')}</div>
           </div>
         </button>
 
@@ -100,8 +100,8 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
             <Bot className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xs font-bold text-slate-900 dark:text-white">ኑር ኤአይ ጠይቅ</div>
-            <div className="text-[10px] text-slate-400">Socratic Tutor</div>
+            <div className="text-xs font-bold text-slate-900 dark:text-white">{t('quick_ask_ai')}</div>
+            <div className="text-[10px] text-slate-400">{t('quick_ask_ai_sub')}</div>
           </div>
         </button>
 
@@ -114,8 +114,8 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
             <Award className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xs font-bold text-slate-900 dark:text-white">ፈተና ውሰድ</div>
-            <div className="text-[10px] text-slate-400">Timed Quizzes</div>
+            <div className="text-xs font-bold text-slate-900 dark:text-white">{t('quick_take_quiz')}</div>
+            <div className="text-[10px] text-slate-400">{t('quick_take_quiz_sub')}</div>
           </div>
         </button>
 
@@ -128,8 +128,8 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
             <Camera className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xs font-bold text-slate-900 dark:text-white">ፎቶ ጥያቄ ፍታ</div>
-            <div className="text-[10px] text-slate-400">OCR Solver</div>
+            <div className="text-xs font-bold text-slate-900 dark:text-white">{t('quick_photo_solve')}</div>
+            <div className="text-[10px] text-slate-400">{t('quick_photo_solve_sub')}</div>
           </div>
         </button>
       </div>
@@ -149,20 +149,20 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
               <div className="min-w-0 space-y-1">
                 <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-300">
                   <Bookmark className="w-3.5 h-3.5 text-amber-300" />
-                  <span>ካቆሙበት መጽሐፍ ይቀጥሉ</span>
+                  <span>{t('resume_textbook_badge')}</span>
                 </div>
                 <div className="text-xs sm:text-sm font-black text-white truncate">
-                  {lastTextbook.bookTitle || `Grade ${lastTextbook.grade} Textbook`}
+                  {lastTextbook.bookTitle || `${t('grade')} ${lastTextbook.grade} Textbook`}
                 </div>
                 <div className="text-[11px] text-emerald-100/80 truncate">
-                  ምዕራፍ {lastTextbook.unitNumber} • ገፅ {lastTextbook.pageNumber}
+                  Unit {lastTextbook.unitNumber} • Page {lastTextbook.pageNumber}
                   {lastTextbook.totalPages > 0
                     ? ` (${computeReadingPercent(lastTextbook.pageNumber, lastTextbook.totalPages)}%)`
                     : ''}
                 </div>
               </div>
               <span className="px-3 py-1.5 rounded-xl bg-emerald-500 group-hover:bg-emerald-400 text-slate-950 font-black text-xs shrink-0 transition">
-                ቀጥል →
+                {t('continue_btn')} →
               </span>
             </button>
           )}
@@ -176,17 +176,17 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
               <div className="min-w-0 space-y-1">
                 <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-300">
                   <Bookmark className="w-3.5 h-3.5 text-amber-300" />
-                  <span>ካቆሙበት አጋዥ መጽሐፍ ይቀጥሉ</span>
+                  <span>{t('resume_supp_badge')}</span>
                 </div>
                 <div className="text-xs sm:text-sm font-black text-white truncate">
                   {lastSupp.bookTitle}
                 </div>
                 <div className="text-[11px] text-indigo-100/80 truncate">
-                  {lastSupp.series} Series • ምዕራፍ {lastSupp.chapterNumber}
+                  {lastSupp.series} Series • Unit {lastSupp.chapterNumber}
                 </div>
               </div>
               <span className="px-3 py-1.5 rounded-xl bg-indigo-400 group-hover:bg-indigo-300 text-slate-950 font-black text-xs shrink-0 transition">
-                ቀጥል →
+                {t('continue_btn')} →
               </span>
             </button>
           )}
@@ -205,18 +205,16 @@ export const StudentPortalDashboard: React.FC<StudentPortalDashboardProps> = ({ 
           </div>
           <div>
             <div className="text-sm font-black text-amber-300 flex items-center gap-1.5">
-              <span>NUR AI VIP Learning Center (6 ቱ ፕሪሚየም ማዕከላት)</span>
+              <span>{t('vip_hub_title')}</span>
               <Sparkles className="w-4 h-4 text-amber-400" />
             </div>
             <div className="text-xs text-slate-300 mt-0.5">
-              {activeGrade === 11 || activeGrade === 12
-                ? 'HD ቪዲዮ ማስተርክላስ፣ 3D STEM አኒሜሽን፣ የ EUEE ብሔራዊ ፈተና ሲሙሌተር እና የድምፅ ማዕከል'
-                : 'HD ቪዲዮ ማስተርክላስ፣ 3D STEM አኒሜሽን፣ ምናባዊ ሳይንስ ላብ እና የድምፅ ማዕከል'}
+              {t('mod_premium_learning_center_sub')}
             </div>
           </div>
         </div>
         <span className="self-start sm:self-center px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 group-hover:from-amber-400 group-hover:to-amber-500 text-slate-950 font-black text-xs shadow-md transition shrink-0">
-          VIP ማዕከሉን ክፈት →
+          {t('vip_hub_open')} →
         </span>
       </button>
     </div>

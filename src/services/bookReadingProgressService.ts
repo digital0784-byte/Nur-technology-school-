@@ -251,9 +251,29 @@ export function getTextbookProgress(
   return null;
 }
 
+export const SUPPLEMENTARY_ELIGIBLE_GRADES: Record<string, number[]> = {
+  'supp-extreme-math': [11, 12],
+  'supp-extreme-phys': [11, 12],
+  'supp-extreme-chem': [11, 12],
+  'supp-alpha-workbook': [12],
+  'supp-galaxy-bank': [12],
+};
+
+export function isSupplementaryBookEligibleForGrade(
+  bookId: string,
+  grade: number,
+  isSuperAdmin = false
+): boolean {
+  if (isSuperAdmin) return true;
+  const allowed = SUPPLEMENTARY_ELIGIBLE_GRADES[bookId];
+  if (!allowed) return false;
+  return allowed.includes(grade);
+}
+
 export function getLastReadTextbook(
   userId: string | undefined,
-  preferredGrade?: number
+  preferredGrade?: number,
+  strictGrade = false
 ): TextbookReadingProgress | null {
   const state = loadBookReadingState(userId);
   if (state.lastTextbookId && state.textbooks[state.lastTextbookId]) {
@@ -269,6 +289,7 @@ export function getLastReadTextbook(
   if (preferredGrade) {
     const gradeMatch = all.find((item) => item.grade === preferredGrade);
     if (gradeMatch) return gradeMatch;
+    if (strictGrade) return null;
   }
   return all[0] || null;
 }

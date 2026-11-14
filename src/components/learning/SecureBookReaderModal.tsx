@@ -48,8 +48,9 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
   onClose,
   onProgressSaved,
 }) => {
-  const { currentUser, isSuperAdmin } = useAuth();
+  const { currentUser, isSuperAdmin, activeGrade } = useAuth();
   const { language } = useLanguage();
+  const isGradeUnauthorized = !isSuperAdmin && book.grade !== activeGrade;
 
   // Reader states
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -77,7 +78,7 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
 
   // Restore exact saved page & scroll position whenever modal opens or book changes
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isGradeUnauthorized) return;
     const saved = getTextbookProgress(currentUser.id, book.id);
     const fallbackStartPage = book.chapters[initialChapterIdx]?.startPage || 1;
     const targetPage =
@@ -104,7 +105,7 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
       }
     });
     return () => cancelAnimationFrame(rafId);
-  }, [isOpen, book.id, initialPage, initialChapterIdx, currentUser.id, book.totalPages, book.chapters]);
+  }, [isOpen, isGradeUnauthorized, book.id, initialPage, initialChapterIdx, currentUser.id, book.totalPages, book.chapters]);
 
   // Determine current active chapter based on currentPage
   const foundChapterIdx = book.chapters.findIndex(
@@ -115,7 +116,7 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
 
   const persistCurrentProgress = useCallback(
     (pageToSave: number, scrollTopOverride?: number) => {
-      if (!isOpen) return;
+      if (!isOpen || isGradeUnauthorized) return;
       const chIdx = book.chapters.findIndex(
         (ch) => pageToSave >= ch.startPage && pageToSave <= ch.endPage
       );
@@ -146,12 +147,12 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
       });
       onProgressSaved?.();
     },
-    [isOpen, book, activeChapterIdx, currentUser.id, language, onProgressSaved]
+    [isOpen, isGradeUnauthorized, book, activeChapterIdx, currentUser.id, language, onProgressSaved]
   );
 
   // Auto-save reading progress whenever currentPage updates
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isGradeUnauthorized) return;
     setJumpPageInput(currentPage.toString());
     persistCurrentProgress(currentPage);
 
@@ -271,6 +272,31 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  if (isGradeUnauthorized) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div className="max-w-md w-full rounded-3xl bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-800 p-6 text-center space-y-4 shadow-2xl">
+          <div className="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h2 className="text-lg font-black text-slate-900 dark:text-white">
+            የክፍል ደረጃ ገደብ (Grade {activeGrade} Only)
+          </h2>
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            ይህ መጽሐፍ የ{book.grade}ኛ ክፍል ነው። ከተመዘገቡበት የትምህርት ደረጃ (ክፍል {activeGrade}) ውጪ ያሉ መጻሕፍትን ማየትም ሆነ መጠቀም አይችሉም።
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition"
+          >
+            ዝጋ / Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Reading mode theme classes
   const themeClasses = {

@@ -2016,7 +2016,7 @@ export function getTextbooksByGrade(grade: GradeLevel): TextbookRecord[] {
 
 export function getSupplementaryBooks(grade?: GradeLevel): TextbookRecord[] {
   return COMPREHENSIVE_TEXTBOOKS_REGISTRY.filter(
-    (b) => b.category !== 'official_textbook'
+    (b) => b.category !== 'official_textbook' && (!grade || b.grade === grade)
   );
 }
 

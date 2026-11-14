@@ -92,10 +92,10 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto animate-in fade-in">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-6">
+    <div className="fixed inset-0 z-[70] flex items-start sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto animate-in fade-in">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 my-4 sm:my-6">
         {/* Banner with Ethiopian Colors */}
-        <div className="h-3 bg-gradient-to-r from-emerald-600 via-amber-500 to-red-600" />
+        <div className="h-3 rounded-t-3xl bg-gradient-to-r from-emerald-600 via-amber-500 to-red-600" />
 
         <div className="p-6 sm:p-8 space-y-6">
           {/* Header & Title */}
@@ -112,7 +112,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
           </div>
 
           {/* Language Selector */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+          <div className="relative z-30 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
               {t('choose_language_to_start')}
             </label>
@@ -127,11 +127,11 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
                   key={m}
                   type="button"
                   onClick={() => { setMode(m); setError(''); setInfo(''); }}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                  className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     mode === m ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-xs' : 'text-slate-500'
                   }`}
                 >
-                  {m === 'register' ? 'አዲስ ምዝገባ / Register' : 'መግቢያ / Login'}
+                  {m === 'register' ? t('tab_register') : t('tab_login')}
                 </button>
               ))}
             </div>
@@ -139,7 +139,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
             {mode === 'register' && (
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  የተማሪ ስም / Student Full Name:
+                  {t('student_full_name')}
                 </label>
                 <input
                   type="text"
@@ -154,7 +154,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
             )}
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">ኢሜይል / Email:</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">{t('email_label')}</label>
               <input
                 type="email"
                 required
@@ -167,7 +167,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">የይለፍ ቃል / Password:</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">{t('password_label')}</label>
               <input
                 type="password"
                 required
@@ -179,8 +179,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
                 className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               {mode === 'login' && (
-                <button type="button" onClick={handleReset} className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">
-                  የይለፍ ቃል ረሱ? / Forgot password?
+                <button type="button" onClick={handleReset} className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer">
+                  {t('forgot_password')}
                 </button>
               )}
             </div>
@@ -189,12 +189,12 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
               <>
                 {/* Grade Level Selection with Strict Lock Explanation */}
                 <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                       {t('choose_grade_to_start')}
                     </label>
                     <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      {t('selected_grade')}: Grade {selectedGrade}
+                      {t('selected_grade')}: {t('grade')} {selectedGrade}
                     </span>
                   </div>
 
@@ -206,7 +206,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
                           key={g.level}
                           type="button"
                           onClick={() => setSelectedGrade(g.level)}
-                          className={`p-3.5 rounded-2xl border text-left transition-all relative ${
+                          className={`p-3.5 rounded-2xl border text-left transition-all relative cursor-pointer ${
                             isSelected
                               ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30'
                               : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700'
@@ -214,7 +214,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
                         >
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs font-black text-slate-900 dark:text-white">
-                              Grade {g.level} / {g.level}ኛ ክፍል
+                              {t('grade')} {g.level}
                             </span>
                             {isSelected ? (
                               <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -259,8 +259,8 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
               {busy
                 ? '...'
                 : mode === 'register'
-                ? `${t('confirm_and_enter')} (Grade ${selectedGrade})`
-                : 'ይግቡ / Enter'}
+                ? `${t('confirm_and_enter')} (${t('grade')} ${selectedGrade})`
+                : t('login_enter_btn')}
             </button>
           </form>
         </div>

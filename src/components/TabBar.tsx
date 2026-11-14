@@ -23,13 +23,13 @@ export const TabBar: React.FC<TabBarProps> = ({ currentModule, onSelectModule })
           className="hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1 font-semibold"
         >
           <Home className="w-3.5 h-3.5" />
-          <span>መነሻ (Home)</span>
+          <span>{t('home_label')}</span>
         </button>
 
         <ChevronRight className={`w-3 h-3 text-slate-400 shrink-0 ${isRtl ? 'rotate-180' : ''}`} />
 
         <span className="font-bold text-emerald-700 dark:text-emerald-300">
-          Grade {activeGrade}
+          {t('grade')} {activeGrade}
         </span>
 
         <ChevronRight className={`w-3 h-3 text-slate-400 shrink-0 ${isRtl ? 'rotate-180' : ''}`} />
@@ -47,7 +47,7 @@ export const TabBar: React.FC<TabBarProps> = ({ currentModule, onSelectModule })
           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gradient-to-r from-purple-900 to-indigo-900 hover:from-purple-800 hover:to-indigo-800 text-amber-300 border border-purple-500/40 font-bold text-[11px] shadow-xs transition"
         >
           <Sparkles className="w-3 h-3 text-amber-400" />
-          <span>💎 ፕሪሚየም ማዕከል</span>
+          <span>💎 {t('premium_center_short')}</span>
         </button>
 
         <button

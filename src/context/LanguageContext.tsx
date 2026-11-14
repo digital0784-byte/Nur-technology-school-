@@ -12,20 +12,42 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem('app_tutorial_language') as Language;
-    if (saved && ['am', 'om', 'ti', 'ar', 'so', 'en'].includes(saved)) {
+const VALID_LANGUAGES: Language[] = ['am', 'om', 'ti', 'ar', 'so', 'en'];
+
+const readInitialLanguage = (): Language => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const urlLang = params.get('lang') as Language | null;
+    if (urlLang && VALID_LANGUAGES.includes(urlLang)) {
+      return urlLang;
+    }
+  } catch {
+    // Ignore URL parsing errors
+  }
+  try {
+    const saved = window.localStorage.getItem('app_tutorial_language') as Language | null;
+    if (saved && VALID_LANGUAGES.includes(saved)) {
       return saved;
     }
-    return 'am'; // Amharic by default
-  });
+  } catch {
+    // Ignore storage access errors in third-party iframes / private browsing
+  }
+  return 'am';
+};
+
+export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [language, setLanguageState] = useState<Language>(readInitialLanguage);
 
   const isRtl = language === 'ar';
 
   const setLanguage = (newLang: Language) => {
+    if (!VALID_LANGUAGES.includes(newLang)) return;
     setLanguageState(newLang);
-    localStorage.setItem('app_tutorial_language', newLang);
+    try {
+      window.localStorage.setItem('app_tutorial_language', newLang);
+    } catch {
+      // Ignore storage access errors in third-party iframes / private browsing
+    }
   };
 
   useEffect(() => {
@@ -33,6 +55,16 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     document.documentElement.lang = language;
     document.documentElement.dir = isRtl ? 'rtl' : 'ltr';
   }, [language, isRtl]);
+
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'app_tutorial_language' && e.newValue && VALID_LANGUAGES.includes(e.newValue as Language)) {
+        setLanguageState(e.newValue as Language);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const t = (key: string, fallback?: string): string => {
     const currentDict = UI_TRANSLATIONS[language] || UI_TRANSLATIONS.am;
@@ -57,7 +89,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setLanguage,
         t,
         isRtl,
-        languageDetails: LANGUAGE_NAMES[language],
+        languageDetails: LANGUAGE_NAMES[language] || LANGUAGE_NAMES.am,
       }}
     >
       {children}

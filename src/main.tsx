@@ -5,7 +5,14 @@ import App from './App.tsx';
 import './index.css';
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  registerSW({ immediate: true });
+  registerSW({
+    immediate: true,
+    onRegisteredSW(_swUrl, registration) {
+      if (registration) {
+        registration.update().catch(() => {});
+      }
+    },
+  });
 }
 
 interface ErrorBoundaryProps {

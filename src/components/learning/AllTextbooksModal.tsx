@@ -40,16 +40,25 @@ export const AllTextbooksModal: React.FC<AllTextbooksModalProps> = ({
   const { language } = useLanguage();
   const { currentUser, isSuperAdmin, activeGrade } = useAuth();
 
-  const [selectedGrade, setSelectedGrade] = useState<GradeLevel | 'all'>('all');
+  const [selectedGrade, setSelectedGrade] = useState<GradeLevel | 'all'>(() =>
+    isSuperAdmin ? 'all' : activeGrade
+  );
   const [selectedStream, setSelectedStream] = useState<'All' | 'Natural Science' | 'Social Science'>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const effectiveGrade: GradeLevel | 'all' = isSuperAdmin ? selectedGrade : activeGrade;
 
   if (!isOpen) return null;
 
   // Filter textbooks according to Grade, Stream, and Search
   const filteredBooks = COMPREHENSIVE_TEXTBOOKS_REGISTRY.filter((book) => {
-    // Grade filter
-    if (selectedGrade !== 'all' && book.grade !== selectedGrade) {
+    // Strict registered grade enforcement for students
+    if (!isSuperAdmin && book.grade !== activeGrade) {
+      return false;
+    }
+
+    // Grade filter (Super Admin)
+    if (effectiveGrade !== 'all' && book.grade !== effectiveGrade) {
       return false;
     }
 
@@ -89,10 +98,14 @@ export const AllTextbooksModal: React.FC<AllTextbooksModalProps> = ({
               የይፋዊ መማሪያ መጽሐፍት ካታሎግ (MoE 2019 E.C.)
             </div>
             <h2 className="text-xl sm:text-2xl font-black">
-              የክፍል 9-12 የትምህርት ሚኒስቴር ሙሉ የመማሪያ መጽሐፍት
+              {isSuperAdmin
+                ? 'የክፍል 9-12 የትምህርት ሚኒስቴር ሙሉ የመማሪያ መጽሐፍት'
+                : `የክፍል ${activeGrade} የትምህርት ሚኒስቴር የመማሪያ መጽሐፍት`}
             </h2>
             <p className="text-xs text-emerald-100/90">
-              በአዲሱ የኢ.ፌ.ዲ.ሪ ስርዓተ-ትምህርት መሰረት የተዘጋጁ ቋሚ የመማሪያ መጽሐፍት ቤተ-መጽሐፍት
+              {isSuperAdmin
+                ? 'በአዲሱ የኢ.ፌ.ዲ.ሪ ስርዓተ-ትምህርት መሰረት የተዘጋጁ ቋሚ የመማሪያ መጽሐፍት ቤተ-መጽሐፍት'
+                : `ከተመዘገቡበት ክፍል (ክፍል ${activeGrade}) ውጪ ያሉ መጽሐፍት በህግ የተቆለፉ ናቸው`}
             </p>
           </div>
 
@@ -111,20 +124,27 @@ export const AllTextbooksModal: React.FC<AllTextbooksModalProps> = ({
           {/* Grade Selector */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
             <span className="font-bold text-slate-400 mr-1 shrink-0">ክፍል (Grade):</span>
-            {(['all', 9, 10, 11, 12] as const).map((g) => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => setSelectedGrade(g)}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
-                  selectedGrade === g
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400'
-                }`}
-              >
-                {g === 'all' ? 'ሁሉም (All Grades)' : `Grade ${g}`}
-              </button>
-            ))}
+            {isSuperAdmin ? (
+              (['all', 9, 10, 11, 12] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setSelectedGrade(g)}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 ${
+                    selectedGrade === g
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400'
+                  }`}
+                >
+                  {g === 'all' ? 'ሁሉም (All Grades)' : `Grade ${g}`}
+                </button>
+              ))
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold bg-emerald-600 text-white shadow-xs shrink-0">
+                <Lock className="w-3.5 h-3.5" />
+                Grade {activeGrade} (የተመዘገቡበት ክፍል ብቻ)
+              </span>
+            )}
           </div>
 
           {/* Stream Selector & Search */}
@@ -258,6 +278,7 @@ export const AllTextbooksModal: React.FC<AllTextbooksModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
+                        if (!isSuperAdmin && book.grade !== activeGrade) return;
                         onSelectBook(book);
                         onClose();
                       }}

@@ -56,7 +56,7 @@ type ViewMode = 'catalog_index' | 'reader';
 type SectionTab = TextbookSectionTab;
 
 export const TextbookView: React.FC = () => {
-  const { currentUser, activeGrade } = useAuth();
+  const { currentUser, activeGrade, isSuperAdmin } = useAuth();
   const { t, language } = useLanguage();
 
   const [readingState, setReadingState] = useState<AllBookReadingState>(() =>
@@ -66,7 +66,7 @@ export const TextbookView: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('catalog_index');
   const [selectedLanguageOverride, setSelectedLanguageOverride] = useState<Language>(language);
 
-  // Retrieve Master Index for current grade
+  // Retrieve Master Index strictly for registered grade
   const { coreSubjects, supplementaryGuides } = getCurriculumMasterIndex(activeGrade);
   const allGradeBooks = [...coreSubjects, ...supplementaryGuides];
 
@@ -79,11 +79,26 @@ export const TextbookView: React.FC = () => {
     if (lastForGrade && lastForGrade.grade === activeGrade) {
       return lastForGrade.bookId;
     }
-    return coreSubjects[0]?.id || COMPREHENSIVE_TEXTBOOKS_REGISTRY[0].id;
+    return coreSubjects[0]?.id || allGradeBooks[0]?.id || COMPREHENSIVE_TEXTBOOKS_REGISTRY[0].id;
   });
+  const matchedBook = COMPREHENSIVE_TEXTBOOKS_REGISTRY.find((b) => b.id === selectedBookId);
   const currentBook: TextbookRecord =
-    COMPREHENSIVE_TEXTBOOKS_REGISTRY.find((b) => b.id === selectedBookId) ||
-    COMPREHENSIVE_TEXTBOOKS_REGISTRY[0];
+    matchedBook && (isSuperAdmin || matchedBook.grade === activeGrade)
+      ? matchedBook
+      : coreSubjects[0] || allGradeBooks[0] || COMPREHENSIVE_TEXTBOOKS_REGISTRY[0];
+
+  // Keep selected book strictly inside activeGrade if grade changes
+  useEffect(() => {
+    if (!isSuperAdmin && currentBook.grade !== activeGrade) {
+      const gradeFallback = coreSubjects[0] || allGradeBooks[0];
+      if (gradeFallback) {
+        setSelectedBookId(gradeFallback.id);
+        setSelectedChapterIdx(0);
+        setActiveTab('theory');
+        setViewMode('catalog_index');
+      }
+    }
+  }, [isSuperAdmin, activeGrade, currentBook.grade, coreSubjects, allGradeBooks]);
 
   // Book Table of Contents Modal state (Triggered whenever a book is clicked!)
   const [isTocModalOpen, setIsTocModalOpen] = useState<boolean>(false);
@@ -130,7 +145,7 @@ export const TextbookView: React.FC = () => {
     if (pendingBookId) {
       const targetBook = COMPREHENSIVE_TEXTBOOKS_REGISTRY.find((b) => b.id === pendingBookId);
       const saved = local.textbooks[pendingBookId];
-      if (targetBook && saved) {
+      if (targetBook && saved && (isSuperAdmin || targetBook.grade === activeGrade)) {
         setSelectedBookId(targetBook.id);
         setSelectedChapterIdx(Math.max(0, Math.min(saved.chapterIdx, targetBook.chapters.length - 1)));
         setActiveTab(saved.tab || 'theory');
@@ -154,11 +169,12 @@ export const TextbookView: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [currentUser.id]);
+  }, [currentUser.id, isSuperAdmin, activeGrade]);
 
   // Persist reading position whenever reading in 'reader' (breakdown) mode
   useEffect(() => {
     if (viewMode !== 'reader') return;
+    if (!isSuperAdmin && currentBook.grade !== activeGrade) return;
     const ch = currentBook.chapters[selectedChapterIdx] || currentBook.chapters[0];
     if (!ch) return;
 
@@ -193,6 +209,7 @@ export const TextbookView: React.FC = () => {
     chapterIdx?: number,
     explicitPage?: number
   ) => {
+    if (!isSuperAdmin && book.grade !== activeGrade) return;
     const saved = readingState.textbooks[book.id];
     const targetChapterIdx =
       typeof chapterIdx === 'number' ? chapterIdx : saved?.chapterIdx ?? 0;
@@ -213,6 +230,7 @@ export const TextbookView: React.FC = () => {
     book: TextbookRecord,
     modeOverride?: 'breakdown' | 'secure_reader'
   ) => {
+    if (!isSuperAdmin && book.grade !== activeGrade) return;
     const saved = readingState.textbooks[book.id];
     const chIdx = saved
       ? Math.max(0, Math.min(saved.chapterIdx, book.chapters.length - 1))
@@ -244,8 +262,10 @@ export const TextbookView: React.FC = () => {
     supplementary: 'አጋዥ መረጃ (Supplementary)',
   };
 
-  const lastReadForGrade = getLastReadTextbook(currentUser.id, activeGrade);
-  const lastReadOverall = lastReadForGrade || getLastReadTextbook(currentUser.id);
+  const lastReadForGrade = getLastReadTextbook(currentUser.id, activeGrade, !isSuperAdmin);
+  const lastReadOverall = isSuperAdmin
+    ? lastReadForGrade || getLastReadTextbook(currentUser.id)
+    : lastReadForGrade;
   const lastReadBookRecord = lastReadOverall
     ? COMPREHENSIVE_TEXTBOOKS_REGISTRY.find((b) => b.id === lastReadOverall.bookId) || null
     : null;
@@ -261,6 +281,7 @@ export const TextbookView: React.FC = () => {
 
   // Click on ANY book immediately opens its Table of Contents (ማውጫ)
   const handleBookCardClick = (book: TextbookRecord) => {
+    if (!isSuperAdmin && book.grade !== activeGrade) return;
     setTocModalBook(book);
     setIsTocModalOpen(true);
   };
@@ -271,6 +292,7 @@ export const TextbookView: React.FC = () => {
     chapterIdx: number,
     targetTab: SectionTab = 'theory'
   ) => {
+    if (!isSuperAdmin && book.grade !== activeGrade) return;
     setSelectedBookId(book.id);
     setSelectedChapterIdx(chapterIdx);
     setActiveTab(targetTab);
@@ -345,14 +367,18 @@ export const TextbookView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Browse All Grades Catalog Modal Button */}
+          {/* Browse Registered Grade Catalog Modal Button */}
           <button
             type="button"
             onClick={() => setIsAllTextbooksModalOpen(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>ሁሉንም መጽሐፍት አስስ (Grades 9-12 Catalog)</span>
+            <span>
+              {isSuperAdmin
+                ? 'ሁሉንም መጽሐፍት አስስ (Grades 9-12 Catalog)'
+                : `የክፍል ${activeGrade} መጽሐፍት ካታሎግ (Grade ${activeGrade} Catalog)`}
+            </span>
           </button>
 
           {/* Secure Reader Quick Button */}
@@ -640,14 +666,15 @@ export const TextbookView: React.FC = () => {
           </div>
 
           {/* Section B: Supplementary Books & National Exam Guides for Enrolled Grade */}
+          {supplementaryGuides.length > 0 && (
           <div className="space-y-4 pt-4">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
               <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <BookmarkCheck className="w-5 h-5 text-purple-600" />
-                የአጋዥ መጻሕፍት እና የፈተና መመሪያዎች ማውጫ (Supplementary Guides & Exam Banks)
+                የክፍል {activeGrade} አጋዥ መጻሕፍት እና መመሪያዎች (Supplementary Guides)
               </h2>
               <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">
-                MoE Verified Resources
+                MoE Verified Resources • Grade {activeGrade}
               </span>
             </div>
 
@@ -750,6 +777,7 @@ export const TextbookView: React.FC = () => {
               })}
             </div>
           </div>
+          )}
         </div>
       )}
 

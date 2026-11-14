@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { Language } from '../../types';
+import { GradeLevel, Language } from '../../types';
 import {
   AllBookReadingState,
   loadBookReadingState,
@@ -48,6 +48,7 @@ export interface PracticeExercise {
 export interface SupplementaryBookRecord {
   id: string;
   series: 'Extreme' | 'Alpha' | 'Galaxy' | 'MoE_STEM';
+  eligibleGrades: GradeLevel[];
   title: Record<Language, string>;
   author: string;
   edition: string;
@@ -72,6 +73,7 @@ export const SUPPLEMENTARY_BOOKS_CATALOG: SupplementaryBookRecord[] = [
   {
     id: 'supp-extreme-math',
     series: 'Extreme',
+    eligibleGrades: [11, 12],
     title: {
       am: 'ኤክስትሪም የሂሳብ ማጠቃለያ እና የፈተና ጥያቄዎች (Extreme Mathematics Grade 11 & 12)',
       om: 'Extreme Herrega Kutaa 11 fi 12',
@@ -225,6 +227,7 @@ export const SUPPLEMENTARY_BOOKS_CATALOG: SupplementaryBookRecord[] = [
   {
     id: 'supp-extreme-phys',
     series: 'Extreme',
+    eligibleGrades: [11, 12],
     title: {
       am: 'ኤክስትሪም ፊዚክስ ማጠቃለያ (Extreme Physics Grade 11 & 12)',
       om: 'Extreme Fiiziksii Kutaa 11 fi 12',
@@ -345,6 +348,7 @@ export const SUPPLEMENTARY_BOOKS_CATALOG: SupplementaryBookRecord[] = [
   {
     id: 'supp-extreme-chem',
     series: 'Extreme',
+    eligibleGrades: [11, 12],
     title: {
       am: 'ኤክስትሪም ኬሚስትሪ ማጠቃለያ (Extreme Chemistry Grade 11 & 12)',
       om: 'Extreme Keemistirii Kutaa 11 fi 12',
@@ -441,6 +445,7 @@ export const SUPPLEMENTARY_BOOKS_CATALOG: SupplementaryBookRecord[] = [
   {
     id: 'supp-alpha-workbook',
     series: 'Alpha',
+    eligibleGrades: [12],
     title: {
       am: 'አልፋ ሴሪስ የዩኒቨርሲቲ መግቢያ ፈተናዎች ማሰልጠኛ (Alpha Series EUEE Model Workbook)',
       om: 'Alpha Series Qophii Qormaata Yuunivarsiitii',
@@ -528,6 +533,7 @@ export const SUPPLEMENTARY_BOOKS_CATALOG: SupplementaryBookRecord[] = [
   {
     id: 'supp-galaxy-bank',
     series: 'Galaxy',
+    eligibleGrades: [12],
     title: {
       am: 'ጋላክሲ ሴሪስ የ10 ዓመታት የብሔራዊ ፈተናዎች ጥራዝ (Galaxy Series EUEE 10-Year Bank)',
       om: 'Galaxy Series Qormaata Waggaa 10',
@@ -613,14 +619,20 @@ export const SUPPLEMENTARY_BOOKS_CATALOG: SupplementaryBookRecord[] = [
 ];
 
 export const SupplementaryBooksView: React.FC = () => {
-  const { currentUser, isSuperAdmin } = useAuth();
+  const { currentUser, isSuperAdmin, activeGrade } = useAuth();
   const { isUnlocked } = useSubscription();
   const { language, isRtl } = useLanguage();
 
   // Premium Access determination: Super Admin has lifetime root bypass
   const hasPremiumAccess = isSuperAdmin || isUnlocked || currentUser.isPremium;
 
-  // State (initialized from saved supplementary reading state)
+  // Strict Grade Isolation: students may ONLY see/use books belonging to their registered grade
+  const gradeEligibleBooks = useMemo(() => {
+    if (isSuperAdmin) return SUPPLEMENTARY_BOOKS_CATALOG;
+    return SUPPLEMENTARY_BOOKS_CATALOG.filter((book) => book.eligibleGrades.includes(activeGrade));
+  }, [isSuperAdmin, activeGrade]);
+
+  // State (initialized from saved supplementary reading state, strictly filtered by grade)
   const [readingState, setReadingState] = useState<AllBookReadingState>(() =>
     loadBookReadingState(currentUser.id)
   );
@@ -629,19 +641,19 @@ export const SupplementaryBooksView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeBookId, setActiveBookId] = useState<string>(() => {
     const last = getLastReadSupplementary(currentUser.id);
-    if (last && SUPPLEMENTARY_BOOKS_CATALOG.some((b) => b.id === last.bookId)) {
+    if (last && gradeEligibleBooks.some((b) => b.id === last.bookId)) {
       return last.bookId;
     }
-    return SUPPLEMENTARY_BOOKS_CATALOG[0].id;
+    return gradeEligibleBooks[0]?.id || '';
   });
   const [expandedChapter, setExpandedChapter] = useState<number | null>(() => {
     const initialState = loadBookReadingState(currentUser.id);
-    const bookId = initialState.lastSupplementaryId || SUPPLEMENTARY_BOOKS_CATALOG[0].id;
+    const bookId = initialState.lastSupplementaryId || gradeEligibleBooks[0]?.id || '';
     return initialState.supplementary[bookId]?.chapterNumber ?? 1;
   });
   const [expandedExercise, setExpandedExercise] = useState<number | null>(() => {
     const initialState = loadBookReadingState(currentUser.id);
-    const bookId = initialState.lastSupplementaryId || SUPPLEMENTARY_BOOKS_CATALOG[0].id;
+    const bookId = initialState.lastSupplementaryId || gradeEligibleBooks[0]?.id || '';
     return initialState.supplementary[bookId]?.expandedExercise ?? null;
   });
   const viewerSectionRef = useRef<HTMLDivElement>(null);
@@ -660,9 +672,9 @@ export const SupplementaryBooksView: React.FC = () => {
     };
   }, [currentUser.id]);
 
-  // Filtered books catalog
+  // Filtered books catalog (strictly within gradeEligibleBooks)
   const filteredBooks = useMemo(() => {
-    return SUPPLEMENTARY_BOOKS_CATALOG.filter((book) => {
+    return gradeEligibleBooks.filter((book) => {
       const matchSeries = selectedSeries === 'ALL' || book.series === selectedSeries;
       const matchSubject = selectedSubject === 'ALL' || book.subjectCode === selectedSubject || book.subjectCode === 'ALL';
       const titleStr = (book.title[language] || book.title.en).toLowerCase();
@@ -671,17 +683,30 @@ export const SupplementaryBooksView: React.FC = () => {
       const matchSearch = !queryStr || titleStr.includes(queryStr) || authorStr.includes(queryStr);
       return matchSeries && matchSubject && matchSearch;
     });
-  }, [selectedSeries, selectedSubject, searchQuery, language]);
+  }, [gradeEligibleBooks, selectedSeries, selectedSubject, searchQuery, language]);
 
   const activeBook = useMemo(() => {
+    if (gradeEligibleBooks.length === 0) return null;
     return (
-      SUPPLEMENTARY_BOOKS_CATALOG.find((b) => b.id === activeBookId) ||
-      SUPPLEMENTARY_BOOKS_CATALOG[0]
+      gradeEligibleBooks.find((b) => b.id === activeBookId) ||
+      gradeEligibleBooks[0]
     );
-  }, [activeBookId]);
+  }, [gradeEligibleBooks, activeBookId]);
+
+  // Keep activeBookId synced inside gradeEligibleBooks when grade changes
+  useEffect(() => {
+    if (gradeEligibleBooks.length === 0) return;
+    if (!gradeEligibleBooks.some((b) => b.id === activeBookId)) {
+      setActiveBookId(gradeEligibleBooks[0].id);
+      setExpandedChapter(1);
+      setExpandedExercise(null);
+    }
+  }, [gradeEligibleBooks, activeBookId]);
 
   // Persist reading state whenever activeBook, expandedChapter, or expandedExercise changes
   useEffect(() => {
+    if (!activeBook) return;
+    if (!isSuperAdmin && !activeBook.eligibleGrades.includes(activeGrade)) return;
     const chapterNum = expandedChapter ?? activeBook.chapters[0]?.chapterNumber ?? 1;
     const chapterObj =
       activeBook.chapters.find((c) => c.chapterNumber === chapterNum) || activeBook.chapters[0];
@@ -694,12 +719,35 @@ export const SupplementaryBooksView: React.FC = () => {
       expandedExercise,
     });
     setReadingState(updated);
-  }, [activeBook, expandedChapter, expandedExercise, currentUser.id, language]);
+  }, [activeBook, expandedChapter, expandedExercise, currentUser.id, language, isSuperAdmin, activeGrade]);
 
-  const lastSupp = getLastReadSupplementary(currentUser.id);
-  const lastSuppBook = lastSupp
-    ? SUPPLEMENTARY_BOOKS_CATALOG.find((b) => b.id === lastSupp.bookId) || null
+  const rawLastSupp = getLastReadSupplementary(currentUser.id);
+  const lastSuppBook = rawLastSupp
+    ? gradeEligibleBooks.find((b) => b.id === rawLastSupp.bookId) || null
     : null;
+  const lastSupp = lastSuppBook ? rawLastSupp : null;
+
+  if (!activeBook) {
+    return (
+      <div className={`space-y-6 ${isRtl ? 'text-right' : 'text-left'}`}>
+        <div className="p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-center space-y-4 max-w-2xl mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+            <Lock className="w-8 h-8" />
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+            የክፍል {activeGrade} አጋዥ መጻሕፍት ገደብ (Grade {activeGrade} Lock)
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-lg mx-auto">
+            ከተመዘገቡበት የትምህርት ደረጃ (ክፍል {activeGrade}) ውጪ ያሉ መጻሕፍትን (Extreme፣ Alpha እና Galaxy የ11ኛና 12ኛ ክፍል EUEE መመሪያዎችን) ማየትም ሆነ መጠቀም አይችሉም።
+          </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+            <ShieldCheck className="w-4 h-4" />
+            <span>በተመዘገቡበት ክፍል {activeGrade} የመማሪያ መጻሕፍት ክፍል መማር ይችላሉ</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-6 ${isRtl ? 'text-right' : 'text-left'}`}>
@@ -779,20 +827,26 @@ export const SupplementaryBooksView: React.FC = () => {
               { id: 'Extreme', label: 'Extreme Series' },
               { id: 'Alpha', label: 'Alpha Series' },
               { id: 'Galaxy', label: 'Galaxy Series' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setSelectedSeries(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border ${
-                  selectedSeries === tab.id
-                    ? 'bg-indigo-500 text-slate-950 border-indigo-400 shadow-sm font-black'
-                    : 'bg-indigo-950/60 text-indigo-200 border-indigo-800/60 hover:bg-indigo-800/80 hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            ]
+              .filter(
+                (tab) =>
+                  tab.id === 'ALL' ||
+                  gradeEligibleBooks.some((b) => b.series === tab.id)
+              )
+              .map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedSeries(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border ${
+                    selectedSeries === tab.id
+                      ? 'bg-indigo-500 text-slate-950 border-indigo-400 shadow-sm font-black'
+                      : 'bg-indigo-950/60 text-indigo-200 border-indigo-800/60 hover:bg-indigo-800/80 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
           </div>
 
           {/* Search Bar */}
@@ -881,7 +935,7 @@ export const SupplementaryBooksView: React.FC = () => {
             <span>
               {language === 'am' ? 'የመጻሕፍት ዝርዝር' : 'Available Textbooks'} ({filteredBooks.length})
             </span>
-            <span>Grade 11 - 12 Focused</span>
+            <span>{isSuperAdmin ? 'All Grades (Admin)' : `Grade ${activeGrade} Only`}</span>
           </div>
 
           <div className="space-y-3">
