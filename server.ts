@@ -17,6 +17,7 @@ import { generateCurriculumLessonFallback } from './curriculumLessonFallback';
 import { requireAuth, requireSuperAdmin, isPremiumActive, isPremiumLearningActive } from './src/server/authMiddleware';
 import { CURRICULUM_DATA } from './src/data/curriculum';
 import { paymentsRouter, VERIFIED_PAYMENT_ACCOUNTS, getPricing } from './src/server/paymentsApi';
+import { booksRouter } from './src/server/booksApi';
 import { aiContextMiddleware, consumeAiQuota } from './src/server/aiQuota';
 import { adminDb } from './src/server/adminDb';
 
@@ -35,6 +36,7 @@ app.use('/api', (req, res, next) => (req.path === '/health' || req.path === '/pa
 app.use('/api', rateLimiterMiddleware);
 app.use('/api', aiContextMiddleware);
 app.use('/api/payment', paymentsRouter);
+app.use('/api/books', booksRouter);
 app.use('/api/admin', requireSuperAdmin, adminAutomationRouter);
 app.use('/api/security', (req, res, next) => (req.method === 'POST' && req.path === '/audit-logs') ? next() : requireSuperAdmin(req, res, next), securityRouter);
 

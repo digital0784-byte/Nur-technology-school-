@@ -52,6 +52,9 @@ export function rateLimiterMiddleware(req: Request, res: Response, next: NextFun
     return next();
   }
 
+  // Book PDF streaming makes many small Range requests (pdf.js); access is already plan-checked in booksApi.
+  if (/^\/(api\/)?books\/[^/]+\/file$/.test(req.path)) return next();
+
   // Identify client by (req as any).user?.uid first, then the existing IP logic
   const forwarded = req.headers['x-forwarded-for'];
   const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || '127.0.0.1';

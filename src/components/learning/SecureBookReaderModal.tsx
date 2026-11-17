@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { TextbookRecord, TextbookChapter } from '../../data/textbooksRegistry';
 import { authFetch } from '../../services/apiClient';
+import { PdfBookViewer } from './PdfBookViewer';
 import {
   getTextbookProgress,
   saveTextbookProgress,
@@ -66,6 +67,20 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
   const [sessionTimestamp, setSessionTimestamp] = useState<string>(new Date().toUTCString());
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
+  // Full-book PDF streamed from the server (only when the super admin has linked a Drive file to this book).
+  const [hasPdf, setHasPdf] = useState(false);
+  const [pdfMode, setPdfMode] = useState(false);
+  useEffect(() => {
+    if (!isOpen || isGradeUnauthorized) return;
+    let alive = true;
+    setHasPdf(false);
+    setPdfMode(false);
+    authFetch('/api/books/available')
+      .then((r) => r.json())
+      .then((b) => { if (alive && Array.isArray(b?.bookIds) && b.bookIds.includes(book.id)) { setHasPdf(true); setPdfMode(true); } })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [isOpen, isGradeUnauthorized, book.id]);
   const scrollCanvasRef = useRef<HTMLDivElement>(null);
   const savedScrollTopRef = useRef<number>(0);
 
@@ -435,6 +450,16 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
             </button>
           </div>
 
+          {hasPdf && (
+            <button
+              type="button"
+              onClick={() => setPdfMode((m) => !m)}
+              className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors"
+            >
+              {pdfMode ? 'ማጠቃለያ (Digest)' : 'ሙሉ መጽሐፍ (PDF)'}
+            </button>
+          )}
+
           {/* Theme Modes */}
           <button
             type="button"
@@ -530,10 +555,21 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
           ))}
         </div>
 
+        {pdfMode && hasPdf && (
+          <div className="relative z-10 w-full">
+            <PdfBookViewer
+              bookId={book.id}
+              watermark={`${currentUser.email || currentUser.name || 'NUR_STUDENT'} • ${sessionId}`}
+              zoom={zoomLevel}
+              onPageChange={(p) => setCurrentPage(p)}
+            />
+          </div>
+        )}
+
         {/* Rendered Book Page Document Surface */}
         <div
           className={`relative max-w-4xl w-full min-h-[900px] p-6 sm:p-12 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${pageSurfaceClasses}`}
-          style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
+          style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', display: pdfMode && hasPdf ? 'none' : undefined }}
         >
           {/* Official MoE Running Header */}
           <div className="border-b pb-3 mb-6 flex items-center justify-between text-xs text-slate-400 font-semibold border-slate-200 dark:border-slate-800">
