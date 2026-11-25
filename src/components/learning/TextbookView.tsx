@@ -50,6 +50,7 @@ import {
   X,
   FileSpreadsheet,
   RotateCcw,
+  RefreshCw,
 } from 'lucide-react';
 
 type ViewMode = 'catalog_index' | 'reader';
@@ -104,12 +105,31 @@ export const TextbookView: React.FC = () => {
   const [isTocModalOpen, setIsTocModalOpen] = useState<boolean>(false);
   const [tocModalBook, setTocModalBook] = useState<TextbookRecord>(currentBook);
 
-  // Secure DRM Reader and Full Library Catalog Modals
   const [isAllTextbooksModalOpen, setIsAllTextbooksModalOpen] = useState<boolean>(false);
   const [isSecureReaderOpen, setIsSecureReaderOpen] = useState<boolean>(false);
   const [secureReaderBook, setSecureReaderBook] = useState<TextbookRecord>(currentBook);
+  const [secureReaderDriveFileId, setSecureReaderDriveFileId] = useState<string | undefined>(undefined);
   const [secureReaderInitialPage, setSecureReaderInitialPage] = useState<number | undefined>(undefined);
   const [secureReaderInitialChapterIdx, setSecureReaderInitialChapterIdx] = useState<number>(0);
+
+  // Google Drive "Nur Books" library state (organized by Grade 9-12, paginated, grade-locked for students)
+  interface DriveLibraryItem {
+    id: string;
+    name: string;
+    mimeType: string;
+    size?: string;
+    modifiedTime?: string;
+    grade: 9 | 10 | 11 | 12 | null;
+    folderName?: string;
+  }
+  const [driveSelectedGrade, setDriveSelectedGrade] = useState<9 | 10 | 11 | 12>(activeGrade);
+  const [driveBooks, setDriveBooks] = useState<DriveLibraryItem[]>([]);
+  const [drivePage, setDrivePage] = useState<number>(1);
+  const [driveHasMore, setDriveHasMore] = useState<boolean>(false);
+  const [driveTotal, setDriveTotal] = useState<number>(0);
+  const [driveLoading, setDriveLoading] = useState<boolean>(false);
+  const [driveRefreshing, setDriveRefreshing] = useState<boolean>(false);
+  const [driveError, setDriveError] = useState<string | null>(null);
   const [deepDiveTopic, setDeepDiveTopic] = useState<{
     topic: SubTopicItem;
     unitNumber: number;
@@ -135,6 +155,81 @@ export const TextbookView: React.FC = () => {
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
   const readerContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sync Drive grade tab to registered grade for students
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setDriveSelectedGrade(activeGrade);
+    }
+  }, [isSuperAdmin, activeGrade]);
+
+  const loadDriveBooks = async (gradeToLoad: 9 | 10 | 11 | 12, pageToLoad: number, append: boolean) => {
+    setDriveLoading(true);
+    setDriveError(null);
+    try {
+      const r = await authFetch(`/api/books/drive/list?grade=${gradeToLoad}&page=${pageToLoad}&pageSize=12`);
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok || !b.success) {
+        throw new Error(b?.error || `HTTP ${r.status}`);
+      }
+      const items: DriveLibraryItem[] = Array.isArray(b.files) ? b.files : [];
+      setDriveBooks((prev) => (append ? [...prev, ...items] : items));
+      setDrivePage(pageToLoad);
+      setDriveHasMore(Boolean(b.hasMore));
+      setDriveTotal(Number(b.total ?? items.length));
+    } catch (e: any) {
+      if (!append) setDriveBooks([]);
+      setDriveError(e?.message || 'Google Drive መጻሕፍትን ማምጣት አልተቻለም።');
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDriveBooks(isSuperAdmin ? driveSelectedGrade : activeGrade, 1, false);
+  }, [isSuperAdmin, driveSelectedGrade, activeGrade]);
+
+  const handleRefreshDriveBooks = async () => {
+    if (!isSuperAdmin) return;
+    setDriveRefreshing(true);
+    setDriveError(null);
+    try {
+      const r = await authFetch('/api/books/admin/refresh', { method: 'POST' });
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok || !b.success) {
+        throw new Error(b?.error || `HTTP ${r.status}`);
+      }
+      await loadDriveBooks(driveSelectedGrade, 1, false);
+    } catch (e: any) {
+      setDriveError(e?.message || 'መጻሕፍትን ማደስ አልተቻለም።');
+    } finally {
+      setDriveRefreshing(false);
+    }
+  };
+
+  const handleOpenDrivePdf = (item: DriveLibraryItem) => {
+    const itemGrade = (item.grade ?? activeGrade) as 9 | 10 | 11 | 12;
+    if (!isSuperAdmin && itemGrade !== activeGrade) return;
+    const baseTemplate =
+      COMPREHENSIVE_TEXTBOOKS_REGISTRY.find((b) => b.grade === itemGrade) || currentBook;
+    const cleanTitle = item.name.replace(/\.pdf$/i, '');
+    const virtualBook: TextbookRecord = {
+      ...baseTemplate,
+      id: `drive-${item.id}`,
+      grade: itemGrade,
+      title: {
+        ...baseTemplate.title,
+        am: cleanTitle,
+        en: cleanTitle,
+      },
+      fileSizeBytes: item.size ? Number(item.size) : baseTemplate.fileSizeBytes,
+    };
+    setSecureReaderDriveFileId(item.id);
+    setSecureReaderBook(virtualBook);
+    setSecureReaderInitialChapterIdx(0);
+    setSecureReaderInitialPage(1);
+    setIsSecureReaderOpen(true);
+  };
 
   // Reload & sync cloud progress on user change or mount, and handle Dashboard auto-resume
   useEffect(() => {
@@ -220,6 +315,7 @@ export const TextbookView: React.FC = () => {
         ? book.chapters[chapterIdx]?.startPage
         : saved?.pageNumber;
 
+    setSecureReaderDriveFileId(undefined);
     setSecureReaderBook(book);
     setSecureReaderInitialChapterIdx(targetChapterIdx);
     setSecureReaderInitialPage(targetPage);
@@ -778,6 +874,140 @@ export const TextbookView: React.FC = () => {
             </div>
           </div>
           )}
+          {/* Section C: Google Drive "Nur Books" PDF Library (Organized by Grade 9-12) */}
+          <div className="space-y-4 pt-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Cloud className="w-5 h-5 text-indigo-600" />
+                  <span>
+                    የክፍል {isSuperAdmin ? driveSelectedGrade : activeGrade} PDF መጻሕፍት ቤተ-መጽሐፍት (Nur Books Drive)
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  በGoogle Drive የተደራጁ የመማሪያ መጻሕፍት — ያለ ምንም Download በSecure PDF Reader ይነበባሉ ({driveTotal} ፋይሎች)
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {isSuperAdmin && (
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                    {([9, 10, 11, 12] as const).map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setDriveSelectedGrade(g)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                          driveSelectedGrade === g
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                        }`}
+                      >
+                        Grade {g}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {isSuperAdmin && (
+                  <button
+                    type="button"
+                    disabled={driveRefreshing || driveLoading}
+                    onClick={handleRefreshDriveBooks}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 transition-colors"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${driveRefreshing ? 'animate-spin' : ''}`} />
+                    <span>{driveRefreshing ? 'በማደስ ላይ...' : 'Refresh Books'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {driveLoading && driveBooks.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-500 flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" />
+                <span>የ Nur Books መጻሕፍትን ከሰርቨር በመጫን ላይ...</span>
+              </div>
+            ) : driveError ? (
+              <div className="p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-bold">የ Google Drive መጻሕፍት ዝርዝር ገና አልተገናኘም</div>
+                  <p className="text-[11px] opacity-90">{driveError}</p>
+                </div>
+              </div>
+            ) : driveBooks.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+                ለክፍል {isSuperAdmin ? driveSelectedGrade : activeGrade} በ Nur Books አቃፊ ውስጥ የተመዘገበ PDF ፋይል ገና አልተገኘም።
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {driveBooks
+                    .filter(
+                      (item) =>
+                        !searchFilter.trim() ||
+                        item.name.toLowerCase().includes(searchFilter.trim().toLowerCase())
+                    )
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition-all shadow-xs flex flex-col justify-between gap-3"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px] font-bold">
+                            <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 uppercase">
+                              Grade {item.grade ?? activeGrade} • PDF
+                            </span>
+                            {item.size && (
+                              <span className="font-mono text-slate-400">
+                                {(Number(item.size) / (1024 * 1024)).toFixed(1)} MB
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white line-clamp-2">
+                            {item.name.replace(/\.pdf$/i, '')}
+                          </h3>
+                          {item.modifiedTime && (
+                            <p className="text-[10px] font-mono text-slate-400">
+                              Updated: {new Date(item.modifiedTime).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDrivePdf(item)}
+                          className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>በ Secure Reader አንብብ (No Download)</span>
+                        </button>
+                      </div>
+                    ))}
+                </div>
+
+                {driveHasMore && (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      disabled={driveLoading}
+                      onClick={() =>
+                        loadDriveBooks(
+                          isSuperAdmin ? driveSelectedGrade : activeGrade,
+                          drivePage + 1,
+                          true
+                        )
+                      }
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-50"
+                    >
+                      {driveLoading ? 'በመጫን ላይ...' : 'ተጨማሪ መጻሕፍት አሳይ (Load More)'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1788,11 +2018,13 @@ export const TextbookView: React.FC = () => {
       {/* ======================================================== */}
       <SecureBookReaderModal
         book={secureReaderBook}
+        driveFileId={secureReaderDriveFileId}
         initialPage={secureReaderInitialPage}
         initialChapterIdx={secureReaderInitialChapterIdx}
         isOpen={isSecureReaderOpen}
         onClose={() => {
           setIsSecureReaderOpen(false);
+          setSecureReaderDriveFileId(undefined);
           setReadingState(loadBookReadingState(currentUser.id));
         }}
         onProgressSaved={() => setReadingState(loadBookReadingState(currentUser.id))}

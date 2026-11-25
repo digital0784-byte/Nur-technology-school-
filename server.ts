@@ -17,7 +17,7 @@ import { generateCurriculumLessonFallback } from './curriculumLessonFallback';
 import { requireAuth, requireSuperAdmin, isPremiumActive, isPremiumLearningActive } from './src/server/authMiddleware';
 import { CURRICULUM_DATA } from './src/data/curriculum';
 import { paymentsRouter, VERIFIED_PAYMENT_ACCOUNTS, getPricing } from './src/server/paymentsApi';
-import { booksRouter } from './src/server/booksApi';
+import { booksRouter, runDriveStartupDiagnostic } from './src/server/booksApi';
 import { aiContextMiddleware, consumeAiQuota } from './src/server/aiQuota';
 import { adminDb } from './src/server/adminDb';
 
@@ -1510,6 +1510,23 @@ async function setupServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`NUR AI School Server running on http://0.0.0.0:${PORT}`);
+    // Non-blocking startup verification using server-side GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON (stores only non-secret file metadata)
+    runDriveStartupDiagnostic()
+      .then((diag) => {
+        try {
+          const dataDir = path.resolve(process.cwd(), '.data');
+          if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+          fs.writeFileSync(path.join(dataDir, 'drive_boot_check.json'), JSON.stringify(diag, null, 2));
+        } catch {
+          // ignore local diagnostic write failure
+        }
+        if (diag.connected) {
+          console.log(`[booksApi] Google Drive connected (${diag.serviceAccountEmail}) -> "${diag.folderName}" (${diag.totalPdfCount ?? 0} PDFs)`);
+        } else {
+          console.warn(`[booksApi] Google Drive check: ${diag.errorCode || 'ERROR'} - ${diag.errorMessage}`);
+        }
+      })
+      .catch(() => {});
   });
 }
 

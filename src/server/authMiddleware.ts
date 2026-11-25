@@ -8,6 +8,7 @@ export interface AuthedUser {
   uid: string;
   email?: string;
   role: 'student' | 'super_admin';
+  grade?: number;
   isPremium: boolean;
   premiumExpiresAt?: string;
   hasPremiumLearning?: boolean;
@@ -26,6 +27,7 @@ const PROFILE_TTL_MS = 60_000;
 const profileCache = new Map<string, {
   at: number;
   role: AuthedUser['role'];
+  grade?: number;
   isPremium: boolean;
   premiumExpiresAt?: string;
   hasPremiumLearning?: boolean;
@@ -39,6 +41,7 @@ async function loadProfile(uid: string, idToken: string) {
   if (hit && Date.now() - hit.at < PROFILE_TTL_MS) return hit;
 
   let role: AuthedUser['role'] = 'student';
+  let grade: number | undefined;
   let isPremium = false;
   let premiumExpiresAt: string | undefined;
   let hasPremiumLearning = false;
@@ -50,6 +53,8 @@ async function loadProfile(uid: string, idToken: string) {
     if (r.ok) {
       const f = ((await r.json()) as any).fields || {};
       role = f.role?.stringValue === 'super_admin' ? 'super_admin' : 'student';
+      const parsedGrade = Number(f.grade?.integerValue ?? f.grade?.stringValue);
+      if ([9, 10, 11, 12].includes(parsedGrade)) grade = parsedGrade;
       isPremium = f.isPremium?.booleanValue === true;
       premiumExpiresAt = f.premiumExpiresAt?.stringValue;
       hasPremiumLearning = f.hasPremiumLearning?.booleanValue === true;
@@ -72,11 +77,13 @@ async function loadProfile(uid: string, idToken: string) {
         if (!hasPremiumLearning && users[uid].hasPremiumLearning) hasPremiumLearning = true;
         if (!premiumLearningExpiresAt && users[uid].premiumLearningExpiresAt) premiumLearningExpiresAt = users[uid].premiumLearningExpiresAt;
         if (users[uid].role) role = users[uid].role;
+        const localGrade = Number(users[uid].grade);
+        if (!grade && [9, 10, 11, 12].includes(localGrade)) grade = localGrade;
       }
     }
   } catch {}
 
-  const entry = { at: Date.now(), role, isPremium, premiumExpiresAt, hasPremiumLearning, premiumLearningExpiresAt };
+  const entry = { at: Date.now(), role, grade, isPremium, premiumExpiresAt, hasPremiumLearning, premiumLearningExpiresAt };
   profileCache.set(uid, entry);
   return entry;
 }
@@ -96,6 +103,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       uid: decoded.uid,
       email: decoded.email,
       role: isSuper ? 'super_admin' : p.role,
+      grade: p.grade,
       isPremium: isSuper ? true : p.isPremium,
       premiumExpiresAt: isSuper ? undefined : p.premiumExpiresAt,
       hasPremiumLearning: isSuper ? true : p.hasPremiumLearning,

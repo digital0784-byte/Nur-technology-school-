@@ -7,6 +7,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 interface Props {
   bookId: string;
+  driveFileId?: string;
   watermark: string;
   zoom: number; // percent
   onPageChange?: (page: number, total: number) => void;
@@ -17,21 +18,27 @@ interface Props {
  * Streams the book PDF from our server (plan-checked) and renders pages lazily onto canvases.
  * No download link is ever exposed; only the pages near the viewport are fetched/rendered.
  */
-export const PdfBookViewer: React.FC<Props> = ({ bookId, watermark, zoom, onPageChange, onError }) => {
+export const PdfBookViewer: React.FC<Props> = ({ bookId, driveFileId, watermark, zoom, onPageChange, onError }) => {
   const [doc, setDoc] = useState<pdfjs.PDFDocumentProxy | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [dims, setDims] = useState<{ w: number; h: number }>({ w: 600, h: 800 });
 
+  const streamUrl = driveFileId
+    ? `/api/books/drive/${encodeURIComponent(driveFileId)}/file`
+    : `/api/books/${encodeURIComponent(bookId)}/file`;
+
   useEffect(() => {
     let cancelled = false;
     let task: pdfjs.PDFDocumentLoadingTask | null = null;
     (async () => {
+      setStatus('loading');
+      setMessage('');
       try {
         const token = await auth.currentUser?.getIdToken();
         if (!token) throw new Error('እባክዎ መጀመሪያ ይግቡ።');
         // Probe once to surface plan / setup errors as readable messages.
-        const probe = await fetch(`/api/books/${encodeURIComponent(bookId)}/file`, {
+        const probe = await fetch(streamUrl, {
           headers: { Authorization: `Bearer ${token}`, Range: 'bytes=0-0' },
         });
         if (!probe.ok && probe.status !== 206) {
@@ -39,7 +46,7 @@ export const PdfBookViewer: React.FC<Props> = ({ bookId, watermark, zoom, onPage
           throw new Error(b?.error || `Error ${probe.status}`);
         }
         task = pdfjs.getDocument({
-          url: `/api/books/${encodeURIComponent(bookId)}/file`,
+          url: streamUrl,
           httpHeaders: { Authorization: `Bearer ${token}` },
           rangeChunkSize: 512 * 1024,
           disableAutoFetch: true,
@@ -63,7 +70,7 @@ export const PdfBookViewer: React.FC<Props> = ({ bookId, watermark, zoom, onPage
       cancelled = true;
       task?.destroy();
     };
-  }, [bookId]);
+  }, [streamUrl]);
 
   if (status === 'loading') return <div className="p-10 text-sm text-slate-500">መጽሐፉ እየተጫነ ነው...</div>;
   if (status === 'error' || !doc) return <div className="p-10 text-sm text-rose-600">{message}</div>;

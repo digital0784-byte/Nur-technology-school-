@@ -34,6 +34,7 @@ import {
 
 interface SecureBookReaderModalProps {
   book: TextbookRecord;
+  driveFileId?: string;
   initialPage?: number;
   initialChapterIdx?: number;
   isOpen: boolean;
@@ -43,6 +44,7 @@ interface SecureBookReaderModalProps {
 
 export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
   book,
+  driveFileId,
   initialPage,
   initialChapterIdx = 0,
   isOpen,
@@ -67,11 +69,16 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
   const [sessionTimestamp, setSessionTimestamp] = useState<string>(new Date().toUTCString());
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
-  // Full-book PDF streamed from the server (only when the super admin has linked a Drive file to this book).
-  const [hasPdf, setHasPdf] = useState(false);
-  const [pdfMode, setPdfMode] = useState(false);
+  // Full-book PDF streamed from the server (either a direct Drive file in Nur Books or a super-admin mapped book).
+  const [hasPdf, setHasPdf] = useState(Boolean(driveFileId));
+  const [pdfMode, setPdfMode] = useState(Boolean(driveFileId));
   useEffect(() => {
     if (!isOpen || isGradeUnauthorized) return;
+    if (driveFileId) {
+      setHasPdf(true);
+      setPdfMode(true);
+      return;
+    }
     let alive = true;
     setHasPdf(false);
     setPdfMode(false);
@@ -80,7 +87,7 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
       .then((b) => { if (alive && Array.isArray(b?.bookIds) && b.bookIds.includes(book.id)) { setHasPdf(true); setPdfMode(true); } })
       .catch(() => {});
     return () => { alive = false; };
-  }, [isOpen, isGradeUnauthorized, book.id]);
+  }, [isOpen, isGradeUnauthorized, book.id, driveFileId]);
   const scrollCanvasRef = useRef<HTMLDivElement>(null);
   const savedScrollTopRef = useRef<number>(0);
 
@@ -559,6 +566,7 @@ export const SecureBookReaderModal: React.FC<SecureBookReaderModalProps> = ({
           <div className="relative z-10 w-full">
             <PdfBookViewer
               bookId={book.id}
+              driveFileId={driveFileId}
               watermark={`${currentUser.email || currentUser.name || 'NUR_STUDENT'} • ${sessionId}`}
               zoom={zoomLevel}
               onPageChange={(p) => setCurrentPage(p)}
